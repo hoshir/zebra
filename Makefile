@@ -85,18 +85,11 @@ HEADERS = \
 	timer.h \
 	unflip.h
 
+ALL_SRCS	= $(SRCS) zebra.c autop.c thorop.c
 
-PRACTICE_SRCS	= practice.c
-ALL_SRCS	= $(SRCS) $(PRACTICE_SRCS) zebra.c scrzebra.c autop.c thorop.c
+OBJS	= $(SRCS:.c=.o)
 
-OBJS            = $(SRCS:.c=.o)
-PRACTICE_OBJS	= $(PRACTICE_SRCS:.c=.o)
-
-AUTOPLAY_EXE	= autoplay
-PRACTICE_EXE	= practice
 ZEBRA_EXE	= zebra
-SCRZEBRA_EXE	= scrzebra
-
 
 
 # --- Libraries
@@ -127,35 +120,15 @@ CXXFLAGS =	$(CFLAGS)
 
 # --- Targets ---
 
-all		: libzebra.a zebra scrzebra practice
+all		: zebra
 
 zebra		: $(OBJS) zebra.o autop.o
 	$(CC) -o $(ZEBRA_EXE) $(CFLAGS) $(OBJS) zebra.o autop.o $(LDFLAGS)
 
-scrzebra	: $(OBJS) scrzebra.o autop.o
-	$(CC) -o $(SCRZEBRA_EXE) $(CFLAGS) $(OBJS) scrzebra.o autop.o $(LDFLAGS)
-
-libzebra.a:	$(OBJS)
-	ar rcv libzebra.a $(OBJS)
-	ranlib libzebra.a
-
 clean		:
-	$(RM) $(OBJS) zebra.o scrzebra.o $(ZEBRA_EXE) a.out core \
-	*.stackdump gmon.out $(PRACTICE_OBJS) $(PRACTICE_EXE) \
-	libzebra.a *.da autop.o \
-	$(AUTOPLAY_EXE) $(SCRZEBRA_EXE)
+	$(RM) $(OBJS) zebra.o $(ZEBRA_EXE) a.out core \
+	*.stackdump gmon.out *.da autop.o
 
-
-practice	: $(PRACTICE_OBJS) $(OBJS) autop.o
-	$(CC) -o $(PRACTICE_EXE) $(CFLAGS) $(PRACTICE_OBJS) $(OBJS) autop.o $(LDFLAGS)
-
-zsrc:
-	tar cf zebra.tar $(ALL_SRCS) $(HEADERS) Makefile \
-	openings.txt COPYING README
-	gzip --best -f zebra.tar
-
-bookinst:
-	$(CC) -o bookinst $(CFLAGS) bookinst.c myrandom.o
 
 depend:
 	makedepend -Y $(ALL_SRCS)
@@ -235,13 +208,7 @@ thordb.o: porting.h bitboard.h macros.h constant.h error.h moves.h myrandom.h
 thordb.o: patterns.h safemem.h texts.h thordb.h thorop.c
 timer.o: porting.h constant.h macros.h timer.h
 unflip.o: macros.h unflip.h
-practice.o: constant.h display.h search.h counter.h macros.h globals.h game.h
-practice.o: moves.h osfbook.h patterns.h
 zebra.o: constant.h counter.h macros.h display.h search.h globals.h doflip.h
 zebra.o: end.h error.h eval.h game.h getcoeff.h hash.h learn.h midgame.h
 zebra.o: moves.h myrandom.h osfbook.h patterns.h thordb.h timer.h
-scrzebra.o: zebra.c constant.h counter.h macros.h display.h search.h
-scrzebra.o: globals.h doflip.h end.h error.h eval.h game.h getcoeff.h hash.h
-scrzebra.o: learn.h midgame.h moves.h myrandom.h osfbook.h patterns.h
-scrzebra.o: thordb.h timer.h
 autop.o: autoplay.h
