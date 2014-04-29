@@ -150,7 +150,7 @@ libzebra.a:	$(OBJS)
 clean		:
 	$(RM) $(OBJS) booktool.o zebra.o scrzebra.o $(ZEBRA_EXE) a.out core \
 	*.stackdump gmon.out $(PRACTICE_OBJS) $(PRACTICE_EXE) \
-	libzebra.a *.da \
+	libzebra.a *.da autop.o \
 	$(BOOKTOOL_OBJS) $(ENDDEV_OBJS) \
 	$(AUTOPLAY_EXE) $(BOOKTOOL_EXE) $(ENDDEV_EXE) $(SCRZEBRA_EXE) $(TUNE8DBS_EXE) \
 
