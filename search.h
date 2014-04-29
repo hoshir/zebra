@@ -40,19 +40,21 @@ extern "C" {
 
 
 typedef enum { MIDGAME_EVAL, EXACT_EVAL, WLD_EVAL, SELECTIVE_EVAL,
-	       FORCED_EVAL, PASS_EVAL, UNDEFINED_EVAL, INTERRUPTED_EVAL,
-               UNINITIALIZED_EVAL } EvalType;
+               FORCED_EVAL, PASS_EVAL, UNDEFINED_EVAL, INTERRUPTED_EVAL,
+               UNINITIALIZED_EVAL
+             } EvalType;
 typedef enum { WON_POSITION, DRAWN_POSITION,
-	       LOST_POSITION, UNSOLVED_POSITION } EvalResult;
+               LOST_POSITION, UNSOLVED_POSITION
+             } EvalResult;
 
 /* All information available about a move decision. */
 typedef struct {
-  EvalType type;
-  EvalResult res;
-  int score;              /* For BOOK, MIDGAME and EXACT */
-  double confidence;      /* For SELECTIVE */
-  int search_depth;       /* For MIDGAME */
-  int is_book;
+    EvalType type;
+    EvalResult res;
+    int score;              /* For BOOK, MIDGAME and EXACT */
+    double confidence;      /* For SELECTIVE */
+    int search_depth;       /* For MIDGAME */
+    int is_book;
 } EvaluationType;
 
 
@@ -137,7 +139,7 @@ get_ponder_move( void );
 
 EvaluationType
 create_eval_info( EvalType in_type, EvalResult in_res, int in_score,
-		  double in_conf, int in_depth, int in_book );
+                  double in_conf, int in_depth, int in_book );
 
 double
 produce_compact_eval( EvaluationType eval_info );

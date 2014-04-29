@@ -2,7 +2,7 @@
    File:          bitboard.h
 
    Created:       November 21, 1999
-   
+
    Modified:      November 24, 2005
 
    Author:        Gunnar Andersson (gunnar@radagast.se)
@@ -20,60 +20,60 @@
 
 
 #define APPLY_NOT( a ) { \
-  a.high = ~a.high; \
-  a.low = ~a.low; \
-}
+        a.high = ~a.high; \
+        a.low = ~a.low; \
+    }
 
 #define APPLY_XOR( a, b ) { \
-  a.high ^= b.high; \
-  a.low ^= b.low; \
-}
+        a.high ^= b.high; \
+        a.low ^= b.low; \
+    }
 
 #define APPLY_OR( a, b ) { \
-  a.high |= b.high; \
-  a.low |= b.low; \
-}
+        a.high |= b.high; \
+        a.low |= b.low; \
+    }
 
 #define APPLY_AND( a, b ) { \
-  a.high &= b.high; \
-  a.low &= b.low; \
-}
+        a.high &= b.high; \
+        a.low &= b.low; \
+    }
 
 #define APPLY_ANDNOT( a, b ) { \
-  a.high &= ~b.high; \
-  a.low &= ~b.low; \
-}
+        a.high &= ~b.high; \
+        a.low &= ~b.low; \
+    }
 
 #define FULL_XOR( a, b, c ) { \
-  a.high = b.high ^ c.high; \
-  a.low = b.low ^ c.low; \
-}
+        a.high = b.high ^ c.high; \
+        a.low = b.low ^ c.low; \
+    }
 
 #define FULL_OR( a, b, c ) { \
-  a.high = b.high | c.high; \
-  a.low = b.low | c.low; \
-}
+        a.high = b.high | c.high; \
+        a.low = b.low | c.low; \
+    }
 
 #define FULL_AND( a, b, c ) { \
-  a.high = b.high & c.high; \
-  a.low = b.low & c.low; \
-}
+        a.high = b.high & c.high; \
+        a.low = b.low & c.low; \
+    }
 
 #define FULL_ANDNOT( a, b, c ) { \
-  a.high = b.high & ~c.high; \
-  a.low = b.low & ~c.low; \
-}
+        a.high = b.high & ~c.high; \
+        a.low = b.low & ~c.low; \
+    }
 
 #define CLEAR( a ) { \
-  a.high = 0; \
-  a.low = 0; \
-} 
+        a.high = 0; \
+        a.low = 0; \
+    }
 
 
 
 typedef struct {
-  unsigned int high;
-  unsigned int low;
+    unsigned int high;
+    unsigned int low;
 } BitBoard;
 
 extern BitBoard square_mask[100];
@@ -91,7 +91,7 @@ bit_reverse_32( unsigned int val );
 
 void
 set_bitboards( int *board, int side_to_move,
-	       BitBoard *my_out, BitBoard *opp_out );
+               BitBoard *my_out, BitBoard *opp_out );
 
 void
 init_bitboard( void );

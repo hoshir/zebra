@@ -4,7 +4,7 @@
    Created:       July 1, 1997
 
    Modified:      November 23, 2002
-   
+
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Search routines designated to be used in the
@@ -95,14 +95,14 @@ static int feas_index_list[64][64];
 
 void
 setup_midgame( void ) {
-  int i;
+    int i;
 
-  allow_midgame_hash_probe = TRUE;
-  allow_midgame_hash_update = TRUE;
-  for ( i = 0; i <= 60; i++ )
-    stage_reached[i] = FALSE;
+    allow_midgame_hash_probe = TRUE;
+    allow_midgame_hash_update = TRUE;
+    for ( i = 0; i <= 60; i++ )
+        stage_reached[i] = FALSE;
 
-  calculate_perturbation();
+    calculate_perturbation();
 }
 
 
@@ -119,22 +119,22 @@ setup_midgame( void ) {
 
 void
 clear_midgame_abort( void ) {
-  midgame_abort = FALSE;
+    midgame_abort = FALSE;
 }
 
 int
 is_midgame_abort( void ) {
-  return midgame_abort;
+    return midgame_abort;
 }
 
 void
 set_midgame_abort( void ) {
-  midgame_abort = do_check_midgame_abort;
+    midgame_abort = do_check_midgame_abort;
 }
 
 void
 toggle_midgame_abort_check( int toggle ) {
-  do_check_midgame_abort = toggle;
+    do_check_midgame_abort = toggle;
 }
 
 
@@ -142,12 +142,12 @@ toggle_midgame_abort_check( int toggle ) {
 /*
    TOGGLE_MIDGAME_HASH_USAGE
    Toggles hash table access in the midgame search on/off.
-*/   
+*/
 
 void
 toggle_midgame_hash_usage( int allow_read, int allow_write ) {
-  allow_midgame_hash_probe = allow_read;
-  allow_midgame_hash_update = allow_write;
+    allow_midgame_hash_probe = allow_read;
+    allow_midgame_hash_update = allow_write;
 }
 
 
@@ -159,18 +159,18 @@ toggle_midgame_hash_usage( int allow_read, int allow_write ) {
 
 void
 calculate_perturbation( void ) {
-  int i;
-  int shift;
+    int i;
+    int shift;
 
-  if ( !apply_perturbation || (perturbation_amplitude == 0) )
-    for ( i = 0; i < 100; i++ )
-      score_perturbation[i] = 0;
-  else {
-    shift = perturbation_amplitude / 2;
-    for ( i = 0; i < 100; i++ )
-      score_perturbation[i] =
-	(abs( my_random()) % perturbation_amplitude) - shift;
-  }
+    if ( !apply_perturbation || (perturbation_amplitude == 0) )
+        for ( i = 0; i < 100; i++ )
+            score_perturbation[i] = 0;
+    else {
+        shift = perturbation_amplitude / 2;
+        for ( i = 0; i < 100; i++ )
+            score_perturbation[i] =
+                (abs( my_random()) % perturbation_amplitude) - shift;
+    }
 }
 
 
@@ -183,7 +183,7 @@ calculate_perturbation( void ) {
 
 void
 set_perturbation( int amplitude ) {
-  perturbation_amplitude = amplitude;
+    perturbation_amplitude = amplitude;
 }
 
 
@@ -195,7 +195,7 @@ set_perturbation( int amplitude ) {
 
 void
 toggle_perturbation_usage( int toggle ) {
-  apply_perturbation = toggle;
+    apply_perturbation = toggle;
 }
 
 
@@ -209,14 +209,14 @@ toggle_perturbation_usage( int toggle ) {
 INLINE static
 void
 advance_move( int index ) {
-  int temp_move;
+    int temp_move;
 
-  if ( index > 0 ) {
-    temp_move = sorted_move_order[disks_played][index];
-    sorted_move_order[disks_played][index] =
-      sorted_move_order[disks_played][index - 1];
-    sorted_move_order[disks_played][index - 1] = temp_move;
-  }
+    if ( index > 0 ) {
+        temp_move = sorted_move_order[disks_played][index];
+        sorted_move_order[disks_played][index] =
+            sorted_move_order[disks_played][index - 1];
+        sorted_move_order[disks_played][index - 1] = temp_move;
+    }
 }
 
 
@@ -229,10 +229,10 @@ advance_move( int index ) {
 
 INLINE static int
 static_or_terminal_evaluation( int side_to_move ) {
-  if ( disks_played == 60 )
-    return terminal_evaluation( side_to_move );
-  else
-    return static_evaluation( side_to_move );
+    if ( disks_played == 60 )
+        return terminal_evaluation( side_to_move );
+    else
+        return static_evaluation( side_to_move );
 }
 
 
@@ -245,158 +245,158 @@ static_or_terminal_evaluation( int side_to_move ) {
 
 static int
 fast_tree_search( int level, int max_depth, int side_to_move, int alpha,
-		  int beta, int allow_hash, int void_legal ) {
-  int curr_val, best;
-  int move_index, move;
-  int best_move_index, best_move;
-  int first;
-  int remains;
-  int use_hash, new_use_hash;
-  int curr_alpha;
-  int empties_remaining;
-  HashEntry entry;
+                  int beta, int allow_hash, int void_legal ) {
+    int curr_val, best;
+    int move_index, move;
+    int best_move_index, best_move;
+    int first;
+    int remains;
+    int use_hash, new_use_hash;
+    int curr_alpha;
+    int empties_remaining;
+    HashEntry entry;
 
-  INCREMENT_COUNTER( nodes );
+    INCREMENT_COUNTER( nodes );
 
-  if ( level >= max_depth )
-    return static_or_terminal_evaluation( side_to_move );
+    if ( level >= max_depth )
+        return static_or_terminal_evaluation( side_to_move );
 
-  /* Check the hash table */
+    /* Check the hash table */
 
-  remains = max_depth - level;
+    remains = max_depth - level;
 
-  use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
-  if ( use_hash && allow_midgame_hash_probe ) {
-    find_hash( &entry, MIDGAME_MODE );
-    if ( (entry.draft >= remains) &&
-	 (entry.selectivity == 0) &&
-	 valid_move( entry.move[0], side_to_move ) &&
-	 (entry.flags & MIDGAME_SCORE) &&
-	 ((entry.flags & EXACT_VALUE) ||
-	  ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
-	  ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
-      best_mid_move = entry.move[0];
-      return entry.eval;
+    use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
+    if ( use_hash && allow_midgame_hash_probe ) {
+        find_hash( &entry, MIDGAME_MODE );
+        if ( (entry.draft >= remains) &&
+                (entry.selectivity == 0) &&
+                valid_move( entry.move[0], side_to_move ) &&
+                (entry.flags & MIDGAME_SCORE) &&
+                ((entry.flags & EXACT_VALUE) ||
+                 ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
+                 ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
+            best_mid_move = entry.move[0];
+            return entry.eval;
+        }
     }
-  }
 
-  /* Reorder the move lists now and then to keep the empty squares up front */
+    /* Reorder the move lists now and then to keep the empty squares up front */
 
-  if ( (nodes.lo & 4095) == 0 )
-    reorder_move_list( disks_played );
+    if ( (nodes.lo & 4095) == 0 )
+        reorder_move_list( disks_played );
 
-  /* Search */
+    /* Search */
 
-  first = TRUE;
+    first = TRUE;
 
-  best_move = PASS;
-  best_move_index = -1;
-  best = -INFINITE_EVAL;
+    best_move = PASS;
+    best_move_index = -1;
+    best = -INFINITE_EVAL;
 
-  if ( remains == 1 ) {  /* Plain alpha-beta last ply */
-    empties_remaining = 60 - disks_played;
-    for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
-      move = sorted_move_order[disks_played][move_index];
-      if ( board[move] == EMPTY ) {
-	if ( make_move_no_hash( side_to_move, move ) != 0 ) {
-	  curr_val = -static_or_terminal_evaluation( OPP( side_to_move ) );
-	  unmake_move_no_hash( side_to_move, move );
-	  INCREMENT_COUNTER( nodes );
-	  if ( curr_val > best ) {
-	    best = curr_val;
-	    best_move_index = move_index;
-	    best_move = move;
-	    if ( curr_val >= beta ) {
-	      advance_move( move_index );
-	      best_mid_move = best_move;
-	      if ( use_hash && allow_midgame_hash_update )
-		add_hash( MIDGAME_MODE, best, best_move,
-			  MIDGAME_SCORE | LOWER_BOUND, remains, 0 );
-	      return best;
-	    }
-	  }
-	  first = FALSE;
-	}
-	empties_remaining--;
-	if ( empties_remaining == 0 )
-	  break;
-      }
+    if ( remains == 1 ) {  /* Plain alpha-beta last ply */
+        empties_remaining = 60 - disks_played;
+        for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
+            move = sorted_move_order[disks_played][move_index];
+            if ( board[move] == EMPTY ) {
+                if ( make_move_no_hash( side_to_move, move ) != 0 ) {
+                    curr_val = -static_or_terminal_evaluation( OPP( side_to_move ) );
+                    unmake_move_no_hash( side_to_move, move );
+                    INCREMENT_COUNTER( nodes );
+                    if ( curr_val > best ) {
+                        best = curr_val;
+                        best_move_index = move_index;
+                        best_move = move;
+                        if ( curr_val >= beta ) {
+                            advance_move( move_index );
+                            best_mid_move = best_move;
+                            if ( use_hash && allow_midgame_hash_update )
+                                add_hash( MIDGAME_MODE, best, best_move,
+                                          MIDGAME_SCORE | LOWER_BOUND, remains, 0 );
+                            return best;
+                        }
+                    }
+                    first = FALSE;
+                }
+                empties_remaining--;
+                if ( empties_remaining == 0 )
+                    break;
+            }
+        }
     }
-  }
-  else {  /* Principal variation search for deeper searches */
-    new_use_hash = (remains >= HASH_THRESHOLD + 1) && use_hash;
-    curr_alpha = alpha;
-    empties_remaining = 60 - disks_played;
-    for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
-      move = sorted_move_order[disks_played][move_index];
-      if ( board[move] == EMPTY ) {
-	if ( make_move( side_to_move, move, new_use_hash ) != 0 ) {
-	  if ( first ) {
-	    best = curr_val =
-	      -fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
-				 -beta, -curr_alpha, allow_hash, TRUE );
-	    best_move = move;
-	    best_move_index = move_index;
-	  }
-	  else {
-	    curr_alpha = MAX( best, curr_alpha );
-	    curr_val =
-	      -fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
-				 -(curr_alpha + 1), -curr_alpha, allow_hash,
-				 TRUE );
-	    if ( (curr_val > curr_alpha) && (curr_val < beta) )
-	      curr_val =
-		-fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
-				   -beta, INFINITE_EVAL, allow_hash, TRUE );
-	    if ( curr_val > best ) {
-	      best_move = move;
-	      best_move_index = move_index;
-	      best = curr_val;
-	    }
-	  }
-	  unmake_move( side_to_move, move );
-	  if ( best >= beta ) {
-	    advance_move( move_index );
-	    best_mid_move = best_move;
-	    if ( use_hash && allow_midgame_hash_update )
-	      add_hash( MIDGAME_MODE, best, best_move,
-			MIDGAME_SCORE | LOWER_BOUND, remains, 0 );
-	    return best;
-	  }
-	  first = FALSE;
-	}
-	empties_remaining--;
-	if ( empties_remaining == 0 )
-	  break;
-      }
+    else {  /* Principal variation search for deeper searches */
+        new_use_hash = (remains >= HASH_THRESHOLD + 1) && use_hash;
+        curr_alpha = alpha;
+        empties_remaining = 60 - disks_played;
+        for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
+            move = sorted_move_order[disks_played][move_index];
+            if ( board[move] == EMPTY ) {
+                if ( make_move( side_to_move, move, new_use_hash ) != 0 ) {
+                    if ( first ) {
+                        best = curr_val =
+                                   -fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
+                                                      -beta, -curr_alpha, allow_hash, TRUE );
+                        best_move = move;
+                        best_move_index = move_index;
+                    }
+                    else {
+                        curr_alpha = MAX( best, curr_alpha );
+                        curr_val =
+                            -fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
+                                               -(curr_alpha + 1), -curr_alpha, allow_hash,
+                                               TRUE );
+                        if ( (curr_val > curr_alpha) && (curr_val < beta) )
+                            curr_val =
+                                -fast_tree_search( level + 1, max_depth, OPP( side_to_move ),
+                                                   -beta, INFINITE_EVAL, allow_hash, TRUE );
+                        if ( curr_val > best ) {
+                            best_move = move;
+                            best_move_index = move_index;
+                            best = curr_val;
+                        }
+                    }
+                    unmake_move( side_to_move, move );
+                    if ( best >= beta ) {
+                        advance_move( move_index );
+                        best_mid_move = best_move;
+                        if ( use_hash && allow_midgame_hash_update )
+                            add_hash( MIDGAME_MODE, best, best_move,
+                                      MIDGAME_SCORE | LOWER_BOUND, remains, 0 );
+                        return best;
+                    }
+                    first = FALSE;
+                }
+                empties_remaining--;
+                if ( empties_remaining == 0 )
+                    break;
+            }
+        }
     }
-  }
-  if ( !first ) {
-    advance_move( best_move_index );
-    best_mid_move = best_move;
-    if ( use_hash && allow_midgame_hash_update ) {
-      if ( best > alpha )
-	add_hash( MIDGAME_MODE, best, best_move,
-		  MIDGAME_SCORE | EXACT_VALUE, remains, 0 );
-      else
-	add_hash( MIDGAME_MODE, best, best_move,
-		  MIDGAME_SCORE | UPPER_BOUND, remains, 0 );
+    if ( !first ) {
+        advance_move( best_move_index );
+        best_mid_move = best_move;
+        if ( use_hash && allow_midgame_hash_update ) {
+            if ( best > alpha )
+                add_hash( MIDGAME_MODE, best, best_move,
+                          MIDGAME_SCORE | EXACT_VALUE, remains, 0 );
+            else
+                add_hash( MIDGAME_MODE, best, best_move,
+                          MIDGAME_SCORE | UPPER_BOUND, remains, 0 );
+        }
+        return best;
     }
-    return best;
-  }
-  else if ( void_legal ) {  /* I pass, other player's turn now */
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    curr_val = -fast_tree_search( level, max_depth, OPP( side_to_move ),
-				  -beta, -alpha, allow_hash, FALSE );
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    return curr_val;
-  }
-  else {  /* Both players had to pass ==> evaluate board as final */
-    curr_val = terminal_evaluation( side_to_move );
-    return curr_val;
-  }
+    else if ( void_legal ) {  /* I pass, other player's turn now */
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        curr_val = -fast_tree_search( level, max_depth, OPP( side_to_move ),
+                                      -beta, -alpha, allow_hash, FALSE );
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        return curr_val;
+    }
+    else {  /* Both players had to pass ==> evaluate board as final */
+        curr_val = terminal_evaluation( side_to_move );
+        return curr_val;
+    }
 }
 
 
@@ -409,28 +409,28 @@ fast_tree_search( int level, int max_depth, int side_to_move, int alpha,
 
 static void
 update_best_list( int *best_list, int move, int best_list_index,
-		  int best_list_length ) {
-  int i;
+                  int best_list_length ) {
+    int i;
 
 #if VERBOSE
-  printf( "move=%2d  index=%d  length=%d      ", move, best_list_index,
-	  best_list_length );
-  printf( "Before:  " );
-  for ( i = 0; i < 4; i++ )
-    printf( "%2d ", best_list[i] );
+    printf( "move=%2d  index=%d  length=%d      ", move, best_list_index,
+            best_list_length );
+    printf( "Before:  " );
+    for ( i = 0; i < 4; i++ )
+        printf( "%2d ", best_list[i] );
 #endif
-  if ( best_list_index < best_list_length )
-    for ( i = best_list_index; i >= 1; i-- )
-      best_list[i] = best_list[i - 1];
-  else
-    for ( i = 3; i >= 1; i-- )
-      best_list[i] = best_list[i - 1];
-  best_list[0] = move;
+    if ( best_list_index < best_list_length )
+        for ( i = best_list_index; i >= 1; i-- )
+            best_list[i] = best_list[i - 1];
+    else
+        for ( i = 3; i >= 1; i-- )
+            best_list[i] = best_list[i - 1];
+    best_list[0] = move;
 #if VERBOSE
-  printf( "      After:  " );
-  for ( i = 0; i < 4; i++ )
-    printf( "%2d ", best_list[i] );
-  puts( "" );
+    printf( "      After:  " );
+    for ( i = 0; i < 4; i++ )
+        printf( "%2d ", best_list[i] );
+    puts( "" );
 #endif
 }
 
@@ -444,446 +444,446 @@ update_best_list( int *best_list, int move, int best_list_index,
 
 int
 tree_search( int level,
-	     int max_depth,
-	     int side_to_move,
-	     int alpha,
-	     int beta,
-	     int allow_hash,
-	     int allow_mpc,
-	     int void_legal ) {
-  int i, j;
-  int curr_val, best, pre_best;
-  int searched;
-  int move, hash_move;
-  int move_index, best_move_index;
-  int empties_remaining;
-  int hash_hit;
-  int pre_depth;
-  int update_pv;
-  int remains, shallow_remains;
-  int use_hash, pre_search_done;
-  int curr_alpha;
-  int best_index, best_score;
-  int best_list_index, best_list_length;
-  int selectivity, cut;
-  int best_list[4];
-  HashEntry entry;
+             int max_depth,
+             int side_to_move,
+             int alpha,
+             int beta,
+             int allow_hash,
+             int allow_mpc,
+             int void_legal ) {
+    int i, j;
+    int curr_val, best, pre_best;
+    int searched;
+    int move, hash_move;
+    int move_index, best_move_index;
+    int empties_remaining;
+    int hash_hit;
+    int pre_depth;
+    int update_pv;
+    int remains, shallow_remains;
+    int use_hash, pre_search_done;
+    int curr_alpha;
+    int best_index, best_score;
+    int best_list_index, best_list_length;
+    int selectivity, cut;
+    int best_list[4];
+    HashEntry entry;
 #if CHECK_HASH_CODES && defined( TEXT_BASED )
-  unsigned int h1, h2;
+    unsigned int h1, h2;
 #endif
 
-  if ( level >= max_depth ) {
-    INCREMENT_COUNTER( nodes );
-    return static_or_terminal_evaluation( side_to_move );
-  }
-
-  remains = max_depth - level;
-
-  if ( remains < PRE_SEARCH_THRESHOLD ) {
-    curr_val = fast_tree_search( level, max_depth, side_to_move, alpha,
-				 beta, allow_hash, void_legal );
-    pv_depth[level] = level + 1;
-    pv[level][level] = best_mid_move;
-    return curr_val;
-  }
-
-  INCREMENT_COUNTER( nodes );
-
-  /* Check the hash table */
-
-  use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
-  if ( USE_MPC && allow_mpc )
-    selectivity = 1;
-  else
-    selectivity = 0;
-#if CHECK_HASH_CODES && defined( TEXT_BASED )
-  if ( use_hash ) {
-    h1 = hash1;
-    h2 = hash2;
-  }
-#endif
-  if ( use_hash && allow_midgame_hash_probe ) {
-    find_hash( &entry, MIDGAME_MODE );
-    if ( (entry.draft >= remains) &&
-	 (entry.selectivity <= selectivity) &&
-	 valid_move( entry.move[0], side_to_move ) &&
-	 (entry.flags & MIDGAME_SCORE) &&
-	 ((entry.flags & EXACT_VALUE) ||
-	  ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
-	  ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
-      pv[level][level] = entry.move[0];
-      pv_depth[level] = level + 1;
-      return entry.eval;
+    if ( level >= max_depth ) {
+        INCREMENT_COUNTER( nodes );
+        return static_or_terminal_evaluation( side_to_move );
     }
-  }
 
-  hash_hit = (use_hash && allow_midgame_hash_probe);
-  if ( hash_hit )
-    hash_move = entry.move[0];
-  else
-    hash_move = 44;
+    remains = max_depth - level;
 
-  pre_search_done = FALSE;
+    if ( remains < PRE_SEARCH_THRESHOLD ) {
+        curr_val = fast_tree_search( level, max_depth, side_to_move, alpha,
+                                     beta, allow_hash, void_legal );
+        pv_depth[level] = level + 1;
+        pv[level][level] = best_mid_move;
+        return curr_val;
+    }
 
-  /* Use multi-prob-cut to selectively prune the tree */
+    INCREMENT_COUNTER( nodes );
 
-  if ( USE_MPC && allow_mpc && (remains <= MAX_CUT_DEPTH) ) {
-    int alpha_test = TRUE;
-    int beta_test = TRUE;
+    /* Check the hash table */
 
-    for ( cut = 0; cut < mpc_cut[remains].cut_tries; cut++ ) {
+    use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
+    if ( USE_MPC && allow_mpc )
+        selectivity = 1;
+    else
+        selectivity = 0;
+#if CHECK_HASH_CODES && defined( TEXT_BASED )
+    if ( use_hash ) {
+        h1 = hash1;
+        h2 = hash2;
+    }
+#endif
+    if ( use_hash && allow_midgame_hash_probe ) {
+        find_hash( &entry, MIDGAME_MODE );
+        if ( (entry.draft >= remains) &&
+                (entry.selectivity <= selectivity) &&
+                valid_move( entry.move[0], side_to_move ) &&
+                (entry.flags & MIDGAME_SCORE) &&
+                ((entry.flags & EXACT_VALUE) ||
+                 ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
+                 ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
+            pv[level][level] = entry.move[0];
+            pv_depth[level] = level + 1;
+            return entry.eval;
+        }
+    }
 
-      /* Determine the fail-high and fail-low bounds */
+    hash_hit = (use_hash && allow_midgame_hash_probe);
+    if ( hash_hit )
+        hash_move = entry.move[0];
+    else
+        hash_move = 44;
 
-      int bias = mpc_cut[remains].bias[cut][disks_played];
-      int window = mpc_cut[remains].window[cut][disks_played];
-      int alpha_bound = alpha + bias - window;
-      int beta_bound = beta + bias + window;
+    pre_search_done = FALSE;
 
-      /* Don't use an MPC cut which results in the full-width depth
-	 being less than some predefined constant */
+    /* Use multi-prob-cut to selectively prune the tree */
 
-      shallow_remains = mpc_cut[remains].cut_depth[cut];
-      if ( level + shallow_remains < FULL_WIDTH_DEPTH )
-	continue;
+    if ( USE_MPC && allow_mpc && (remains <= MAX_CUT_DEPTH) ) {
+        int alpha_test = TRUE;
+        int beta_test = TRUE;
 
-      if  ( shallow_remains > 1 ) {  /* "Deep" shallow search */
-	if ( cut == 0 ) {
+        for ( cut = 0; cut < mpc_cut[remains].cut_tries; cut++ ) {
 
-	  /* Use static eval to decide if a one- or two-sided
-	     MPC test is to be performed. */
+            /* Determine the fail-high and fail-low bounds */
 
-	  int static_eval = static_evaluation( side_to_move );
-	  if ( static_eval <= alpha_bound )
-	    beta_test = FALSE;
-	  else if ( static_eval >= beta_bound )
-	    alpha_test = FALSE;
-	}
+            int bias = mpc_cut[remains].bias[cut][disks_played];
+            int window = mpc_cut[remains].window[cut][disks_played];
+            int alpha_bound = alpha + bias - window;
+            int beta_bound = beta + bias + window;
 
-	assert( alpha_test || beta_test );
+            /* Don't use an MPC cut which results in the full-width depth
+            being less than some predefined constant */
 
-	if ( alpha_test && beta_test ) {
-	  /* Test for likely fail-low or likely fail-high. */
-	  int shallow_val =
-	    tree_search( level, level + shallow_remains, side_to_move,
-			 alpha_bound, beta_bound, allow_hash, FALSE,
-			 void_legal );
-	  if ( shallow_val >= beta_bound  ) {
-	    if ( use_hash && allow_midgame_hash_update )
-	      add_hash( MIDGAME_MODE, beta, pv[level][level],
-			MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
-	    return beta;
-	  }
-	  else if ( shallow_val <= alpha_bound ) {
-	    if ( use_hash && allow_midgame_hash_update )
-	      add_hash( MIDGAME_MODE, alpha, pv[level][level],
-			MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
-	    return alpha;
-	  }
-	  else {
-	    /* Use information learned from the failed cut test to decide
-	       if a one or a two-sided test is to be performed next. */
-	    int mid = (alpha_bound + beta_bound) / 2;
+            shallow_remains = mpc_cut[remains].cut_depth[cut];
+            if ( level + shallow_remains < FULL_WIDTH_DEPTH )
+                continue;
+
+            if  ( shallow_remains > 1 ) {  /* "Deep" shallow search */
+                if ( cut == 0 ) {
+
+                    /* Use static eval to decide if a one- or two-sided
+                       MPC test is to be performed. */
+
+                    int static_eval = static_evaluation( side_to_move );
+                    if ( static_eval <= alpha_bound )
+                        beta_test = FALSE;
+                    else if ( static_eval >= beta_bound )
+                        alpha_test = FALSE;
+                }
+
+                assert( alpha_test || beta_test );
+
+                if ( alpha_test && beta_test ) {
+                    /* Test for likely fail-low or likely fail-high. */
+                    int shallow_val =
+                        tree_search( level, level + shallow_remains, side_to_move,
+                                     alpha_bound, beta_bound, allow_hash, FALSE,
+                                     void_legal );
+                    if ( shallow_val >= beta_bound  ) {
+                        if ( use_hash && allow_midgame_hash_update )
+                            add_hash( MIDGAME_MODE, beta, pv[level][level],
+                                      MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
+                        return beta;
+                    }
+                    else if ( shallow_val <= alpha_bound ) {
+                        if ( use_hash && allow_midgame_hash_update )
+                            add_hash( MIDGAME_MODE, alpha, pv[level][level],
+                                      MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+                        return alpha;
+                    }
+                    else {
+                        /* Use information learned from the failed cut test to decide
+                           if a one or a two-sided test is to be performed next. */
+                        int mid = (alpha_bound + beta_bound) / 2;
 
 #if 0
-	    if ( abs( shallow_val - alpha_bound ) < abs( shallow_val - mid ) )
-	      beta_test = FALSE;
-	    if ( abs( shallow_val - beta_bound ) < abs( shallow_val - mid ) )
-	      alpha_test = FALSE;
+                        if ( abs( shallow_val - alpha_bound ) < abs( shallow_val - mid ) )
+                            beta_test = FALSE;
+                        if ( abs( shallow_val - beta_bound ) < abs( shallow_val - mid ) )
+                            alpha_test = FALSE;
 #elif 1
-	    if ( shallow_val < mid )
-	      beta_test = FALSE;
-	    else
-	      alpha_test = FALSE;
+                        if ( shallow_val < mid )
+                            beta_test = FALSE;
+                        else
+                            alpha_test = FALSE;
 #else
-	    int low_threshold = (2 * mid + alpha_bound) / 3;
-	    int high_threshold = (2 * mid + beta_bound) / 3;
+                        int low_threshold = (2 * mid + alpha_bound) / 3;
+                        int high_threshold = (2 * mid + beta_bound) / 3;
 
-	    if ( shallow_val <= low_threshold )
-	      beta_test = FALSE;
-	    else if ( shallow_val >= high_threshold )
-	      alpha_test = FALSE;
-	    else
-	      break;  /* Unlikely that there is any selective cutoff. */
-#endif	    
-	  }
-	}
-	else if ( beta_test ) {
-	  /* Fail-high with high probability? */
-	  if ( tree_search( level, level + shallow_remains, side_to_move,
-			    beta_bound - 1, beta_bound, allow_hash, FALSE,
-			    void_legal ) >= beta_bound ) {
-	    if ( use_hash && allow_midgame_hash_update )
-	      add_hash( MIDGAME_MODE, beta, pv[level][level],
-			MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
-	    return beta;
-	  }
-	}
-	else if ( alpha_test ) {
-	  /* Fail-low with high probability? */
-	  if ( tree_search( level, level + shallow_remains, side_to_move,
-			    alpha_bound, alpha_bound + 1, allow_hash, FALSE,
-			    void_legal ) <= alpha_bound ) {
-	    if ( use_hash && allow_midgame_hash_update )
-	      add_hash( MIDGAME_MODE, alpha, pv[level][level],
-			MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
-	    return alpha;
-	  }
-	}
-      }
-      else {  /* All-in-one MPC one-ply search and move ordering */
-	move_count[disks_played] = 0;
-	best = alpha_bound;
-	empties_remaining = 60 - disks_played;
-	for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
-	  move = sorted_move_order[disks_played][move_index];
-	  if ( board[move] == EMPTY ) {
-	    if ( make_move_no_hash( side_to_move, move ) != 0 ) {
-	      curr_val = -static_or_terminal_evaluation( OPP( side_to_move ) );
-	      unmake_move_no_hash( side_to_move, move );
-	      INCREMENT_COUNTER( nodes );
-	      if ( curr_val > best ) {
-		best = curr_val;
-		if ( best >= beta_bound ) {
-		  if ( use_hash && allow_midgame_hash_update )
-		    add_hash( MIDGAME_MODE, beta, pv[level][level],
-			      MIDGAME_SCORE | LOWER_BOUND, remains,
-			      selectivity );
-		  return beta;
-		}
-	      }
-	      evals[disks_played][move] = curr_val;
-	      if ( move == hash_move )  /* Always try hash table move first */
-		evals[disks_played][move] += HASH_MOVE_BONUS;
-	      feas_index_list[disks_played][move_count[disks_played]] =
-		move_index;
-	      move_count[disks_played]++;
-	    }
-	    empties_remaining--;
-	    if ( empties_remaining == 0 )
-	      break;
-	  }
-	}
-	if ( (best == alpha_bound) && (move_count[disks_played] > 0) ) {
-	  if ( use_hash && allow_midgame_hash_update )
-	    add_hash( MIDGAME_MODE, alpha, pv[level][level],
-		      MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
-	  return alpha;
-	}
-	pre_search_done = TRUE;
-      }
-    }
-  }
-
-  /* Full negascout search */
-	
-  searched = 0;
-  best = -INFINITE_EVAL;
-  best_move_index = -1;
-  curr_alpha = alpha;
-
-  best_list_length = 0;
-  for ( i = 0; i < 4; i++ )
-    best_list[i] = 0;
-  if ( !pre_search_done ) {
-    move_count[disks_played] = 0;
-    if ( hash_hit )
-      for ( i = 0; i < 4; i++ )
-	if ( valid_move( entry.move[i], side_to_move ) )
-	  best_list[best_list_length++] = entry.move[i];
-  }
-
-  for ( i = 0, best_list_index = 0; TRUE; i++, best_list_index++ ) {
-
-    /* Try the hash table move(s) first if feasible */
-
-    if ( !pre_search_done && (best_list_index < best_list_length) ) {
-      move_count[disks_played]++;
-      move_index = 0;
-      while ( sorted_move_order[disks_played][move_index] !=
-	      best_list[best_list_index] )
-	move_index++;
-    }
-    else {  /* Otherwise use information from shallow searches */
-      if ( !pre_search_done ) {
-	if ( remains < DEPTH_TWO_DEPTH )
-	  pre_depth = 1;
-	else
-	  pre_depth = 2;
-	pre_best = -INFINITE_EVAL;
-	empties_remaining = 60 - disks_played;
-	for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
-	  int already_checked;
-
-	  move = sorted_move_order[disks_played][move_index];
-	  already_checked = FALSE;
-	  for ( j = 0; j < best_list_length; j++ )
-	    if ( move == best_list[j] )
-	      already_checked = TRUE;
-
-	  if ( board[move] == EMPTY ) {
-	    if ( !already_checked &&
-		 (make_move( side_to_move, move, TRUE ) != 0 ) ) {
-	      curr_val = -tree_search( level + 1, level + pre_depth,
-				       OPP( side_to_move ), -INFINITE_EVAL,
-				       -pre_best, FALSE, FALSE, TRUE );
-	      pre_best = MAX( pre_best, curr_val );
-	      unmake_move( side_to_move, move );
-	      evals[disks_played][move] = curr_val;
-	      feas_index_list[disks_played][move_count[disks_played]] =
-		move_index;
-	      move_count[disks_played]++;
-	    }
-	    empties_remaining--;
-	    if ( empties_remaining == 0 )
-	      break;
-	  }
-	}
-	pre_search_done = TRUE;
-      }
-
-      if ( i == move_count[disks_played] )  /* No moves left to try? */
-	break;
-
-      best_index = i;
-      best_score =
-	evals[disks_played][sorted_move_order[disks_played][feas_index_list[disks_played][i]]];
-      for ( j = i + 1; j < move_count[disks_played]; j++ ) {
-	int cand_move;
-
-	cand_move =
-	  sorted_move_order[disks_played][feas_index_list[disks_played][j]];
-	if ( evals[disks_played][cand_move] > best_score ) {
-	  best_score = 
-	    evals[disks_played][cand_move];
-	  best_index = j;
-	}
-      }
-
-      move_index = feas_index_list[disks_played][best_index];
-      feas_index_list[disks_played][best_index] =
-	feas_index_list[disks_played][i];
+                        if ( shallow_val <= low_threshold )
+                            beta_test = FALSE;
+                        else if ( shallow_val >= high_threshold )
+                            alpha_test = FALSE;
+                        else
+                            break;  /* Unlikely that there is any selective cutoff. */
+#endif
+                    }
+                }
+                else if ( beta_test ) {
+                    /* Fail-high with high probability? */
+                    if ( tree_search( level, level + shallow_remains, side_to_move,
+                                      beta_bound - 1, beta_bound, allow_hash, FALSE,
+                                      void_legal ) >= beta_bound ) {
+                        if ( use_hash && allow_midgame_hash_update )
+                            add_hash( MIDGAME_MODE, beta, pv[level][level],
+                                      MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
+                        return beta;
+                    }
+                }
+                else if ( alpha_test ) {
+                    /* Fail-low with high probability? */
+                    if ( tree_search( level, level + shallow_remains, side_to_move,
+                                      alpha_bound, alpha_bound + 1, allow_hash, FALSE,
+                                      void_legal ) <= alpha_bound ) {
+                        if ( use_hash && allow_midgame_hash_update )
+                            add_hash( MIDGAME_MODE, alpha, pv[level][level],
+                                      MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+                        return alpha;
+                    }
+                }
+            }
+            else {  /* All-in-one MPC one-ply search and move ordering */
+                move_count[disks_played] = 0;
+                best = alpha_bound;
+                empties_remaining = 60 - disks_played;
+                for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
+                    move = sorted_move_order[disks_played][move_index];
+                    if ( board[move] == EMPTY ) {
+                        if ( make_move_no_hash( side_to_move, move ) != 0 ) {
+                            curr_val = -static_or_terminal_evaluation( OPP( side_to_move ) );
+                            unmake_move_no_hash( side_to_move, move );
+                            INCREMENT_COUNTER( nodes );
+                            if ( curr_val > best ) {
+                                best = curr_val;
+                                if ( best >= beta_bound ) {
+                                    if ( use_hash && allow_midgame_hash_update )
+                                        add_hash( MIDGAME_MODE, beta, pv[level][level],
+                                                  MIDGAME_SCORE | LOWER_BOUND, remains,
+                                                  selectivity );
+                                    return beta;
+                                }
+                            }
+                            evals[disks_played][move] = curr_val;
+                            if ( move == hash_move )  /* Always try hash table move first */
+                                evals[disks_played][move] += HASH_MOVE_BONUS;
+                            feas_index_list[disks_played][move_count[disks_played]] =
+                                move_index;
+                            move_count[disks_played]++;
+                        }
+                        empties_remaining--;
+                        if ( empties_remaining == 0 )
+                            break;
+                    }
+                }
+                if ( (best == alpha_bound) && (move_count[disks_played] > 0) ) {
+                    if ( use_hash && allow_midgame_hash_update )
+                        add_hash( MIDGAME_MODE, alpha, pv[level][level],
+                                  MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+                    return alpha;
+                }
+                pre_search_done = TRUE;
+            }
+        }
     }
 
-    move = sorted_move_order[disks_played][move_index];
+    /* Full negascout search */
 
-    counter_phase = (counter_phase + 1) & 63;
-    if ( counter_phase == 0 ) {
-      double node_val;
-      adjust_counter( &nodes );
-      node_val = counter_value( &nodes );
-      if ( node_val - last_panic_check >= EVENT_CHECK_INTERVAL ) {
-	/* Time abort? */
+    searched = 0;
+    best = -INFINITE_EVAL;
+    best_move_index = -1;
+    curr_alpha = alpha;
 
-	last_panic_check = node_val;
-	check_panic_abort();
-
-	/* Display available search information */
-
-	if ( echo )
-	  display_buffers();
-
-	/* Check for events */
-
-	handle_event( TRUE, FALSE, TRUE );
-
-	if ( is_panic_abort() || force_return )
-	  return SEARCH_ABORT;
-      }
+    best_list_length = 0;
+    for ( i = 0; i < 4; i++ )
+        best_list[i] = 0;
+    if ( !pre_search_done ) {
+        move_count[disks_played] = 0;
+        if ( hash_hit )
+            for ( i = 0; i < 4; i++ )
+                if ( valid_move( entry.move[i], side_to_move ) )
+                    best_list[best_list_length++] = entry.move[i];
     }
 
-    (void) make_move( side_to_move, move, TRUE );
-  				
-    update_pv = FALSE;
+    for ( i = 0, best_list_index = 0; TRUE; i++, best_list_index++ ) {
 
-    if ( searched == 0 ) {
-      best = curr_val =
-	-tree_search( level + 1, max_depth, OPP( side_to_move ), -beta,
-		      -curr_alpha, allow_hash, allow_mpc, TRUE );
-      best_move_index = move_index;
-      update_pv = TRUE;
+        /* Try the hash table move(s) first if feasible */
+
+        if ( !pre_search_done && (best_list_index < best_list_length) ) {
+            move_count[disks_played]++;
+            move_index = 0;
+            while ( sorted_move_order[disks_played][move_index] !=
+                    best_list[best_list_index] )
+                move_index++;
+        }
+        else {  /* Otherwise use information from shallow searches */
+            if ( !pre_search_done ) {
+                if ( remains < DEPTH_TWO_DEPTH )
+                    pre_depth = 1;
+                else
+                    pre_depth = 2;
+                pre_best = -INFINITE_EVAL;
+                empties_remaining = 60 - disks_played;
+                for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
+                    int already_checked;
+
+                    move = sorted_move_order[disks_played][move_index];
+                    already_checked = FALSE;
+                    for ( j = 0; j < best_list_length; j++ )
+                        if ( move == best_list[j] )
+                            already_checked = TRUE;
+
+                    if ( board[move] == EMPTY ) {
+                        if ( !already_checked &&
+                                (make_move( side_to_move, move, TRUE ) != 0 ) ) {
+                            curr_val = -tree_search( level + 1, level + pre_depth,
+                                                     OPP( side_to_move ), -INFINITE_EVAL,
+                                                     -pre_best, FALSE, FALSE, TRUE );
+                            pre_best = MAX( pre_best, curr_val );
+                            unmake_move( side_to_move, move );
+                            evals[disks_played][move] = curr_val;
+                            feas_index_list[disks_played][move_count[disks_played]] =
+                                move_index;
+                            move_count[disks_played]++;
+                        }
+                        empties_remaining--;
+                        if ( empties_remaining == 0 )
+                            break;
+                    }
+                }
+                pre_search_done = TRUE;
+            }
+
+            if ( i == move_count[disks_played] )  /* No moves left to try? */
+                break;
+
+            best_index = i;
+            best_score =
+                evals[disks_played][sorted_move_order[disks_played][feas_index_list[disks_played][i]]];
+            for ( j = i + 1; j < move_count[disks_played]; j++ ) {
+                int cand_move;
+
+                cand_move =
+                    sorted_move_order[disks_played][feas_index_list[disks_played][j]];
+                if ( evals[disks_played][cand_move] > best_score ) {
+                    best_score =
+                        evals[disks_played][cand_move];
+                    best_index = j;
+                }
+            }
+
+            move_index = feas_index_list[disks_played][best_index];
+            feas_index_list[disks_played][best_index] =
+                feas_index_list[disks_played][i];
+        }
+
+        move = sorted_move_order[disks_played][move_index];
+
+        counter_phase = (counter_phase + 1) & 63;
+        if ( counter_phase == 0 ) {
+            double node_val;
+            adjust_counter( &nodes );
+            node_val = counter_value( &nodes );
+            if ( node_val - last_panic_check >= EVENT_CHECK_INTERVAL ) {
+                /* Time abort? */
+
+                last_panic_check = node_val;
+                check_panic_abort();
+
+                /* Display available search information */
+
+                if ( echo )
+                    display_buffers();
+
+                /* Check for events */
+
+                handle_event( TRUE, FALSE, TRUE );
+
+                if ( is_panic_abort() || force_return )
+                    return SEARCH_ABORT;
+            }
+        }
+
+        (void) make_move( side_to_move, move, TRUE );
+
+        update_pv = FALSE;
+
+        if ( searched == 0 ) {
+            best = curr_val =
+                       -tree_search( level + 1, max_depth, OPP( side_to_move ), -beta,
+                                     -curr_alpha, allow_hash, allow_mpc, TRUE );
+            best_move_index = move_index;
+            update_pv = TRUE;
+        }
+        else {
+            curr_alpha = MAX( best, curr_alpha );
+            curr_val =
+                -tree_search( level + 1, max_depth, OPP( side_to_move ),
+                              -(curr_alpha + 1), -curr_alpha, allow_hash,
+                              allow_mpc, TRUE );
+            if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
+                curr_val =
+                    -tree_search( level + 1, max_depth, OPP( side_to_move ), -beta,
+                                  INFINITE_EVAL, allow_hash, allow_mpc, TRUE );
+                if ( curr_val > best ) {
+                    best = curr_val;
+                    best_move_index = move_index;
+                    update_pv = TRUE;
+                }
+            }
+            else if ( curr_val > best ) {
+                best = curr_val;
+                best_move_index = move_index;
+                update_pv = TRUE;
+            }
+        }
+
+        unmake_move( side_to_move, move );
+
+        if ( is_panic_abort() || force_return )
+            return SEARCH_ABORT;
+
+        evals[disks_played][move] = curr_val;
+
+        if ( update_pv ) {
+            update_best_list( best_list, move, best_list_index, best_list_length );
+            pv[level][level] = move;
+            pv_depth[level] = pv_depth[level + 1];
+            for ( j = level + 1; j < pv_depth[level + 1]; j++)
+                pv[level][j] = pv[level + 1][j];
+        }
+
+        if ( best >= beta ) {
+            advance_move( move_index );
+            if ( use_hash && allow_midgame_hash_update )
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
+            return best;
+        }
+        searched++;
     }
-    else {
-      curr_alpha = MAX( best, curr_alpha );
-      curr_val =
-	-tree_search( level + 1, max_depth, OPP( side_to_move ),
-		      -(curr_alpha + 1), -curr_alpha, allow_hash,
-		      allow_mpc, TRUE );
-      if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
-	curr_val =
-	  -tree_search( level + 1, max_depth, OPP( side_to_move ), -beta,
-			INFINITE_EVAL, allow_hash, allow_mpc, TRUE );
-	if ( curr_val > best ) {
-	  best = curr_val;
-	  best_move_index = move_index;
-	  update_pv = TRUE;
-	}
-      }
-      else if ( curr_val > best ) {
-	best = curr_val;
-	best_move_index = move_index;
-	update_pv = TRUE;
-      }
-    }
 
-    unmake_move( side_to_move, move );
-
-    if ( is_panic_abort() || force_return )
-      return SEARCH_ABORT;
-
-    evals[disks_played][move] = curr_val;
-
-    if ( update_pv ) {
-      update_best_list( best_list, move, best_list_index, best_list_length );
-      pv[level][level] = move;
-      pv_depth[level] = pv_depth[level + 1];
-      for ( j = level + 1; j < pv_depth[level + 1]; j++)
-	pv[level][j] = pv[level + 1][j];
-    }
-
-    if ( best >= beta ) {
-      advance_move( move_index );
-      if ( use_hash && allow_midgame_hash_update )
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
-      return best;
-    }
-    searched++;
-  }
-
-  /* Post-processing */
+    /* Post-processing */
 
 #if CHECK_HASH_CODES && defined( TEXT_BASED )
-  if ( use_hash )
-    if ( (h1 != hash1) || (h2 != hash2) )
-      printf( "%s: %x%x    %s: %x%x", HASH_BEFORE, h1, h2,
-	      HASH_AFTER, hash1, hash2 );
+    if ( use_hash )
+        if ( (h1 != hash1) || (h2 != hash2) )
+            printf( "%s: %x%x    %s: %x%x", HASH_BEFORE, h1, h2,
+                    HASH_AFTER, hash1, hash2 );
 #endif
-  if ( move_count[disks_played] > 0 ) {
-      advance_move( best_move_index );
-    if ( use_hash && allow_midgame_hash_update ) {
-      if ( best > alpha )
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
-      else
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+    if ( move_count[disks_played] > 0 ) {
+        advance_move( best_move_index );
+        if ( use_hash && allow_midgame_hash_update ) {
+            if ( best > alpha )
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
+            else
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+        }
+        return best;
     }
-    return best;
-  }
-  else if ( void_legal ) { /* No feasible moves */
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    curr_val = -tree_search( level, max_depth, OPP( side_to_move ), -beta,
-			     -alpha, allow_hash, allow_mpc, FALSE );
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    return curr_val;
-  }
-  else {
-    pv_depth[level] = level;
-    return terminal_evaluation( side_to_move );
-  }
+    else if ( void_legal ) { /* No feasible moves */
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        curr_val = -tree_search( level, max_depth, OPP( side_to_move ), -beta,
+                                 -alpha, allow_hash, allow_mpc, FALSE );
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        return curr_val;
+    }
+    else {
+        pv_depth[level] = level;
+        return terminal_evaluation( side_to_move );
+    }
 }
 
 
@@ -896,10 +896,10 @@ tree_search( int level,
 
 static int
 perturb_score( int score, int perturbation ) {
-  if ( abs( score ) < ALMOST_MIDGAME_WIN )
-    return score + perturbation;
-  else
-    return score;
+    if ( abs( score ) < ALMOST_MIDGAME_WIN )
+        return score + perturbation;
+    else
+        return score;
 }
 
 
@@ -912,286 +912,286 @@ perturb_score( int score, int perturbation ) {
 
 int
 root_tree_search( int level, int max_depth, int side_to_move, int alpha,
-		  int beta, int allow_hash, int allow_mpc, int void_legal ) {
-  char buffer[32];
-  int i, j;
-  int curr_val, best, pre_best;
-  int searched;
-  int move;
-  int move_index, best_move_index;
-  int hash_hit;
-  int pre_depth;
-  int update_pv;
-  int remains;
-  int use_hash, pre_search_done;
-  int curr_alpha;
-  int best_index, best_score;
-  int best_list_index, best_list_length;
-  int selectivity;
-  int offset;
-  int best_list[4];
-  HashEntry entry;
+                  int beta, int allow_hash, int allow_mpc, int void_legal ) {
+    char buffer[32];
+    int i, j;
+    int curr_val, best, pre_best;
+    int searched;
+    int move;
+    int move_index, best_move_index;
+    int hash_hit;
+    int pre_depth;
+    int update_pv;
+    int remains;
+    int use_hash, pre_search_done;
+    int curr_alpha;
+    int best_index, best_score;
+    int best_list_index, best_list_length;
+    int selectivity;
+    int offset;
+    int best_list[4];
+    HashEntry entry;
 #if CHECK_HASH_CODES && defined( TEXT_BASED )
-  unsigned int h1, h2;
+    unsigned int h1, h2;
 #endif
 
-  remains = max_depth - level;
+    remains = max_depth - level;
 
-  INCREMENT_COUNTER( nodes );
+    INCREMENT_COUNTER( nodes );
 
-  use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
-  if ( USE_MPC && allow_mpc )
-    selectivity = 1;
-  else
-    selectivity = 0;
-#if CHECK_HASH_CODES && defined( TEXT_BASED )
-  if ( use_hash ) {
-    h1 = hash1;
-    h2 = hash2;
-  }
-#endif
-
-  /* Hash strategy at the root: Only use hash table information for
-     move ordering purposes.  This guarantees that score perturbation
-     is applied for all moves. */
-
-  hash_hit = FALSE;
-  if ( use_hash && allow_midgame_hash_probe ) {
-    find_hash( &entry, MIDGAME_MODE );
-    if ( entry.draft != NO_HASH_MOVE )
-      hash_hit = TRUE;
-  }
-
-  pre_search_done = FALSE;
-
-  if ( !get_ponder_move() ) {
-    if ( (alpha <= -MIDGAME_WIN) && (beta >= MIDGAME_WIN) )
-      sprintf( buffer, "[-inf,inf]:" );
-    else if ( (alpha <= -MIDGAME_WIN) && (beta < MIDGAME_WIN) )
-      sprintf( buffer, "[-inf,%.1f]:", beta / 128.0 );
-    else if ( (alpha > -MIDGAME_WIN) && (beta >= MIDGAME_WIN) )
-      sprintf( buffer, "[%.1f,inf]:", alpha / 128.0 );
+    use_hash = (remains >= HASH_THRESHOLD) && USE_HASH_TABLE && allow_hash;
+    if ( USE_MPC && allow_mpc )
+        selectivity = 1;
     else
-      sprintf( buffer, "[%.1f,%.1f]:", alpha / 128.0, beta / 128.0 );
-    clear_sweep();
-    send_sweep( "%-14s ", buffer );
-  }
-
-  /* Full negascout search */
-	
-  searched = 0;
-  best = -INFINITE_EVAL;
-  best_move_index = -1,
-  curr_alpha = alpha;
-
-  best_list_length = 0;
-  for ( i = 0; i < 4; i++ )
-    best_list[i] = 0;
-  if ( !pre_search_done ) {
-    move_count[disks_played] = 0;
-    if ( hash_hit )
-      for ( i = 0; i < 4; i++ )
-	if ( valid_move( entry.move[i], side_to_move ) )
-	  best_list[best_list_length++] = entry.move[i];
-  }
-
-  for ( i = 0, best_list_index = 0; TRUE; i++, best_list_index++ ) {
-
-    /* Try the hash table move(s) first if feasible */
-
-    if ( !pre_search_done && (best_list_index < best_list_length) ) {
-      move_count[disks_played]++;
-      move_index = 0;
-      while ( sorted_move_order[disks_played][move_index] !=
-	      best_list[best_list_index] )
-	move_index++;
+        selectivity = 0;
+#if CHECK_HASH_CODES && defined( TEXT_BASED )
+    if ( use_hash ) {
+        h1 = hash1;
+        h2 = hash2;
     }
-    else {  /* Otherwise use information from shallow searches */
-      if ( !pre_search_done ) {
-	if ( remains < DEPTH_TWO_DEPTH )
-	  pre_depth = 1;
-	else
-	  pre_depth = 2;
-	pre_best = -INFINITE_EVAL;
-	for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
-	  int already_checked;
+#endif
 
-	  move = sorted_move_order[disks_played][move_index];
-	  already_checked = FALSE;
-	  for ( j = 0; j < best_list_length; j++ )
-	    if ( move == best_list[j] )
-	      already_checked = TRUE;
+    /* Hash strategy at the root: Only use hash table information for
+       move ordering purposes.  This guarantees that score perturbation
+       is applied for all moves. */
 
-	  if ( !already_checked && (board[move] == EMPTY) &&
-	       (make_move( side_to_move, move, TRUE ) != 0 ) ) {
-	    curr_val = -tree_search( level + 1, level + pre_depth,
-				     OPP( side_to_move ), -INFINITE_EVAL, -pre_best,
- 				     FALSE, FALSE, TRUE );
-	    pre_best = MAX( pre_best, curr_val );
-	    unmake_move( side_to_move, move );
-	    evals[disks_played][move] = curr_val;
-	    feas_index_list[disks_played][move_count[disks_played]] =
-	      move_index;
-	    move_count[disks_played]++;
-	  }
-	}
-	pre_search_done = TRUE;
-      }
-
-      if ( i == move_count[disks_played] )  /* No moves left to try? */
-	break;
-
-      best_index = i;
-      best_score =
-	evals[disks_played][sorted_move_order[disks_played][feas_index_list[disks_played][i]]];
-      for ( j = i + 1; j < move_count[disks_played]; j++ ) {
-	int cand_move;
-
-	cand_move =
-	  sorted_move_order[disks_played][feas_index_list[disks_played][j]];
-	if ( evals[disks_played][cand_move] > best_score ) {
-	  best_score = 
-	    evals[disks_played][cand_move];
-	  best_index = j;
-	}
-      }
-
-      move_index = feas_index_list[disks_played][best_index];
-      feas_index_list[disks_played][best_index] =
-	feas_index_list[disks_played][i];
+    hash_hit = FALSE;
+    if ( use_hash && allow_midgame_hash_probe ) {
+        find_hash( &entry, MIDGAME_MODE );
+        if ( entry.draft != NO_HASH_MOVE )
+            hash_hit = TRUE;
     }
 
-    move = sorted_move_order[disks_played][move_index];
-
-    if ( !get_ponder_move() )
-      send_sweep( "%c%c", TO_SQUARE( move ) );
-
-    (void) make_move( side_to_move, move, TRUE );
-
-    update_pv = FALSE;
-    offset = score_perturbation[move];
-
-    if ( searched == 0 ) {
-      best = curr_val =
-	perturb_score( -tree_search( level + 1, max_depth, OPP( side_to_move ),
-				     -(beta - offset), -(curr_alpha - offset),
-				     allow_hash, allow_mpc, TRUE ),
-		       offset );
-      best_move_index = move_index;
-      update_pv = TRUE;
-      best_mid_root_move = move;
-    }
-    else {
-      curr_alpha = MAX( best, curr_alpha );
-      curr_val =
-	perturb_score( -tree_search( level + 1, max_depth, OPP( side_to_move ),
-				     -(curr_alpha - offset + 1),
-				     -(curr_alpha - offset), allow_hash,
-				     allow_mpc, TRUE ),
-		       offset );
-      if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
-	curr_val =
-	  perturb_score( -tree_search( level + 1, max_depth,
-				       OPP( side_to_move ),
-				       -(beta - offset), INFINITE_EVAL, allow_hash,
-				       allow_mpc, TRUE ),
-			 offset );
-	if ( curr_val > best ) {
-	  best = curr_val;
-	  best_move_index = move_index;
-	  update_pv = TRUE;
-	  if ( !is_panic_abort() && !force_return )
-	    best_mid_root_move = move;
-	}
-      }
-      else if ( curr_val > best ) {
-	best = curr_val;
-	best_move_index = move_index;
-	update_pv = TRUE;
-      }
-    }
-
-    unmake_move( side_to_move, move );
-
-    if ( is_panic_abort() || force_return )
-      return SEARCH_ABORT;
-
-    evals[disks_played][move] = curr_val;
+    pre_search_done = FALSE;
 
     if ( !get_ponder_move() ) {
-      if ( update_pv ) {
-	if ( curr_val <= alpha )
-	  send_sweep("<%.2f", (curr_val + 1) / 128.0);
-	else if ( curr_val >= beta )
-	  send_sweep( ">%.2f", (curr_val - 1) / 128.0 );
-	else
-	  send_sweep( "=%.2f", curr_val / 128.0 );
-      }
-      send_sweep( " " );
-      if ( update_pv && (searched > 0) && echo && (max_depth >= 10) )
-	display_sweep( stdout );
+        if ( (alpha <= -MIDGAME_WIN) && (beta >= MIDGAME_WIN) )
+            sprintf( buffer, "[-inf,inf]:" );
+        else if ( (alpha <= -MIDGAME_WIN) && (beta < MIDGAME_WIN) )
+            sprintf( buffer, "[-inf,%.1f]:", beta / 128.0 );
+        else if ( (alpha > -MIDGAME_WIN) && (beta >= MIDGAME_WIN) )
+            sprintf( buffer, "[%.1f,inf]:", alpha / 128.0 );
+        else
+            sprintf( buffer, "[%.1f,%.1f]:", alpha / 128.0, beta / 128.0 );
+        clear_sweep();
+        send_sweep( "%-14s ", buffer );
     }
 
-    if ( update_pv ) {
-      update_best_list( best_list, move, best_list_index, best_list_length );
-      pv[level][level] = move;
-      pv_depth[level] = pv_depth[level + 1];
-      for ( j = level + 1; j < pv_depth[level + 1]; j++)
-	pv[level][j] = pv[level + 1][j];
+    /* Full negascout search */
+
+    searched = 0;
+    best = -INFINITE_EVAL;
+    best_move_index = -1,
+    curr_alpha = alpha;
+
+    best_list_length = 0;
+    for ( i = 0; i < 4; i++ )
+        best_list[i] = 0;
+    if ( !pre_search_done ) {
+        move_count[disks_played] = 0;
+        if ( hash_hit )
+            for ( i = 0; i < 4; i++ )
+                if ( valid_move( entry.move[i], side_to_move ) )
+                    best_list[best_list_length++] = entry.move[i];
     }
 
-    if ( best >= beta ) {
-      advance_move( move_index );
-      if ( use_hash && allow_midgame_hash_update )
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
-      return best;
+    for ( i = 0, best_list_index = 0; TRUE; i++, best_list_index++ ) {
+
+        /* Try the hash table move(s) first if feasible */
+
+        if ( !pre_search_done && (best_list_index < best_list_length) ) {
+            move_count[disks_played]++;
+            move_index = 0;
+            while ( sorted_move_order[disks_played][move_index] !=
+                    best_list[best_list_index] )
+                move_index++;
+        }
+        else {  /* Otherwise use information from shallow searches */
+            if ( !pre_search_done ) {
+                if ( remains < DEPTH_TWO_DEPTH )
+                    pre_depth = 1;
+                else
+                    pre_depth = 2;
+                pre_best = -INFINITE_EVAL;
+                for ( move_index = 0; move_index < MOVE_ORDER_SIZE; move_index++ ) {
+                    int already_checked;
+
+                    move = sorted_move_order[disks_played][move_index];
+                    already_checked = FALSE;
+                    for ( j = 0; j < best_list_length; j++ )
+                        if ( move == best_list[j] )
+                            already_checked = TRUE;
+
+                    if ( !already_checked && (board[move] == EMPTY) &&
+                            (make_move( side_to_move, move, TRUE ) != 0 ) ) {
+                        curr_val = -tree_search( level + 1, level + pre_depth,
+                                                 OPP( side_to_move ), -INFINITE_EVAL, -pre_best,
+                                                 FALSE, FALSE, TRUE );
+                        pre_best = MAX( pre_best, curr_val );
+                        unmake_move( side_to_move, move );
+                        evals[disks_played][move] = curr_val;
+                        feas_index_list[disks_played][move_count[disks_played]] =
+                            move_index;
+                        move_count[disks_played]++;
+                    }
+                }
+                pre_search_done = TRUE;
+            }
+
+            if ( i == move_count[disks_played] )  /* No moves left to try? */
+                break;
+
+            best_index = i;
+            best_score =
+                evals[disks_played][sorted_move_order[disks_played][feas_index_list[disks_played][i]]];
+            for ( j = i + 1; j < move_count[disks_played]; j++ ) {
+                int cand_move;
+
+                cand_move =
+                    sorted_move_order[disks_played][feas_index_list[disks_played][j]];
+                if ( evals[disks_played][cand_move] > best_score ) {
+                    best_score =
+                        evals[disks_played][cand_move];
+                    best_index = j;
+                }
+            }
+
+            move_index = feas_index_list[disks_played][best_index];
+            feas_index_list[disks_played][best_index] =
+                feas_index_list[disks_played][i];
+        }
+
+        move = sorted_move_order[disks_played][move_index];
+
+        if ( !get_ponder_move() )
+            send_sweep( "%c%c", TO_SQUARE( move ) );
+
+        (void) make_move( side_to_move, move, TRUE );
+
+        update_pv = FALSE;
+        offset = score_perturbation[move];
+
+        if ( searched == 0 ) {
+            best = curr_val =
+                       perturb_score( -tree_search( level + 1, max_depth, OPP( side_to_move ),
+                                                    -(beta - offset), -(curr_alpha - offset),
+                                                    allow_hash, allow_mpc, TRUE ),
+                                      offset );
+            best_move_index = move_index;
+            update_pv = TRUE;
+            best_mid_root_move = move;
+        }
+        else {
+            curr_alpha = MAX( best, curr_alpha );
+            curr_val =
+                perturb_score( -tree_search( level + 1, max_depth, OPP( side_to_move ),
+                                             -(curr_alpha - offset + 1),
+                                             -(curr_alpha - offset), allow_hash,
+                                             allow_mpc, TRUE ),
+                               offset );
+            if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
+                curr_val =
+                    perturb_score( -tree_search( level + 1, max_depth,
+                                                 OPP( side_to_move ),
+                                                 -(beta - offset), INFINITE_EVAL, allow_hash,
+                                                 allow_mpc, TRUE ),
+                                   offset );
+                if ( curr_val > best ) {
+                    best = curr_val;
+                    best_move_index = move_index;
+                    update_pv = TRUE;
+                    if ( !is_panic_abort() && !force_return )
+                        best_mid_root_move = move;
+                }
+            }
+            else if ( curr_val > best ) {
+                best = curr_val;
+                best_move_index = move_index;
+                update_pv = TRUE;
+            }
+        }
+
+        unmake_move( side_to_move, move );
+
+        if ( is_panic_abort() || force_return )
+            return SEARCH_ABORT;
+
+        evals[disks_played][move] = curr_val;
+
+        if ( !get_ponder_move() ) {
+            if ( update_pv ) {
+                if ( curr_val <= alpha )
+                    send_sweep("<%.2f", (curr_val + 1) / 128.0);
+                else if ( curr_val >= beta )
+                    send_sweep( ">%.2f", (curr_val - 1) / 128.0 );
+                else
+                    send_sweep( "=%.2f", curr_val / 128.0 );
+            }
+            send_sweep( " " );
+            if ( update_pv && (searched > 0) && echo && (max_depth >= 10) )
+                display_sweep( stdout );
+        }
+
+        if ( update_pv ) {
+            update_best_list( best_list, move, best_list_index, best_list_length );
+            pv[level][level] = move;
+            pv_depth[level] = pv_depth[level + 1];
+            for ( j = level + 1; j < pv_depth[level + 1]; j++)
+                pv[level][j] = pv[level + 1][j];
+        }
+
+        if ( best >= beta ) {
+            advance_move( move_index );
+            if ( use_hash && allow_midgame_hash_update )
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
+            return best;
+        }
+
+        /* For symmetry reasons, the score for any move is the score of the
+           position for the initial position. */
+        if ( disks_played == 0 ) {
+            add_hash_extended( MIDGAME_MODE, best, best_list,
+                               MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
+            return best;
+        }
+
+        searched++;
     }
 
-    /* For symmetry reasons, the score for any move is the score of the
-       position for the initial position. */
-    if ( disks_played == 0 ) {
-      add_hash_extended( MIDGAME_MODE, best, best_list,
-			 MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
-      return best;
-    }
-
-    searched++;
-  }
-
-  /* Post-processing */
+    /* Post-processing */
 
 #if CHECK_HASH_CODES && defined( TEXT_BASED )
-  if ( use_hash )
-    if ( (h1 != hash1) || (h2 != hash2) )
-      printf( "%s: %x%x    %s: %x%x", HASH_BEFORE, h1, h2,
-	      HASH_AFTER, hash1, hash2 );
+    if ( use_hash )
+        if ( (h1 != hash1) || (h2 != hash2) )
+            printf( "%s: %x%x    %s: %x%x", HASH_BEFORE, h1, h2,
+                    HASH_AFTER, hash1, hash2 );
 #endif
-  if ( move_count[disks_played] > 0 ) {
-      advance_move( best_move_index );
-    if ( use_hash && allow_midgame_hash_update ) {
-      if ( best > alpha )
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
-      else
-	add_hash_extended( MIDGAME_MODE, best, best_list,
-			   MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+    if ( move_count[disks_played] > 0 ) {
+        advance_move( best_move_index );
+        if ( use_hash && allow_midgame_hash_update ) {
+            if ( best > alpha )
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | EXACT_VALUE, remains, selectivity );
+            else
+                add_hash_extended( MIDGAME_MODE, best, best_list,
+                                   MIDGAME_SCORE | UPPER_BOUND, remains, selectivity );
+        }
+        return best;
     }
-    return best;
-  }
-  else if ( void_legal ) { /* No feasible moves */
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    curr_val = -root_tree_search( level, max_depth, OPP( side_to_move ), -beta,
-				  -alpha, allow_hash, allow_mpc, FALSE );
-    hash1 ^= hash_flip_color1;
-    hash2 ^= hash_flip_color2;
-    return curr_val;
-  }
-  else {
-    pv_depth[level] = level;
-    return terminal_evaluation( side_to_move );
-  }
+    else if ( void_legal ) { /* No feasible moves */
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        curr_val = -root_tree_search( level, max_depth, OPP( side_to_move ), -beta,
+                                      -alpha, allow_hash, allow_mpc, FALSE );
+        hash1 ^= hash_flip_color1;
+        hash2 ^= hash_flip_color2;
+        return curr_val;
+    }
+    else {
+        pv_depth[level] = level;
+        return terminal_evaluation( side_to_move );
+    }
 }
 
 
@@ -1205,46 +1205,46 @@ root_tree_search( int level, int max_depth, int side_to_move, int alpha,
 
 static int
 protected_one_ply_search( int side_to_move ) {
-  int i;
-  int move;
-  int depth_one_score, depth_two_score;
-  int best_score_restricted, best_score_unrestricted;
-  int best_move_restricted, best_move_unrestricted;
+    int i;
+    int move;
+    int depth_one_score, depth_two_score;
+    int best_score_restricted, best_score_unrestricted;
+    int best_move_restricted, best_move_unrestricted;
 
-  generate_all( side_to_move );
+    generate_all( side_to_move );
 
-  best_score_restricted = -INFINITE_EVAL;
-  best_score_unrestricted = -INFINITE_EVAL;
-  best_move_restricted = 0;
-  best_move_unrestricted = 0;
+    best_score_restricted = -INFINITE_EVAL;
+    best_score_unrestricted = -INFINITE_EVAL;
+    best_move_restricted = 0;
+    best_move_unrestricted = 0;
 
-  for ( i = 0; i < move_count[disks_played]; i++ ) {
-    INCREMENT_COUNTER( nodes );
-    move = move_list[disks_played][i];
-    (void) make_move( side_to_move,  move, TRUE );
-    depth_one_score = -static_evaluation( OPP( side_to_move ) );
-    depth_two_score = -tree_search( 1, 2, OPP( side_to_move ), -INFINITE_EVAL,
-				    INFINITE_EVAL, FALSE, FALSE, FALSE );
-    unmake_move( side_to_move, move );
-    if ( depth_one_score > best_score_unrestricted ) {
-      best_score_unrestricted = depth_one_score;
-      best_move_unrestricted = move;
+    for ( i = 0; i < move_count[disks_played]; i++ ) {
+        INCREMENT_COUNTER( nodes );
+        move = move_list[disks_played][i];
+        (void) make_move( side_to_move,  move, TRUE );
+        depth_one_score = -static_evaluation( OPP( side_to_move ) );
+        depth_two_score = -tree_search( 1, 2, OPP( side_to_move ), -INFINITE_EVAL,
+                                        INFINITE_EVAL, FALSE, FALSE, FALSE );
+        unmake_move( side_to_move, move );
+        if ( depth_one_score > best_score_unrestricted ) {
+            best_score_unrestricted = depth_one_score;
+            best_move_unrestricted = move;
+        }
+        if ( (depth_two_score > -MIDGAME_WIN) &&
+                (depth_one_score > best_score_restricted) ) {
+            best_score_restricted = depth_one_score;
+            best_move_restricted = move;
+        }
     }
-    if ( (depth_two_score > -MIDGAME_WIN) &&
-	 (depth_one_score > best_score_restricted) ) {
-      best_score_restricted = depth_one_score;
-      best_move_restricted = move;
+    pv_depth[0] = 1;
+    if ( best_score_restricted > -INFINITE_EVAL ) {  /* No immediate loss */
+        pv[0][0] = best_move_restricted;
+        return best_score_restricted;
     }
-  }
-  pv_depth[0] = 1;
-  if ( best_score_restricted > -INFINITE_EVAL ) {  /* No immediate loss */
-    pv[0][0] = best_move_restricted;
-    return best_score_restricted;
-  }
-  else {
-    pv[0][0] = best_move_unrestricted;
-    return best_score_unrestricted;
-  }
+    else {
+        pv[0][0] = best_move_unrestricted;
+        return best_score_unrestricted;
+    }
 }
 
 
@@ -1255,202 +1255,202 @@ protected_one_ply_search( int side_to_move ) {
 
 int
 middle_game( int side_to_move, int max_depth,
-	     int update_evals, EvaluationType *eval_info ) {
-  char *eval_str;
-  double node_val;
-  int val, old_val;
-  int adjusted_val;
-  int initial_depth, depth;
-  int alpha, beta;
-  int enable_mpc;
-  int base_stage;
-  int full_length_line;
-  HashEntry entry;
+             int update_evals, EvaluationType *eval_info ) {
+    char *eval_str;
+    double node_val;
+    int val, old_val;
+    int adjusted_val;
+    int initial_depth, depth;
+    int alpha, beta;
+    int enable_mpc;
+    int base_stage;
+    int full_length_line;
+    HashEntry entry;
 
-  last_panic_check = 0.0;
-  counter_phase = 0;
+    last_panic_check = 0.0;
+    counter_phase = 0;
 
-  piece_count[BLACKSQ][disks_played] = disc_count( BLACKSQ );
-  piece_count[WHITESQ][disks_played] = disc_count( WHITESQ );
-  base_stage = disc_count( BLACKSQ ) + disc_count( WHITESQ ) - 4;
+    piece_count[BLACKSQ][disks_played] = disc_count( BLACKSQ );
+    piece_count[WHITESQ][disks_played] = disc_count( WHITESQ );
+    base_stage = disc_count( BLACKSQ ) + disc_count( WHITESQ ) - 4;
 
-  val = 0;
-  old_val = -SEARCH_ABORT;
+    val = 0;
+    old_val = -SEARCH_ABORT;
 
-  enable_mpc = (max_depth >= MIN_MPC_DEPTH);
-  initial_depth = MAX( 1, max_depth - 2 );
-  initial_depth = max_depth;  /* Disable I.D. in this function */
+    enable_mpc = (max_depth >= MIN_MPC_DEPTH);
+    initial_depth = MAX( 1, max_depth - 2 );
+    initial_depth = max_depth;  /* Disable I.D. in this function */
 
-  *eval_info = create_eval_info( UNDEFINED_EVAL, UNSOLVED_POSITION,
-				 0, 0.0, 0, FALSE );
+    *eval_info = create_eval_info( UNDEFINED_EVAL, UNSOLVED_POSITION,
+                                   0, 0.0, 0, FALSE );
 
-  for ( depth = initial_depth; depth <= max_depth; depth++ ) {
+    for ( depth = initial_depth; depth <= max_depth; depth++ ) {
 #if USE_WINDOW
-    {
-      int center;
+        {
+            int center;
 
-      if ( (base_stage + depth >= 2) &&
-	   stage_reached[base_stage + depth - 2] ) {
-	if ( side_to_move == BLACKSQ )
-	  center = stage_score[base_stage + depth - 2];
-	else
-	  center = -stage_score[base_stage + depth - 2];
-      }
-      else
-	center = 0;
-      alpha = center - ALPHA_WINDOW;
-      beta = center + BETA_WINDOW;
-    }
+            if ( (base_stage + depth >= 2) &&
+            stage_reached[base_stage + depth - 2] ) {
+                if ( side_to_move == BLACKSQ )
+                    center = stage_score[base_stage + depth - 2];
+                else
+                    center = -stage_score[base_stage + depth - 2];
+            }
+            else
+                center = 0;
+            alpha = center - ALPHA_WINDOW;
+            beta = center + BETA_WINDOW;
+        }
 #else
-    alpha = -INFINITE_EVAL;
-    beta = +INFINITE_EVAL;
+        alpha = -INFINITE_EVAL;
+        beta = +INFINITE_EVAL;
 #endif
 
-    inherit_move_lists( disks_played + max_depth );
+        inherit_move_lists( disks_played + max_depth );
 
-    /* The actual search */
+        /* The actual search */
 
-    if ( depth == 1 )  /* Fix to make it harder to wipe out depth-1 Zebra */
-      val = protected_one_ply_search( side_to_move );
-    else if ( enable_mpc ) {
-      val =  root_tree_search( 0, depth, side_to_move, alpha, beta, TRUE,
-			       TRUE, TRUE );
-      if ( !force_return && !is_panic_abort() &&
-	   ((val <= alpha) || (val >= beta)) )
-	val = root_tree_search( 0, depth, side_to_move, -INFINITE_EVAL,
-				INFINITE_EVAL, TRUE, TRUE, TRUE );
+        if ( depth == 1 )  /* Fix to make it harder to wipe out depth-1 Zebra */
+            val = protected_one_ply_search( side_to_move );
+        else if ( enable_mpc ) {
+            val =  root_tree_search( 0, depth, side_to_move, alpha, beta, TRUE,
+                                     TRUE, TRUE );
+            if ( !force_return && !is_panic_abort() &&
+                    ((val <= alpha) || (val >= beta)) )
+                val = root_tree_search( 0, depth, side_to_move, -INFINITE_EVAL,
+                                        INFINITE_EVAL, TRUE, TRUE, TRUE );
 
+        }
+        else {
+            val = root_tree_search( 0, depth, side_to_move, alpha, beta, TRUE,
+                                    FALSE, TRUE );
+            if ( !is_panic_abort() && !force_return ) {
+                if ( val <= alpha )
+                    val = root_tree_search( 0, depth, side_to_move, -MIDGAME_WIN,
+                                            alpha, TRUE, FALSE, TRUE );
+                else if ( val >= beta )
+                    val = root_tree_search( 0, depth, side_to_move, beta,
+                                            MIDGAME_WIN, TRUE, FALSE, TRUE );
+            }
+        }
+
+        /* Adjust scores and PV if search is aborted */
+
+        if ( is_panic_abort() || force_return ) {
+            pv[0][0] = best_mid_root_move;
+            pv_depth[0] = 1;
+            hash_expand_pv( side_to_move, MIDGAME_MODE, EXACT_VALUE, INFINITE_EVAL );
+            if ( (base_stage + depth - 2 >= 0) &&
+                    stage_reached[base_stage + depth - 2] ) {
+                val = stage_score[base_stage + depth - 2];
+                if ( side_to_move == WHITESQ )
+                    val = -val;
+            }
+            else
+                val = old_val;
+        }
+
+        /* Check if the search info corresponds to a variation of
+           depth exactly DEPTH which would mean that the search
+           gives new score information */
+
+        full_length_line = FALSE;
+        find_hash( &entry, MIDGAME_MODE );
+        if ( !force_return &&
+                !is_panic_abort() &&
+                (entry.draft != NO_HASH_MOVE) &&
+                valid_move( entry.move[0], side_to_move ) &&
+                (entry.draft == depth) )
+            full_length_line = TRUE;
+
+        /* Update the stored scores */
+
+        if ( (!stage_reached[base_stage + depth] || full_length_line) &&
+                update_evals ) {
+            stage_reached[base_stage + depth] = TRUE;
+            if ( side_to_move == BLACKSQ )
+                stage_score[base_stage + depth] = val;
+            else
+                stage_score[base_stage + depth] = -val;
+        }
+
+        /* Adjust the eval for oscillations odd/even by simply averaging the
+           last two stages (if they are available). */
+
+        if ( stage_reached[base_stage + depth] &&
+                stage_reached[base_stage + depth - 1] && update_evals ) {
+            if ( side_to_move == BLACKSQ )
+                adjusted_val = (stage_score[base_stage + depth] +
+                                stage_score[base_stage + depth - 1]) / 2;
+            else
+                adjusted_val = -(stage_score[base_stage + depth] +
+                                 stage_score[base_stage + depth - 1]) / 2;
+        }
+        else {
+            if ( depth == initial_depth )
+                adjusted_val = val;
+            else
+                adjusted_val = (val + old_val) / 2;
+        }
+
+        /* In case the search reached the end of the game, the score
+           must be converted into an endgame score */
+
+        if ( val >= MIDGAME_WIN )
+            *eval_info = create_eval_info( EXACT_EVAL, WON_POSITION,
+                                           (val - MIDGAME_WIN) * 128, 0.0,
+                                           depth, FALSE );
+        else if ( val <= -MIDGAME_WIN )
+            *eval_info = create_eval_info( EXACT_EVAL, LOST_POSITION,
+                                           (val + MIDGAME_WIN) * 128, 0.0,
+                                           depth, FALSE );
+        else
+            *eval_info = create_eval_info( MIDGAME_EVAL, UNSOLVED_POSITION,
+                                           adjusted_val, 0.0, depth, FALSE );
+
+        /* Display and store search info */
+
+        if ( depth == max_depth ) {
+            clear_status();
+            send_status( "--> " );
+            if ( is_panic_abort() || force_return )
+                send_status( "*" );
+            else
+                send_status( " " );
+            send_status( "%2d  ", depth );
+
+            eval_str = produce_eval_text( *eval_info, TRUE );
+            send_status( "%-10s  ", eval_str );
+            free( eval_str );
+            node_val = counter_value( &nodes );
+            send_status_nodes( node_val );
+            if ( get_ponder_move() )
+                send_status( "{%c%c} ", TO_SQUARE( get_ponder_move() ) );
+            hash_expand_pv( side_to_move, MIDGAME_MODE, EXACT_VALUE, INFINITE_EVAL );
+            send_status_pv( pv[0], max_depth );
+            send_status_time( get_elapsed_time() );
+            if ( get_elapsed_time() != 0.0 )
+                send_status( "%6.0f %s", node_val / (get_elapsed_time() + 0.001),
+                             NPS_ABBREV );
+        }
+
+        if ( is_panic_abort() || force_return )
+            break;
+
+        /* Check if search time or adjusted search time are long enough
+           for the search to be discontinued */
+
+        old_val = adjusted_val;
+        if ( do_check_midgame_abort )
+            if ( above_recommended() ||
+                    (extended_above_recommended() &&
+                     (depth >= frozen_ponder_depth)) ) {
+                set_midgame_abort();
+                break;
+            }
     }
-    else {
-      val = root_tree_search( 0, depth, side_to_move, alpha, beta, TRUE,
-			      FALSE, TRUE );
-      if ( !is_panic_abort() && !force_return ) {
-	if ( val <= alpha )
-	  val = root_tree_search( 0, depth, side_to_move, -MIDGAME_WIN,
-				  alpha, TRUE, FALSE, TRUE );
-	else if ( val >= beta )
-	  val = root_tree_search( 0, depth, side_to_move, beta,
-				  MIDGAME_WIN, TRUE, FALSE, TRUE );
-      }
-    }
 
-    /* Adjust scores and PV if search is aborted */
+    root_eval = val;
 
-    if ( is_panic_abort() || force_return ) {
-      pv[0][0] = best_mid_root_move;
-      pv_depth[0] = 1;
-      hash_expand_pv( side_to_move, MIDGAME_MODE, EXACT_VALUE, INFINITE_EVAL );
-      if ( (base_stage + depth - 2 >= 0) &&
-	   stage_reached[base_stage + depth - 2] ) {
-	val = stage_score[base_stage + depth - 2];
-	if ( side_to_move == WHITESQ )
-	  val = -val;
-      }
-      else
-	val = old_val;
-    }
-
-    /* Check if the search info corresponds to a variation of
-       depth exactly DEPTH which would mean that the search
-       gives new score information */
-
-    full_length_line = FALSE;
-    find_hash( &entry, MIDGAME_MODE );
-    if ( !force_return &&
-	 !is_panic_abort() &&
-	 (entry.draft != NO_HASH_MOVE) &&
-	 valid_move( entry.move[0], side_to_move ) &&
-	 (entry.draft == depth) )
-      full_length_line = TRUE;
-
-    /* Update the stored scores */
-
-    if ( (!stage_reached[base_stage + depth] || full_length_line) &&
-	 update_evals ) {
-      stage_reached[base_stage + depth] = TRUE;
-      if ( side_to_move == BLACKSQ )
-	stage_score[base_stage + depth] = val;
-      else
-	stage_score[base_stage + depth] = -val;
-    }
-
-    /* Adjust the eval for oscillations odd/even by simply averaging the
-       last two stages (if they are available). */
-
-    if ( stage_reached[base_stage + depth] &&
-	 stage_reached[base_stage + depth - 1] && update_evals ) {
-      if ( side_to_move == BLACKSQ )
-	adjusted_val = (stage_score[base_stage + depth] +
-			stage_score[base_stage + depth - 1]) / 2;
-      else
-	adjusted_val = -(stage_score[base_stage + depth] +
-			 stage_score[base_stage + depth - 1]) / 2;
-    }
-    else {
-      if ( depth == initial_depth )
-	adjusted_val = val;
-      else
-	adjusted_val = (val + old_val) / 2;
-    }
-
-    /* In case the search reached the end of the game, the score
-       must be converted into an endgame score */
-
-    if ( val >= MIDGAME_WIN )
-      *eval_info = create_eval_info( EXACT_EVAL, WON_POSITION,
-				     (val - MIDGAME_WIN) * 128, 0.0,
-				     depth, FALSE );
-    else if ( val <= -MIDGAME_WIN )
-      *eval_info = create_eval_info( EXACT_EVAL, LOST_POSITION,
-				     (val + MIDGAME_WIN) * 128, 0.0,
-				     depth, FALSE );
-    else
-      *eval_info = create_eval_info( MIDGAME_EVAL, UNSOLVED_POSITION,
-				     adjusted_val, 0.0, depth, FALSE );
-
-    /* Display and store search info */
-
-    if ( depth == max_depth ) {
-      clear_status();
-      send_status( "--> " );
-      if ( is_panic_abort() || force_return )
-	send_status( "*" );
-      else
-	send_status( " " );
-      send_status( "%2d  ", depth );
-
-      eval_str = produce_eval_text( *eval_info, TRUE );
-      send_status( "%-10s  ", eval_str );
-      free( eval_str );
-      node_val = counter_value( &nodes );
-      send_status_nodes( node_val );
-      if ( get_ponder_move() )
-	send_status( "{%c%c} ", TO_SQUARE( get_ponder_move() ) );
-      hash_expand_pv( side_to_move, MIDGAME_MODE, EXACT_VALUE, INFINITE_EVAL );
-      send_status_pv( pv[0], max_depth );
-      send_status_time( get_elapsed_time() );
-      if ( get_elapsed_time() != 0.0 )
-	send_status( "%6.0f %s", node_val / (get_elapsed_time() + 0.001),
-		     NPS_ABBREV );
-    }
-
-    if ( is_panic_abort() || force_return )
-      break;
-
-    /* Check if search time or adjusted search time are long enough
-       for the search to be discontinued */
-
-    old_val = adjusted_val;
-    if ( do_check_midgame_abort )
-      if ( above_recommended() ||
-	   (extended_above_recommended() &&
-	    (depth >= frozen_ponder_depth)) ) {
-	set_midgame_abort();
-	break;
-      }
-  }
-
-  root_eval = val;
-
-  return pv[0][0];
+    return pv[0][0];
 }

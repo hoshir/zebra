@@ -2,7 +2,7 @@
    File:       error.h
 
    Created:    June 13, 1998
-   
+
    Modified:   August 1, 2002
 
    Author:     Gunnar Andersson (gunnar@radagast.se)

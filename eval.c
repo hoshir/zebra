@@ -31,11 +31,11 @@ static int use_experimental;
 /*
    TOGGLE_EXPERIMENTAL
    Toggles usage of novelties in the evaluation function on/off.
-*/   
+*/
 
 INLINE void
 toggle_experimental( int use ) {
-  use_experimental = use;
+    use_experimental = use;
 }
 
 
@@ -48,7 +48,7 @@ toggle_experimental( int use ) {
 
 INLINE int
 experimental_eval( void ) {
-  return use_experimental;
+    return use_experimental;
 }
 
 
@@ -71,25 +71,25 @@ init_eval( void ) {
 
 INLINE int
 terminal_evaluation( int side_to_move ) {
-  int disc_diff;
-  int my_discs, opp_discs;
+    int disc_diff;
+    int my_discs, opp_discs;
 
-  INCREMENT_COUNTER( evaluations );
+    INCREMENT_COUNTER( evaluations );
 
-  my_discs = piece_count[side_to_move][disks_played];
-  opp_discs = piece_count[OPP( side_to_move )][disks_played];
+    my_discs = piece_count[side_to_move][disks_played];
+    opp_discs = piece_count[OPP( side_to_move )][disks_played];
 
-  if ( my_discs > opp_discs )
-    disc_diff = 64 - 2 * opp_discs;
-  else if ( opp_discs > my_discs )
-    disc_diff = 2 * my_discs - 64;
-  else
-    disc_diff = 0;
+    if ( my_discs > opp_discs )
+        disc_diff = 64 - 2 * opp_discs;
+    else if ( opp_discs > my_discs )
+        disc_diff = 2 * my_discs - 64;
+    else
+        disc_diff = 0;
 
-  if ( disc_diff > 0 )
-    return +MIDGAME_WIN + disc_diff;
-  else if ( disc_diff == 0 )
-    return 0;
-  else
-    return -MIDGAME_WIN + disc_diff;
+    if ( disc_diff > 0 )
+        return +MIDGAME_WIN + disc_diff;
+    else if ( disc_diff == 0 )
+        return 0;
+    else
+        return -MIDGAME_WIN + disc_diff;
 }

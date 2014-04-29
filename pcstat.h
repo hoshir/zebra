@@ -20,10 +20,10 @@
 
 
 typedef struct {
-  float const_base;
-  float const_slope;
-  float sigma_base;
-  float sigma_slope;
+    float const_base;
+    float const_slope;
+    float sigma_base;
+    float sigma_slope;
 } Correlation;
 
 

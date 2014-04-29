@@ -45,8 +45,8 @@ int
 static_evaluation( int side_to_move );
 
 #define static_evaluation( side_to_move )        \
-  ( INCREMENT_COUNTER( evaluations ) ,           \
-    pattern_evaluation( side_to_move ) )
+    ( INCREMENT_COUNTER( evaluations ) ,           \
+      pattern_evaluation( side_to_move ) )
 
 int
 terminal_evaluation( int side_to_move );

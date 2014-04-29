@@ -4,7 +4,7 @@
    Created:       March 1, 1998
 
    Modified:      November 23, 2002
-   
+
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The declaration of the Multi-Prob-Cut variables.
@@ -29,10 +29,10 @@
 
 
 typedef struct {
-  int cut_tries;
-  int cut_depth[2];
-  int bias[2][61];
-  int window[2][61];
+    int cut_tries;
+    int cut_depth[2];
+    int bias[2][61];
+    int window[2][61];
 } DepthInfo;
 
 

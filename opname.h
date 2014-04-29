@@ -13,11 +13,11 @@
 
 
 typedef struct {
-  const char *name;
-  const char *sequence;
-  int hash_val1;
-  int hash_val2;
-  int level;
+    const char *name;
+    const char *sequence;
+    int hash_val1;
+    int hash_val2;
+    int level;
 } OpeningDescriptor;
 
 

@@ -27,8 +27,8 @@
 
 
 typedef struct  {
-  int pred;
-  int succ;
+    int pred;
+    int succ;
 } MoveLink;
 
 
@@ -39,11 +39,11 @@ extern const unsigned int quadrant_mask[100];
 
 int
 end_game( int side_to_move,
-	  int wld,
-	  int force_echo,
-	  int allow_book,
-	  int komi,
-	  EvaluationType *eval_info );
+          int wld,
+          int force_echo,
+          int allow_book,
+          int komi,
+          EvaluationType *eval_info );
 
 void
 set_output_mode( int full );

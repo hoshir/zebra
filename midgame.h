@@ -64,11 +64,11 @@ toggle_perturbation_usage( int toggle );
 
 int
 tree_search( int level, int max_depth, int side_to_move, int alpha,
-	     int beta, int allow_hash, int allow_mpc, int void_legal );
+             int beta, int allow_hash, int allow_mpc, int void_legal );
 
 int
 middle_game( int side_to_move, int max_depth,
-	     int update_evals, EvaluationType *eval_info );
+             int update_evals, EvaluationType *eval_info );
 
 
 

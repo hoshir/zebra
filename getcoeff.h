@@ -4,7 +4,7 @@
    Created:      November 20, 1997
 
    Modified:     August 1, 2002
-   
+
    Author:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:

@@ -53,7 +53,7 @@ set_move_list( int *black, int *white, int row );
 
 void
 display_board( FILE *stream, int *board, int side_to_move,
-	       int give_game_score, int give_time, int give_evals );
+               int give_game_score, int give_time, int give_evals );
 
 void
 display_move( FILE *stream, int move );

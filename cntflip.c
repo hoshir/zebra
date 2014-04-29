@@ -19,44 +19,44 @@
 
 INLINE static int
 AnyDrctnlFlips( int *sq, int inc, int color, int oppcol ) {
-  int *pt = sq + inc;
+    int *pt = sq + inc;
 
-  if ( *pt == oppcol ) {
-    pt += inc;
     if ( *pt == oppcol ) {
-      pt += inc;
-      if ( *pt == oppcol ) {
-	pt += inc;
-	if ( *pt == oppcol ) {
-	  pt += inc;
-	  if ( *pt == oppcol ) {
-	    pt += inc;
-	    if ( *pt == oppcol )
-	      pt += inc;
-	  }
-	}
-      }
+        pt += inc;
+        if ( *pt == oppcol ) {
+            pt += inc;
+            if ( *pt == oppcol ) {
+                pt += inc;
+                if ( *pt == oppcol ) {
+                    pt += inc;
+                    if ( *pt == oppcol ) {
+                        pt += inc;
+                        if ( *pt == oppcol )
+                            pt += inc;
+                    }
+                }
+            }
+        }
+        if ( *pt == color )
+            return TRUE;
     }
-    if ( *pt == color )
-      return TRUE;
-  }
 
-  return FALSE;
+    return FALSE;
 }
 
 
 int
 AnyFlips_compact( int *board, int sqnum, int color, int oppcol ) {
-  int *sq;
-  int *inc;
+    int *sq;
+    int *inc;
 
-  sq = &board[sqnum];
-  inc = first_flip_direction[sqnum];
-  do {
-    if ( AnyDrctnlFlips( sq, *inc, color, oppcol ) )
-      return TRUE;
-    inc++;
-  } while ( *inc );
+    sq = &board[sqnum];
+    inc = first_flip_direction[sqnum];
+    do {
+        if ( AnyDrctnlFlips( sq, *inc, color, oppcol ) )
+            return TRUE;
+        inc++;
+    } while ( *inc );
 
-  return FALSE;
+    return FALSE;
 }

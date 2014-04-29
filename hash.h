@@ -6,7 +6,7 @@
    Modified:      October 25, 2005
 
    Author:        Gunnar Andersson (gunnar@radagast.se)
-		  Toshihiko Okuhara
+          Toshihiko Okuhara
 
    Contents:      Routines manipulating the hash table
 */
@@ -47,12 +47,12 @@ extern "C" {
    DRAFT is the depth of the subtree beneath the node and FLAGS
    contains a flag mask (see the flag bits above). */
 typedef struct {
-   unsigned int key1, key2;
-   int eval;
-   int move[4];
-   short draft;
-   short selectivity;
-   short flags;
+    unsigned int key1, key2;
+    int eval;
+    int move[4];
+    short draft;
+    short selectivity;
+    short flags;
 } HashEntry;
 
 
@@ -112,27 +112,27 @@ free_hash( void );
 
 void
 determine_hash_values( int side_to_move,
-		       const int *board );
+                       const int *board );
 
 void
 set_hash_transformation( unsigned int trans1,
-			 unsigned int trans2 );
+                         unsigned int trans2 );
 
 void
 add_hash( int reverse_mode,
-	  int score,
-	  int best,
-	  int flags,
-	  int draft,
-	  int selectivity );
+          int score,
+          int best,
+          int flags,
+          int draft,
+          int selectivity );
 
 void
 add_hash_extended( int reverse_mode,
-		   int score,
-		   int *best,
-		   int flags,
-		   int draft,
-		   int selectivity );
+                   int score,
+                   int *best,
+                   int flags,
+                   int draft,
+                   int selectivity );
 
 void REGPARM(2)
 find_hash( HashEntry *entry, int reverse_mode );

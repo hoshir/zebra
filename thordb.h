@@ -2,7 +2,7 @@
    File:          thordb.h
 
    Created:       April 1, 1999
-   
+
    Modified:      August 24, 2002
 
    Author:        Gunnar Andersson (gunnar@radagast.se)
@@ -59,21 +59,22 @@ extern "C" {
 
 
 typedef struct {
-  const char *black_name;
-  const char *white_name;
-  const char *tournament;
-  int year;
-  int black_actual_score;
-  int black_corrected_score;
+    const char *black_name;
+    const char *white_name;
+    const char *tournament;
+    int year;
+    int black_actual_score;
+    int black_corrected_score;
 } GameInfoType;
 
 typedef struct {
-  int year;
-  int count;
+    int year;
+    int count;
 } DatabaseInfoType;
 
 typedef enum { EitherSelectedFilter, BothSelectedFilter,
-	       BlackSelectedFilter, WhiteSelectedFilter } PlayerFilterType;
+               BlackSelectedFilter, WhiteSelectedFilter
+             } PlayerFilterType;
 
 
 
@@ -181,7 +182,7 @@ get_thor_game_move_count( int index );
 
 int
 get_thor_game_move( int index,
-		    int move_number );
+                    int move_number );
 
 
 

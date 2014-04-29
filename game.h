@@ -2,7 +2,7 @@
    File:          game.h
 
    Created:       September 20, 1997
-   
+
    Modified:      December 31, 2002
 
    Author:        Gunnar Andersson (gunnar@radagast.se)
@@ -28,11 +28,11 @@ extern "C" {
 
 
 typedef struct {
-  EvaluationType eval;
-  int side_to_move;
-  int move;
-  int pv_depth;
-  int pv[60];
+    EvaluationType eval;
+    int side_to_move;
+    int move;
+    int pv_depth;
+    int pv[60];
 } EvaluatedMove;
 
 
@@ -42,14 +42,14 @@ toggle_status_log( int write_log );
 
 void
 global_setup( int use_random,
-	      int hash_bits );
+              int hash_bits );
 
 void
 global_terminate( void );
 
 void
 game_init( const char *file_name,
-	   int *side_to_move );
+           int *side_to_move );
 
 void
 set_komi( int in_komi );
@@ -65,24 +65,24 @@ set_forced_opening( const char *opening_str );
 
 void
 ponder_move( int side_to_move,
-	     int book,
-	     int mid,
-	     int exact,
-	     int wld );
+             int book,
+             int mid,
+             int exact,
+             int wld );
 
 int
 extended_compute_move( int side_to_move,
-		       int book_only,
-		       int book,
-		       int mid,
-		       int exact,
-		       int wld );
+                       int book_only,
+                       int book,
+                       int mid,
+                       int exact,
+                       int wld );
 
 void
 perform_extended_solve( int side_to_move,
-			int actual_move,
-			int book,
-			int exact_solve );
+                        int actual_move,
+                        int book,
+                        int exact_solve );
 
 int
 get_evaluated_count( void );
@@ -92,20 +92,20 @@ get_evaluated( int index );
 
 int
 compute_move( int side_to_move,
-	      int update_all,
-	      int my_time,
-	      int my_incr,
-	      int timed_depth,
-	      int book,
-	      int mid,
-	      int exact,
-	      int wld,
-	      int search_forced,
-	      EvaluationType *eval_info );
+              int update_all,
+              int my_time,
+              int my_incr,
+              int timed_depth,
+              int book,
+              int mid,
+              int exact,
+              int wld,
+              int search_forced,
+              EvaluationType *eval_info );
 
 void
 get_search_statistics( int *max_depth,
-		       double *node_count );
+                       double *node_count );
 
 int
 get_pv( int *destin );

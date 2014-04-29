@@ -2,7 +2,7 @@
    File:           unflip.c
 
    Created:        February 26, 1999
-   
+
    Modified:       July 12, 1999
 
    Author:         Gunnar Andersson (gunnar@radagast.se)
@@ -34,7 +34,7 @@ int **flip_stack = &(global_flip_stack[0]);
 
 INLINE void
 UndoFlips( int flip_count, int oppcol ) {
-  UndoFlips_inlined( flip_count, oppcol );
+    UndoFlips_inlined( flip_count, oppcol );
 }
 
 
@@ -45,5 +45,5 @@ UndoFlips( int flip_count, int oppcol ) {
 
 void
 init_flip_stack( void ) {
-  flip_stack = &global_flip_stack[0];
+    flip_stack = &global_flip_stack[0];
 }

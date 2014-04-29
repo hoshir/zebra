@@ -2,7 +2,7 @@
    File:          learn.h
 
    Created:       November 29, 1997
-   
+
    Modified:      November 18, 2001
 
    Author:        Gunnar Andersson (gunnar@radagast.se)
@@ -43,7 +43,7 @@ learn_game( int move_count, int private_game, int save_database );
 
 void
 full_learn_public_game( int length, int *moves, int cutoff,
-			int deviation_depth, int exact, int wld );
+                        int deviation_depth, int exact, int wld );
 
 
 

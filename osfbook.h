@@ -4,7 +4,7 @@
    Created:         December 31, 1997
 
    Modified:        December 30, 2002
-   
+
    Author:          Gunnar Andersson (gunnar@radagast.se)
 
    Contents:        The interface to the book module.
@@ -78,10 +78,10 @@ typedef enum { NEUTRAL, BLACK_WINS, WHITE_WINS, OPPONENT_WINS } DrawMode;
 typedef enum { PRIVATE_GAME, PUBLIC_GAME } GameMode;
 
 typedef struct {
-  int move;
-  int score;
-  int flags;
-  int parent_flags;
+    int move;
+    int score;
+    int flags;
+    int parent_flags;
 } CandidateMove;
 
 
@@ -102,12 +102,12 @@ get_hash( int *val0, int *val1, int *orientation );
 
 void
 add_new_game( int move_count, short *game_move_list, int min_empties,
-	      int earliest_full_solve, int earliest_wld_solve,
-	      int update_path, int private_game );
+              int earliest_full_solve, int earliest_wld_solve,
+              int update_path, int private_game );
 
 void
 build_tree( const char *file_name, int max_game_count,
-	    int max_diff, int min_empties );
+            int max_diff, int min_empties );
 
 void
 read_text_database( const char *file_name );
@@ -145,11 +145,11 @@ restricted_minimax_tree( int low, int high, const char *pos_file_name );
 
 void
 generate_midgame_statistics( int max_depth, double probability,
-			     int max_diff, const char *statistics_file_name );
+                             int max_diff, const char *statistics_file_name );
 
 void
 generate_endgame_statistics( int max_depth, double probability,
-			     int max_diff, const char *statistics_file_name );
+                             int max_diff, const char *statistics_file_name );
 
 void
 clear_tree( int low, int high, int flags );
@@ -168,7 +168,7 @@ set_white_force( int force );
 
 void
 merge_position_list( const char *script_file,
-		     const char *output_file );
+                     const char *output_file );
 
 void
 export_tree( const char *file_name );

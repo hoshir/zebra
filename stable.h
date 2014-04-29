@@ -4,7 +4,7 @@
    Created:       March 20, 1999
 
    Modified:      August 1, 2002
-   
+
    Authors:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Interface to the code which conservatively estimates
@@ -61,8 +61,8 @@ count_stable( int color, BitBoard col_bits, BitBoard opp_bits );
 
 void
 get_stable( int *board,
-	    int side_to_move,
-	    int *is_stable );
+            int side_to_move,
+            int *is_stable );
 
 void
 init_stable( void );
