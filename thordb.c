@@ -2985,8 +2985,4 @@ init_thor_database( void ) {
     filter.first_year = -(1 << 25);  /* "infinity" */
     filter.last_year = +(1 << 25);
 
-#if 0
-    printf( "    %d\n", root_node->frequency );
-    print_thor_opening_tree( root_node, 0 );
-#endif
 }

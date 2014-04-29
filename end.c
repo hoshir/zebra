@@ -87,24 +87,6 @@
 
 
 
-#if 0
-
-// Profiling code
-
-static long long int
-rdtsc( void ) {
-#if defined(__GNUC__)
-    long long a;
-    asm volatile("rdtsc":"=A" (a));
-    return a;
-#else
-    return 0;
-#endif
-}
-
-#endif
-
-
 
 typedef enum {
     NOTHING,
@@ -172,8 +154,6 @@ static int komi_shift;
 
 
 
-#if 1
-
 /*
   TESTFLIPS_WRAPPER
   Checks if SQ is a valid move by
@@ -195,14 +175,6 @@ TestFlips_wrapper( int sq,
 
     return flipped;
 }
-
-#else
-#define TestFlips_wrapper( sq, my_bits, opp_bits ) \
-    TestFlips_bitboard[sq - 11]( my_bits.high, my_bits.low, opp_bits.high, opp_bits.low )
-
-
-#endif
-
 
 
 /*
@@ -243,32 +215,6 @@ prepare_to_solve( const int *board ) {
     }
     end_move_list[last_sq].succ = END_MOVE_LIST_TAIL;
 }
-
-
-
-#if 0
-
-/*
-  CHECK_LIST
-  Performs a minimal sanity check of the move list: That it contains
-  the same number of moves as there are empty squares on the board.
-*/
-
-static void
-check_list( int empties ) {
-    int links = 0;
-    int sq = end_move_list[END_MOVE_LIST_HEAD].succ;
-
-    while ( sq != END_MOVE_LIST_TAIL ) {
-        links++;
-        sq = end_move_list[sq].succ;
-    }
-
-    if ( links != empties )
-        printf( "%d links, %d empties\n", links, empties );
-}
-
-#endif
 
 
 
@@ -321,50 +267,24 @@ solve_two_empty( BitBoard my_bits,
 
         ev = disc_diff + 2 * flipped;
 
-#if 0
-        FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
-        if ( ev - 2 <= alpha ) { /* Fail-low if he can play SQ2 */
-            if ( ValidOneEmpty_bitboard[sq2]( new_opp_bits ) != 0 )
-                ev = alpha;
-            else {  /* He passes, check if SQ2 is feasible for me */
-                if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
-                    ev += 2;
-                    if ( ev < beta )  /* Only bother if not certain fail-high */
-                        ev += 2 * CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
-                }
-                else {
-                    if ( ev < beta ) {  /* Only bother if not fail-high already */
-                        flipped = CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
-                        if ( flipped != 0 )  /* SQ2 feasible for me, game over */
-                            ev += 2 * (flipped + 1);
-                        /* ELSE: SQ2 will end up empty, game over */
-                    }
+        flipped = CountFlips_bitboard[sq2 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
+        if ( flipped != 0 )
+            ev -= 2 * flipped;
+        else {  /* He passes, check if SQ2 is feasible for me */
+            if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
+                ev += 2;
+                if ( ev < beta )  /* Only bother if not certain fail-high */
+                    ev += 2 * CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+            }
+            else {
+                if ( ev < beta ) {  /* Only bother if not fail-high already */
+                    flipped = CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+                    if ( flipped != 0 )  /* SQ2 feasible for me, game over */
+                        ev += 2 * (flipped + 1);
+                    /* ELSE: SQ2 will end up empty, game over */
                 }
             }
         }
-        else {
-#endif
-            flipped = CountFlips_bitboard[sq2 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
-            if ( flipped != 0 )
-                ev -= 2 * flipped;
-            else {  /* He passes, check if SQ2 is feasible for me */
-                if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
-                    ev += 2;
-                    if ( ev < beta )  /* Only bother if not certain fail-high */
-                        ev += 2 * CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
-                }
-                else {
-                    if ( ev < beta ) {  /* Only bother if not fail-high already */
-                        flipped = CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
-                        if ( flipped != 0 )  /* SQ2 feasible for me, game over */
-                            ev += 2 * (flipped + 1);
-                        /* ELSE: SQ2 will end up empty, game over */
-                    }
-                }
-            }
-#if 0
-        }
-#endif
 
         /* Being legal, the first move is the best so far */
         score = ev;
@@ -382,50 +302,24 @@ solve_two_empty( BitBoard my_bits,
         INCREMENT_COUNTER( nodes );
 
         ev = disc_diff + 2 * flipped;
-#if 0
-        FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
-        if ( ev - 2 <= alpha ) {  /* Fail-low if he can play SQ1 */
-            if ( ValidOneEmpty_bitboard[sq1]( new_opp_bits ) != 0 )
-                ev = alpha;
-            else {  /* He passes, check if SQ1 is feasible for me */
-                if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
-                    ev += 2;
-                    if ( ev < beta )  /* Only bother if not certain fail-high */
-                        ev += 2 * CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
-                }
-                else {
-                    if ( ev < beta ) {  /* Only bother if not fail-high already */
-                        flipped = CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
-                        if ( flipped != 0 )  /* SQ1 feasible for me, game over */
-                            ev += 2 * (flipped + 1);
-                        /* ELSE: SQ1 will end up empty, game over */
-                    }
+        flipped = CountFlips_bitboard[sq1 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
+        if ( flipped != 0 )  /* SQ1 feasible for him, game over */
+            ev -= 2 * flipped;
+        else {  /* He passes, check if SQ1 is feasible for me */
+            if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
+                ev += 2;
+                if ( ev < beta )  /* Only bother if not certain fail-high */
+                    ev += 2 * CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+            }
+            else {
+                if ( ev < beta ) {  /* Only bother if not fail-high already */
+                    flipped = CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+                    if ( flipped != 0 )  /* SQ1 feasible for me, game over */
+                        ev += 2 * (flipped + 1);
+                    /* ELSE: SQ1 will end up empty, game over */
                 }
             }
         }
-        else {
-#endif
-            flipped = CountFlips_bitboard[sq1 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
-            if ( flipped != 0 )  /* SQ1 feasible for him, game over */
-                ev -= 2 * flipped;
-            else {  /* He passes, check if SQ1 is feasible for me */
-                if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
-                    ev += 2;
-                    if ( ev < beta )  /* Only bother if not certain fail-high */
-                        ev += 2 * CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
-                }
-                else {
-                    if ( ev < beta ) {  /* Only bother if not fail-high already */
-                        flipped = CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
-                        if ( flipped != 0 )  /* SQ1 feasible for me, game over */
-                            ev += 2 * (flipped + 1);
-                        /* ELSE: SQ1 will end up empty, game over */
-                    }
-                }
-            }
-#if 0
-        }
-#endif
 
         /* If the second move is better than the first (if that move was legal),
            its score is the score of the position */

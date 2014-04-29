@@ -712,7 +712,6 @@ START:
 
     if ( use_thor ) {
 
-#if 1
         /* No error checking done as it's only for testing purposes */
 
         database_start = get_real_timer();
@@ -747,50 +746,6 @@ START:
         printf( "Loaded %d games in %.3f s.\n", get_total_game_count(),
                 database_stop - database_start );
         printf( "Each Thor game occupies %d bytes.\n", get_thor_game_size() );
-#else
-        {
-            /* This code only used for the generation of screen saver analyses */
-
-            GameInfoType thor_game;
-            char db_name[100], output_name[100];
-            int j;
-            int year = 1999;
-            int move_count;
-            int moves[100];
-            FILE *stream;
-
-            database_start = get_real_timer();
-            (void) read_player_database( "thor\\wthor.jou");
-            (void) read_tournament_database( "thor\\wthor.trn" );
-            sprintf( db_name, "thor\\wth_%d.wtb", year );
-            (void) read_game_database( db_name );
-            database_stop = get_real_timer();
-            printf( "Loaded %d games in %.3f s.\n", get_total_game_count(),
-                    database_stop - database_start );
-
-            database_search( board, side_to_move );
-            thor_position_count = get_match_count();
-            printf( "%d games match the initial position\n", thor_position_count );
-
-            sprintf( output_name, "wc%d.dbs", year );
-            stream = fopen( output_name, "w" );
-            if ( stream != NULL ) {
-                for ( i = 0; i < thor_position_count; i++ ) {
-                    thor_game = get_thor_game( i );
-                    if ( strcmp( thor_game.tournament, "Championnat du Monde" ) == 0 ) {
-                        fprintf( stream, "%d\n", year );
-                        fprintf( stream, "%s\n", thor_game.black_name );
-                        fprintf( stream, "%s\n", thor_game.white_name );
-                        get_thor_game_moves( i, &move_count, moves );
-                        for ( j = 0; j < move_count; j++ )
-                            fprintf( stream, "%c%c", TO_SQUARE( moves[j] ) );
-                        fputs( "\n", stream );
-                    }
-                }
-                fclose( stream );
-            }
-        }
-#endif
     }
 
     if ( skill[BLACKSQ] == 0 )

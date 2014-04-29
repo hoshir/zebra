@@ -77,19 +77,6 @@ static int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
 
 MoveLink stab_move_list[100];
 
-#if 0
-INLINE static void
-apply_64( BitBoard *target,
-          BitBoard base,
-          unsigned int hi_mask,
-          unsigned int lo_mask ) {
-    unsigned int cond_mask = (unsigned int) - (((~base.high & hi_mask) | (~base.low & lo_mask)) == 0);
-    /* All 1 if all of hi/lo mask bits are set */
-    target->high |= hi_mask & cond_mask;
-    target->low |= lo_mask & cond_mask;
-}
-#endif
-
 INLINE static void
 and_line_shift_64( BitBoard *target,
                    BitBoard base,

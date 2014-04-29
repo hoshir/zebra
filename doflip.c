@@ -320,15 +320,6 @@ DoFlips_hash( int sqnum, int color ) {
         break;
     }
 
-#if 0
-    pfs = old_flip_stack;
-    while (pfs != t_flip_stack) {
-        t_hash_update1 ^= hash_flip1[*pfs - board];
-        t_hash_update2 ^= hash_flip2[*pfs - board];
-        ++pfs;
-    }
-#endif
-
     hash_update1 = t_hash_update1;
     hash_update2 = t_hash_update2;
     flip_stack = t_flip_stack;

@@ -585,17 +585,6 @@ tree_search( int level,
                            if a one or a two-sided test is to be performed next. */
                         int mid = (alpha_bound + beta_bound) / 2;
 
-#if 0
-                        if ( abs( shallow_val - alpha_bound ) < abs( shallow_val - mid ) )
-                            beta_test = FALSE;
-                        if ( abs( shallow_val - beta_bound ) < abs( shallow_val - mid ) )
-                            alpha_test = FALSE;
-#elif 1
-                        if ( shallow_val < mid )
-                            beta_test = FALSE;
-                        else
-                            alpha_test = FALSE;
-#else
                         int low_threshold = (2 * mid + alpha_bound) / 3;
                         int high_threshold = (2 * mid + beta_bound) / 3;
 
@@ -605,7 +594,6 @@ tree_search( int level,
                             alpha_test = FALSE;
                         else
                             break;  /* Unlikely that there is any selective cutoff. */
-#endif
                     }
                 }
                 else if ( beta_test ) {

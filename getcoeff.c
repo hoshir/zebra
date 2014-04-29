@@ -333,17 +333,6 @@ get_word( gzFile stream ) {
         unsigned short unsigned_val;
     } val;
 
-#if 0
-    int received;
-    unsigned char hi, lo;
-
-    received = fread( &hi, sizeof( unsigned char ), 1, stream );
-    if ( received != 1 )
-        puts( READ_ERROR_HI );
-    received = fread( &lo, sizeof( unsigned char ), 1, stream );
-    if ( received != 1 )
-        puts( READ_ERROR_LO );
-#else
     int hi, lo;
 
     hi = gzgetc( stream );
@@ -351,7 +340,6 @@ get_word( gzFile stream ) {
 
     lo = gzgetc( stream );
     assert( lo != -1 );
-#endif
 
     val.unsigned_val = (hi << 8) + lo;
 

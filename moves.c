@@ -287,7 +287,6 @@ make_move_no_hash( int side_to_move, int move ) {
 
     board[move] = side_to_move;
 
-#if 1
     if ( side_to_move == BLACKSQ ) {
         piece_count[BLACKSQ][disks_played + 1] =
             piece_count[BLACKSQ][disks_played] + flipped + 1;
@@ -300,12 +299,6 @@ make_move_no_hash( int side_to_move, int move ) {
         piece_count[BLACKSQ][disks_played + 1] =
             piece_count[BLACKSQ][disks_played] - flipped;
     }
-#else
-    piece_count[side_to_move][disks_played + 1] =
-        piece_count[side_to_move][disks_played] + flipped + 1;
-    piece_count[OPP( side_to_move )][disks_played + 1] =
-        piece_count[OPP( side_to_move )][disks_played] - flipped;
-#endif
     disks_played++;
 
     return flipped;
