@@ -87,16 +87,13 @@ HEADERS = \
 
 
 PRACTICE_SRCS	= practice.c
-ENDDEV_SRCS	= enddev.c
-ALL_SRCS	= $(SRCS) $(PRACTICE_SRCS) $(ENDDEV_SRCS) zebra.c scrzebra.c autop.c thorop.c
+ALL_SRCS	= $(SRCS) $(PRACTICE_SRCS) zebra.c scrzebra.c autop.c thorop.c
 
 OBJS            = $(SRCS:.c=.o)
 PRACTICE_OBJS	= $(PRACTICE_SRCS:.c=.o)
-ENDDEV_OBJS	= $(ENDDEV_SRCS:.c=.o)
 
 AUTOPLAY_EXE	= autoplay
 PRACTICE_EXE	= practice
-ENDDEV_EXE	= enddev
 ZEBRA_EXE	= zebra
 SCRZEBRA_EXE	= scrzebra
 
@@ -130,7 +127,7 @@ CXXFLAGS =	$(CFLAGS)
 
 # --- Targets ---
 
-all		: libzebra.a zebra scrzebra practice enddev
+all		: libzebra.a zebra scrzebra practice
 
 zebra		: $(OBJS) zebra.o autop.o
 	$(CC) -o $(ZEBRA_EXE) $(CFLAGS) $(OBJS) zebra.o autop.o $(LDFLAGS)
@@ -146,15 +143,11 @@ clean		:
 	$(RM) $(OBJS) zebra.o scrzebra.o $(ZEBRA_EXE) a.out core \
 	*.stackdump gmon.out $(PRACTICE_OBJS) $(PRACTICE_EXE) \
 	libzebra.a *.da autop.o \
-	$(ENDDEV_OBJS) \
-	$(AUTOPLAY_EXE) $(ENDDEV_EXE) $(SCRZEBRA_EXE)
+	$(AUTOPLAY_EXE) $(SCRZEBRA_EXE)
 
 
 practice	: $(PRACTICE_OBJS) $(OBJS) autop.o
 	$(CC) -o $(PRACTICE_EXE) $(CFLAGS) $(PRACTICE_OBJS) $(OBJS) autop.o $(LDFLAGS)
-
-enddev	: $(ENDDEV_OBJS) $(OBJS) autop.o
-	$(CC) -o $(ENDDEV_EXE) $(CFLAGS) $(ENDDEV_OBJS) $(OBJS) autop.o $(LDFLAGS)
 
 zsrc:
 	tar cf zebra.tar $(ALL_SRCS) $(HEADERS) Makefile \
@@ -244,8 +237,6 @@ timer.o: porting.h constant.h macros.h timer.h
 unflip.o: macros.h unflip.h
 practice.o: constant.h display.h search.h counter.h macros.h globals.h game.h
 practice.o: moves.h osfbook.h patterns.h
-enddev.o: constant.h display.h search.h counter.h macros.h globals.h game.h
-enddev.o: hash.h learn.h moves.h myrandom.h osfbook.h patterns.h timer.h
 zebra.o: constant.h counter.h macros.h display.h search.h globals.h doflip.h
 zebra.o: end.h error.h eval.h game.h getcoeff.h hash.h learn.h midgame.h
 zebra.o: moves.h myrandom.h osfbook.h patterns.h thordb.h timer.h
