@@ -86,24 +86,19 @@ HEADERS = \
 	unflip.h
 
 
-BOOKTOOL_SRCS	= $(SRCS) booktool.c
-
 PRACTICE_SRCS	= practice.c
 ENDDEV_SRCS	= enddev.c
-ALL_SRCS	= $(SRCS) $(PRACTICE_SRCS) $(ENDDEV_SRCS) zebra.c scrzebra.c booktool.c autop.c thorop.c tune8dbs.c
+ALL_SRCS	= $(SRCS) $(PRACTICE_SRCS) $(ENDDEV_SRCS) zebra.c scrzebra.c autop.c thorop.c
 
 OBJS            = $(SRCS:.c=.o)
-BOOKTOOL_OBJS	= $(BOOKTOOL_SRCS:.c=.o)
 PRACTICE_OBJS	= $(PRACTICE_SRCS:.c=.o)
 ENDDEV_OBJS	= $(ENDDEV_SRCS:.c=.o)
 
 AUTOPLAY_EXE	= autoplay
-BOOKTOOL_EXE	= booktool
 PRACTICE_EXE	= practice
 ENDDEV_EXE	= enddev
 ZEBRA_EXE	= zebra
 SCRZEBRA_EXE	= scrzebra
-TUNE8DBS_EXE	=	tune8dbs
 
 
 
@@ -116,13 +111,13 @@ LDFLAGS		= -static -lm -lz
 
 # --- Programs ---
 
-CC              = gcc
-CXX		= g++
+CC	= gcc
+CXX	= g++
 
 
 # --- Flags ---
 
-DEFS =		-DINCLUDE_BOOKTOOL -DTEXT_BASED -DZLIB_STATIC
+DEFS =		-DTEXT_BASED -DZLIB_STATIC
 
 WARNINGS =	-Wall -Wcast-align -Wwrite-strings -Wstrict-prototypes -Winline
 OPTS =		-O4 -s -fomit-frame-pointer -falign-functions=32
@@ -135,7 +130,7 @@ CXXFLAGS =	$(CFLAGS)
 
 # --- Targets ---
 
-all		: libzebra.a zebra scrzebra booktool practice enddev tune8dbs
+all		: libzebra.a zebra scrzebra practice enddev
 
 zebra		: $(OBJS) zebra.o autop.o
 	$(CC) -o $(ZEBRA_EXE) $(CFLAGS) $(OBJS) zebra.o autop.o $(LDFLAGS)
@@ -148,15 +143,12 @@ libzebra.a:	$(OBJS)
 	ranlib libzebra.a
 
 clean		:
-	$(RM) $(OBJS) booktool.o zebra.o scrzebra.o $(ZEBRA_EXE) a.out core \
+	$(RM) $(OBJS) zebra.o scrzebra.o $(ZEBRA_EXE) a.out core \
 	*.stackdump gmon.out $(PRACTICE_OBJS) $(PRACTICE_EXE) \
 	libzebra.a *.da autop.o \
-	$(BOOKTOOL_OBJS) $(ENDDEV_OBJS) \
-	$(AUTOPLAY_EXE) $(BOOKTOOL_EXE) $(ENDDEV_EXE) $(SCRZEBRA_EXE) $(TUNE8DBS_EXE) \
+	$(ENDDEV_OBJS) \
+	$(AUTOPLAY_EXE) $(ENDDEV_EXE) $(SCRZEBRA_EXE)
 
-
-booktool	: $(OBJS) $(BOOKTOOL_OBJS) autop.o
-	$(CC) -o $(BOOKTOOL_EXE) $(CFLAGS) $(BOOKTOOL_OBJS) autop.o $(LDFLAGS)
 
 practice	: $(PRACTICE_OBJS) $(OBJS) autop.o
 	$(CC) -o $(PRACTICE_EXE) $(CFLAGS) $(PRACTICE_OBJS) $(OBJS) autop.o $(LDFLAGS)
@@ -171,15 +163,6 @@ zsrc:
 
 bookinst:
 	$(CC) -o bookinst $(CFLAGS) bookinst.c myrandom.o
-
-tune8dbs:
-	$(CC) -o $(TUNE8DBS_EXE) $(CFLAGS) tune8dbs.c $(LDFLAGS)
-
-genbb:	genbb.o
-	$(CC) -o genbb genbb.o	
-
-genmmx:	genmmx.o
-	$(CXX) -o genmmx genmmx.o	
 
 depend:
 	makedepend -Y $(ALL_SRCS)
@@ -270,5 +253,4 @@ scrzebra.o: zebra.c constant.h counter.h macros.h display.h search.h
 scrzebra.o: globals.h doflip.h end.h error.h eval.h game.h getcoeff.h hash.h
 scrzebra.o: learn.h midgame.h moves.h myrandom.h osfbook.h patterns.h
 scrzebra.o: thordb.h timer.h
-booktool.o: constant.h hash.h macros.h osfbook.h search.h counter.h globals.h
 autop.o: autoplay.h
