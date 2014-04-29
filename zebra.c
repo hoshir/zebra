@@ -51,18 +51,7 @@
 #define MAX_TOURNAMENT_SIZE       8
 #define INFINIT_TIME              10000000.0
 #define DEFAULT_DISPLAY_LINE      FALSE
-
-#ifdef SCRZEBRA
-#define SCRIPT_ONLY               TRUE
-#else
-#define SCRIPT_ONLY               FALSE
-#endif
-
-#if SCRIPT_ONLY
-#define DEFAULT_USE_BOOK          FALSE
-#else
 #define DEFAULT_USE_BOOK          TRUE
-#endif
 
 /* Get rid of some ugly warnings by disallowing usage of the
    macro version of tolower (not time-critical anyway). */
@@ -74,7 +63,6 @@
 
 /* Local variables */
 
-#if !SCRIPT_ONLY
 static double slack = DEFAULT_SLACK;
 static double dev_bonus = 0.0;
 static int low_thresh = 0;
@@ -89,7 +77,6 @@ static int only_analyze = FALSE;
 static int thor_max_games;
 static int tournament_skill[MAX_TOURNAMENT_SIZE][3];
 static int wld_skill[3], exact_skill[3];
-#endif
 
 static char *log_file_name;
 static double player_time[3], player_increment[3];
@@ -109,7 +96,6 @@ static int use_thor;
 int
 main( int argc, char *argv[] );
 
-#if !SCRIPT_ONLY
 static void
 play_tournament( const char *move_sequence );
 
@@ -121,7 +107,6 @@ play_game( const char *file_name,
 
 static void
 analyze_game( const char *move_string );
-#endif
 
 static void
 run_endgame_script( const char *in_file_name, const char *out_file_name,
@@ -129,13 +114,11 @@ run_endgame_script( const char *in_file_name, const char *out_file_name,
 
 /* File handling procedures */
 
-#if !SCRIPT_ONLY
 static void
 dump_position( int side_to_move );
 
 static void
 dump_game_score( int side_to_move );
-#endif
 
 
 /* ---------------------- Functions ------------------------ */
@@ -151,29 +134,20 @@ main( int argc, char *argv[] ) {
   const char *game_file_name = NULL;
   const char *script_in_file;
   const char *script_out_file;
-#if !SCRIPT_ONLY
   const char *move_sequence = NULL;
   const char *move_file_name = NULL;
-#endif
   int arg_index;
   int help;
   int hash_bits;
   int use_random;
-#if !SCRIPT_ONLY
   int repeat = 1;
-#endif
   int run_script;
   int script_optimal_line = DEFAULT_DISPLAY_LINE;
   int komi;
   time_t timer;
 
-#if SCRIPT_ONLY
-  printf( "\nscrZebra (c) 1997-2005 Gunnar Andersson, compile "
-	  "date %s at %s\n\n", __DATE__, __TIME__ );
-#else
   printf( "\nZebra (c) 1997-2005 Gunnar Andersson, compile "
 	  "date %s at %s\n\n", __DATE__, __TIME__ );
-#endif
 
   use_random = DEFAULT_RANDOM;
   wait = DEFAULT_WAIT;
@@ -206,7 +180,6 @@ main( int argc, char *argv[] ) {
       }
       hash_bits = atoi( argv[arg_index] );
     }
-#if !SCRIPT_ONLY    
     else if ( !strcasecmp( argv[arg_index], "-l" ) ) {
       tournament = FALSE;
       if ( ++arg_index == argc ) {
@@ -289,7 +262,6 @@ main( int argc, char *argv[] ) {
       }
       use_random = atoi( argv[arg_index] );
     }
-#endif
     else if ( !strcasecmp( argv[arg_index], "-b" ) ) {
       if ( ++arg_index == argc ) {
 	help = TRUE;
@@ -297,7 +269,6 @@ main( int argc, char *argv[] ) {
       }
       use_book = atoi( argv[arg_index] );
     }
-#if !SCRIPT_ONLY
     else if ( !strcasecmp( argv[arg_index], "-time" ) ) {
       if ( arg_index + 4 >= argc ) {
 	help = TRUE;
@@ -406,87 +377,13 @@ main( int argc, char *argv[] ) {
 	continue;
       }
     }
-#endif
-#if SCRIPT_ONLY
-    else if ( !strcasecmp( argv[arg_index], "-wld" ) ) {
-      if ( ++arg_index == argc ) {
-	help = TRUE;
-	continue;
-      }
-      wld_only = atoi( argv[arg_index] );
-    }
-    else if ( !strcasecmp( argv[arg_index], "-line" ) ) {
-      if ( ++arg_index == argc ) {
-	help = TRUE;
-	continue;
-      }
-      script_optimal_line = atoi( argv[arg_index] );
-    }
-    else if ( !strcasecmp( argv[arg_index], "-script" ) ) {
-      if ( arg_index + 2 >= argc ) {
-	help = TRUE;
-	continue;
-      }
-      arg_index++;
-      script_in_file = argv[arg_index];
-      arg_index++;
-      script_out_file = argv[arg_index];
-      run_script = TRUE;
-    }
-    else if ( !strcasecmp( argv[arg_index], "-komi" ) ) {
-      if ( ++arg_index == argc ) {
-	help = TRUE;
-	continue;
-      }
-      komi = atoi( argv[arg_index] );
-    }
-#endif
     else
       help = 1;
     if ( arg_index >= argc )
       help = 1;
   }
 
-#if SCRIPT_ONLY
-  if ( !run_script )
-    help = TRUE;
-  if ( komi != 0 ) {
-    if ( !wld_only ) {
-      puts( "Komi can only be applied to WLD solves." );
-      exit( EXIT_FAILURE );
-    }
-    set_komi( komi );
-  }
-#endif
-
   if ( help ) {
-#if SCRIPT_ONLY
-    puts( "Usage:" );
-    puts( "  scrzebra [-e ...] [-h ...] [-wld ...] [-line ...] [-b ...] "
-	  "[-komi ...] -script ..." );
-    puts( "" );
-    puts( "  -e <echo?>" );
-    printf( "    Toggles screen output on/off (default %d).\n\n",
-	    DEFAULT_ECHO );
-    puts( "  -h <bits in hash key>" );
-    printf( "    Size of hash table is 2^{this value} (default %d).\n\n",
-	    DEFAULT_HASH_BITS );
-    puts( "  -script <script file> <output file>" );
-    puts( "    Solves all positions in script file for exact score.\n" );
-    puts( "  -wld <only solve WLD?>" );
-    printf( "    Toggles WLD only solve on/off (default %d).\n\n",
-	    DEFAULT_WLD_ONLY );
-    puts( "  -line <output line?>" );
-    printf( "    Toggles output of optimal line on/off (default %d).\n\n",
-	    DEFAULT_DISPLAY_LINE );
-    puts( "  -b <use book?>" );
-    printf( "    Toggles usage of opening book on/off (default %d).\n",
-	    DEFAULT_USE_BOOK );
-    puts( "" );
-    puts( "  -komi <komi>" );
-    puts( "    Number of discs that white has to win with (only WLD)." );
-    puts( "" );
-#else    
     puts( "Usage:" );
     puts( "  zebra [-b -e -g -h -l -p -t -time -w -learn -slack -dev -log" );
     puts( "         -keepdraw -draw2black -draw2white -draw2none" );
@@ -597,7 +494,6 @@ main( int argc, char *argv[] ) {
     puts( "    Used in conjunction with -seq; all positions are analyzed." );
     puts( "  -repeat <#iterations>" );
     puts( "    Repeats the operation the specified number of times. " );
-#endif
     puts( "" );
     exit( EXIT_FAILURE );
   }
@@ -611,14 +507,13 @@ main( int argc, char *argv[] ) {
 
   if ( use_book )
     init_learn( "book.bin", TRUE );
-  if ( use_random && !SCRIPT_ONLY ) {
+  if ( use_random) {
     time( &timer );
     my_srandom( timer );
   }
   else
     my_srandom( 1 );
 
-#if !SCRIPT_ONLY
   if ( !tournament && !run_script ) {
     while ( skill[BLACKSQ] < 0 ) {
       printf( "Black parameters: " );
@@ -636,12 +531,10 @@ main( int argc, char *argv[] ) {
 
   if ( one_position_only )
     toggle_smart_buffer_management( FALSE );
-#endif
 
   if ( run_script )
     run_endgame_script( script_in_file, script_out_file,
 			script_optimal_line );
-#if !SCRIPT_ONLY
   else {
     if ( tournament )
       play_tournament( move_sequence );
@@ -652,7 +545,6 @@ main( int argc, char *argv[] ) {
 	play_game( game_file_name, move_sequence, move_file_name, repeat );
     }
   }
-#endif
 
   global_terminate();
 
@@ -660,7 +552,6 @@ main( int argc, char *argv[] ) {
 }
 
 
-#if !SCRIPT_ONLY
 /*
    PLAY_TOURNAMENT
    Administrates the tournament between different levels
@@ -733,10 +624,8 @@ play_tournament( const char *move_sequence ) {
   printf( "White score: %.1f\n", color_score[WHITESQ] );
   puts( "" );
 }
-#endif
 
 
-#if !SCRIPT_ONLY
 /*
    PLAY_GAME
    Administrates the game between two players, humans or computers.
@@ -1278,11 +1167,7 @@ analyze_game( const char *move_string ) {
 	 search trees - "played" and "best" - don't clash. This way
 	 all scores are comparable. */
 
-#if 0
-      set_hash_transformation( my_random(), my_random() );
-#else
       set_hash_transformation( played_trans1, played_trans2 );
-#endif
 
       curr_move = provided_move[disks_played];
       opponent = OPP( side_to_move );
@@ -1310,11 +1195,7 @@ analyze_game( const char *move_string ) {
 	 region, a private hash transform is used - see above. */
 
       if ( empties > wld_skill[side_to_move] ) {
-#if 0
-	set_hash_transformation( my_random(), my_random() );
-#else
 	set_hash_transformation( best_trans1, best_trans2 );
-#endif
 	reset_counter( &nodes );
 	curr_move =
 	  compute_move( side_to_move, FALSE, player_time[side_to_move],
@@ -1431,7 +1312,6 @@ analyze_game( const char *move_string ) {
 
   fclose( output_stream );
 }
-#endif
 
 
 /*
@@ -1717,7 +1597,6 @@ run_endgame_script( const char *in_file_name,
 }
 
 
-#if !SCRIPT_ONLY
 /*
    DUMP_POSITION
    Saves the current board position to disk.
@@ -1794,4 +1673,3 @@ dump_game_score( int side_to_move ) {
   }
   fclose( stream );
 }
-#endif
