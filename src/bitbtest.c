@@ -41,6 +41,11 @@ static const unsigned char left_contiguous[64] = {
 };
 
 static const unsigned int right_flip[7] = { 0x00000001u, 0x00000003u, 0x00000007u, 0x0000000Fu, 0x0000001Fu, 0x0000003Fu, 0x0000007Fu };
+/* Only referenced by the disabled alternative implementation of
+   bbFlips_Left_low below, hence marked unused. */
+#ifdef __GNUC__
+__attribute__(( unused ))
+#endif
 static const unsigned int left_flip[7]  = { 0x80000000u, 0xC0000000u, 0xE0000000u, 0xF0000000u, 0xF8000000u, 0xFC000000u, 0xFE000000u };
 static const unsigned int lsb_mask[4]   = { 0x000000FFu, 0x0000FFFFu, 0x00FFFFFFu, 0xFFFFFFFFu };
 static const unsigned int msb_mask[4]   = { 0xFF000000u, 0xFFFF0000u, 0xFFFFFF00u, 0xFFFFFFFFu };

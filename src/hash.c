@@ -138,7 +138,7 @@ popcount( unsigned int b ) {
 static unsigned int
 get_closeness( unsigned int a0, unsigned int a1,
 	   unsigned int b0, unsigned int b1 ) {
-  return abs( popcount( a0 ^ b0 ) + popcount( a1 ^ b1 ) - 32 );
+  return abs( (int) ( popcount( a0 ^ b0 ) + popcount( a1 ^ b1 ) ) - 32 );
 }
 
 

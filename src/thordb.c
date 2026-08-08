@@ -761,9 +761,9 @@ player_lex_order( int index ) {
 static int
 read_prolog( FILE *stream, PrologType *prolog ) {
   int success;
-  int_8 byte_val;
-  int_16 word_val;
-  int_32 longint_val;
+  int_8 byte_val = 0;
+  int_16 word_val = 0;
+  int_32 longint_val = 0;
 
   success = get_int_8( stream, &byte_val );
   prolog->creation_century = byte_val;
@@ -1036,8 +1036,8 @@ static int
 read_game( FILE *stream, GameType *game ) {
   int success;
   int actually_read;
-  int_8 byte_val;
-  int_16 word_val;
+  int_8 byte_val = 0;
+  int_16 word_val = 0;
 
   success = get_int_16( stream, &word_val );
   game->tournament_no = word_val;
@@ -1139,7 +1139,7 @@ game_database_already_loaded( const char *file_name ) {
 	 && (current_db->prolog.creation_day == new_prolog.creation_day)
 	 && (current_db->prolog.game_count == new_prolog.game_count)
 	 && (current_db->prolog.item_count == new_prolog.item_count)
-	 &&(current_db->prolog.origin_year == current_db->prolog.origin_year) )
+	 && (current_db->prolog.origin_year == new_prolog.origin_year) )
       return TRUE;
     current_db = current_db->next;
   }
@@ -1810,7 +1810,7 @@ choose_thor_opening_move( int *in_board, int side_to_move, int echo ) {
   for ( i = 0; i < 8; i++ )
     symmetries[i] = i;
   for ( i = 0; i < 7; i++ ) {
-    j  = i + abs( my_random() ) % (8 - i);
+    j  = i + labs( my_random() ) % (8 - i);
     temp_symm = symmetries[i];
     symmetries[i] = symmetries[j];
     symmetries[j] = temp_symm;
@@ -1837,7 +1837,7 @@ choose_thor_opening_move( int *in_board, int side_to_move, int echo ) {
        randomly select one of them. Probability for each move is
        proportional to the frequency of that move being played here. */
 
-    random_value = abs( my_random() ) % freq_sum;
+    random_value = labs( my_random() ) % freq_sum;
     random_move = PASS;
     acc_freq_sum = 0;
     match_count = 0;
@@ -2492,12 +2492,12 @@ init_thor_hash( void ) {
 
   for ( i = 0; i < 8; i++ ) {
     for ( j = 0; j < 6561; j++ )
-      buffer[j] = abs( my_random() );
+      buffer[j] = labs( my_random() );
     for ( j = 0; j < 6561; j++ )
       primary_hash[i][j] = (buffer[j] & 0xFFFF0000) |
 	(bit_reverse_32( buffer[flip_row[j]] ) & 0x0000FFFF);
     for ( j = 0; j < 6561; j++ )
-      buffer[j] = abs( my_random() );
+      buffer[j] = labs( my_random() );
     for ( j = 0; j < 6561; j++ )
       secondary_hash[i][j] = (buffer[j] & 0xFFFF0000) |
 	(bit_reverse_32( buffer[flip_row[j]] ) & 0x0000FFFF);
@@ -2775,8 +2775,12 @@ build_thor_opening_tree( void ) {
 
 /*
   PRINT_THOR_OPENING_TREE
+  Debugging aid; not called from any production code path.
 */
 
+#ifdef __GNUC__
+__attribute__(( unused ))
+#endif
 static void
 print_thor_opening_tree( ThorOpeningNode *node, int depth ) {
   char move;

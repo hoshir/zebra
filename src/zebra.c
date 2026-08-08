@@ -146,7 +146,9 @@ Interprets the command-line parameters and starts the game.
 
 int
 main( int argc, char *argv[] ) {
+#if !SCRIPT_ONLY
   const char *game_file_name = NULL;
+#endif
   const char *script_in_file;
   const char *script_out_file;
 #if !SCRIPT_ONLY
@@ -162,7 +164,9 @@ main( int argc, char *argv[] ) {
 #endif
   int run_script;
   int script_optimal_line = DEFAULT_DISPLAY_LINE;
+#if SCRIPT_ONLY
   int komi;
+#endif
   time_t timer;
 
 #if SCRIPT_ONLY
@@ -181,11 +185,15 @@ main( int argc, char *argv[] ) {
   use_thor = DEFAULT_USE_THOR;
   skill[BLACKSQ] = skill[WHITESQ] = -1;
   hash_bits = DEFAULT_HASH_BITS;
+#if !SCRIPT_ONLY
   game_file_name = NULL;
+#endif
   log_file_name = NULL;
   run_script = FALSE;
   script_in_file = script_out_file = FALSE;
+#if SCRIPT_ONLY
   komi = 0;
+#endif
   player_time[BLACKSQ] = player_time[WHITESQ] = INFINIT_TIME;
   player_increment[BLACKSQ] = player_increment[WHITESQ] = 0.0;
   for ( arg_index = 1, help = FALSE; (arg_index < argc) && !help;

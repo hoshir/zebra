@@ -706,8 +706,8 @@ extended_compute_move( int side_to_move, int book_only,
       evaluated_list[index].pv[0] = unsearched_move[i];
 
       if ( empties > MAX( wld, exact ) ) {
-	transform1[i] = abs( my_random() );
-	transform2[i] = abs( my_random() );
+	transform1[i] = labs( my_random() );
+	transform2[i] = labs( my_random() );
       }
       else {
 	transform1[i] = 0;
@@ -1144,7 +1144,9 @@ compute_move( int side_to_move,
   FILE *log_file;
   EvaluationType book_eval_info, mid_eval_info, end_eval_info;
   char *eval_str;
+#if ADAPTIVE_SOLVE_DEPTH
   double midgame_diff;
+#endif
   enum { INTERRUPTED_MOVE, BOOK_MOVE, MIDGAME_MOVE, ENDGAME_MOVE } move_type;
   int i;
   int curr_move, midgame_move;
@@ -1381,11 +1383,13 @@ compute_move( int side_to_move,
       midgame_move = middle_game( side_to_move, midgame_depth,
 				  update_all, &mid_eval_info );
       set_current_eval( mid_eval_info );
+#if ADAPTIVE_SOLVE_DEPTH
       midgame_diff = 1.3 * mid_eval_info.score / 128.0;
       if ( side_to_move == BLACKSQ )
 	midgame_diff -= komi;
       else
 	midgame_diff += komi;
+#endif
       if ( timed_depth ) {  /* Check if the endgame zone has been reached */
 	offset = ENDGAME_OFFSET;
 

@@ -167,7 +167,7 @@ calculate_perturbation( void ) {
     shift = perturbation_amplitude / 2;
     for ( i = 0; i < 100; i++ )
       score_perturbation[i] =
-	(abs( my_random()) % perturbation_amplitude) - shift;
+	(labs( my_random()) % perturbation_amplitude) - shift;
   }
 }
 

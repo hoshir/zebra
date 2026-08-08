@@ -178,7 +178,7 @@ static  long		*my_end_ptr		= (long *) &my_randtbl[ DEG_3 + 1 ];
 int
 my_srandom(int x)
 {
-  int i, j;
+  int i;
 
   if (my_rand_type == TYPE_0)
   {
@@ -186,7 +186,6 @@ my_srandom(int x)
   }
   else
   {
-    j = 1;
     my_state[ 0 ] = x;
     for (i = 1; i < my_rand_deg; i++)
     {
@@ -266,7 +265,7 @@ my_initstate (unsigned seed, char *arg_state, int n)
       }
     }
   }
-  my_state = &(((long *)arg_state)[1]);	/* first location */
+  my_state = &(((long *)(void *)arg_state)[1]);	/* first location */
   my_end_ptr = &my_state[my_rand_deg];	/* must set end_ptr before srandom */
   my_srandom(seed);
   if (my_rand_type == TYPE_0)
@@ -291,7 +290,7 @@ my_initstate (unsigned seed, char *arg_state, int n)
 char  *
 my_setstate(char *arg_state)
 {
-  long *new_state = (long *)arg_state;
+  long *new_state = (long *)(void *)arg_state;
   int type = new_state[0]%MAX_TYPES;
   int rear = new_state[0]/MAX_TYPES;
   char *ostate = (char *)( &my_state[ -1 ] );
