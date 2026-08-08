@@ -35,6 +35,7 @@
 #include "osfbook.h"
 #include "patterns.h"
 #include "search.h"
+#include "threads.h"
 #include "thordb.h"
 #include "timer.h"
 
@@ -163,6 +164,7 @@ main( int argc, char *argv[] ) {
   int repeat = 1;
 #endif
   int run_script;
+  int n_threads = 1;
   int script_optimal_line = DEFAULT_DISPLAY_LINE;
 #if SCRIPT_ONLY
   int komi;
@@ -211,6 +213,13 @@ main( int argc, char *argv[] ) {
 	continue;
       }
       hash_bits = atoi( argv[arg_index] );
+    }
+    else if ( !strcasecmp( argv[arg_index], "-n" ) ) {
+      if ( ++arg_index == argc ) {
+	help = TRUE;
+	continue;
+      }
+      n_threads = atoi( argv[arg_index] );
     }
 #if !SCRIPT_ONLY    
     else if ( !strcasecmp( argv[arg_index], "-l" ) ) {
@@ -474,6 +483,9 @@ main( int argc, char *argv[] ) {
     puts( "  -e <echo?>" );
     printf( "    Toggles screen output on/off (default %d).\n\n",
 	    DEFAULT_ECHO );
+    puts( "  -n <search threads>" );
+    printf( "    Number of threads used by the endgame search (default %d).\n\n",
+	    1 );
     puts( "  -h <bits in hash key>" );
     printf( "    Size of hash table is 2^{this value} (default %d).\n\n",
 	    DEFAULT_HASH_BITS );
@@ -613,6 +625,7 @@ main( int argc, char *argv[] ) {
   }
 
   global_setup( use_random, hash_bits );
+  threads_init( n_threads );
   init_thor_database();
 
   if ( use_book )
@@ -659,6 +672,8 @@ main( int argc, char *argv[] ) {
     }
   }
 #endif
+
+  threads_shutdown();
 
   global_terminate();
 
