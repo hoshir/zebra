@@ -62,11 +62,13 @@ threads_is_worker( void );
 /*
   THREADS_RUN
   Run JOB( index, context ) for each index in [0, JOB_COUNT) and return
-  once all of them have finished.  Jobs are claimed by whichever worker
+  once all of them have finished.  Jobs are claimed by whichever thread
   is free, so a job must not assume anything about which thread runs it
-  or in what order.  The calling thread only waits -- it is typically
-  suspended in the middle of its own search, which a job would trample.
-  Each worker has had init_search_thread() called on it.
+  or in what order.  The calling thread takes part rather than idling,
+  which means a job runs on it too, on top of the search it is suspended
+  in the middle of; it is the caller's job to keep the two from
+  trampling each other.  Each worker has had init_search_thread()
+  called on it.
 */
 
 void

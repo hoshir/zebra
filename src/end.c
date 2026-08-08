@@ -1403,6 +1403,12 @@ typedef struct {
 } SiblingBatch;
 
 
+/* Set while a thread is running a job, so that a node reached from
+   inside a job does not try to start a batch of its own -- the pool is
+   already busy with the batch this job belongs to. */
+static _Thread_local int inside_job;
+
+
 static void
 search_sibling( int index, void *context ) {
   SiblingBatch *batch = (SiblingBatch *) context;
@@ -1412,11 +1418,13 @@ search_sibling( int index, void *context ) {
   int score;
   int **saved_flip_stack = flip_stack;
 
+  inside_job++;
   search_state_load( &batch->root );
   set_bitboards( board, batch->side_to_move, &my_bits, &opp_bits );
 
   if ( make_move( batch->side_to_move, move, TRUE ) == 0 ) {
     flip_stack = saved_flip_stack;   /* cannot happen; be safe anyway */
+    inside_job--;
     return;
   }
   (void) TestFlips_wrapper( move, my_bits, opp_bits );
@@ -1433,6 +1441,7 @@ search_sibling( int index, void *context ) {
   /* The move is never unmade, so put the flip stack back by hand;
      leaving it advanced would overflow it after a few jobs. */
   flip_stack = saved_flip_stack;
+  inside_job--;
 
   if ( !is_panic_abort() && !force_return ) {
     batch->score[index] = score;
@@ -1733,7 +1742,7 @@ end_tree_search( int level,
      worth a batch, and only the search thread splits (see
      threads_is_worker). */
   can_split = (remains >= PARALLEL_SPLIT_DEPTH) && (threads_count() > 1) &&
-    !threads_is_worker();
+    !threads_is_worker() && !inside_job;
   if ( can_split )
     for ( i = 0; i < 100; i++ )
       proven[i] = FALSE;
