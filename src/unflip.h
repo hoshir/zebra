@@ -3,8 +3,6 @@
 
    Created:       February 26, 1999
    
-   Modified:      December 25, 1999
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Low-level macro code to flip back the discs

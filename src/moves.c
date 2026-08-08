@@ -3,8 +3,6 @@
 
    Created:           June 30, 1997
 
-   Modified:          April 24, 2001
-   
    Author:            Gunnar Andersson (gunnar@radagast.se)
 
    Contents:          The move generator.

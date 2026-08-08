@@ -3,8 +3,6 @@
 
    Created:         December 31, 1997
 
-   Modified:        December 30, 2002
-   
    Author:          Gunnar Andersson (gunnar@radagast.se)
 
    Contents:        The interface to the book module.

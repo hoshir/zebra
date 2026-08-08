@@ -3,8 +3,6 @@
 
    Created:        June 30, 1997
 
-   Modified:       August 1, 2002
-
    Author:         Gunnar Andersson (gunnar@radagast.se)
 
    Contents:       The move generator's interface.

@@ -3,8 +3,6 @@
 
    Created:       November 29, 1997
    
-   Modified:      November 18, 2001
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The interface to the learning module.

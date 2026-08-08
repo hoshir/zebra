@@ -3,8 +3,6 @@
 
    Created:       September 20, 1997
    
-   Modified:      December 31, 2002
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The interface to the game routines.

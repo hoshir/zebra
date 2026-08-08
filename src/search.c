@@ -3,8 +3,6 @@
 
    Created:       July 1, 1997
 
-   Modified:      January 2, 2003
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Common search routines and variables.

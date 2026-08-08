@@ -3,8 +3,6 @@
 
    Created:       1994
    
-   Modified:      December 19, 2005
-
    Authors:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The fast endgame solver.

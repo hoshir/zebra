@@ -3,8 +3,6 @@
 
    Created:       July 4, 1997
 
-   Modified:      December 25, 1999
-   
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The patterns.

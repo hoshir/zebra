@@ -5,8 +5,6 @@
 #
 #  Created:       July 2, 1997
 #
-#  Modified:      December 25, 2005
-#
 
 
 # --- Directories ---
