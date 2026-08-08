@@ -16,7 +16,7 @@
 #include "bitboard.h"
 
 
-BitBoard bb_flips;
+_Thread_local BitBoard bb_flips;
 
 static const unsigned char right_contiguous[64] = {
   0, 1, 0, 2, 0, 1, 0, 3,

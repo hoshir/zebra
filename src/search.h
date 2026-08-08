@@ -67,23 +67,23 @@ extern int root_eval;
 extern int force_return;
 
 /* The number of positions evaluated during the current search. */
-extern CounterType evaluations;
+extern _Thread_local CounterType evaluations;
 
 /* The number of positions evaluated during the entire game. */
 extern CounterType total_evaluations;
 
 /* Holds the number of nodes searched during the current search. */
-extern CounterType nodes;
+extern _Thread_local CounterType nodes;
 
 /* Holds the total number of nodes searched during the entire game. */
 extern CounterType total_nodes;
 
 /* The last available evaluations for all possible moves at all
    possible game stages. */
-extern Board evals[61];
+extern _Thread_local Board evals[61];
 
 /* Move lists */
-extern int sorted_move_order[64][64];  /* 61*60 used */
+extern _Thread_local int sorted_move_order[64][64];  /* 61*60 used */
 
 /* The principal variation including passes */
 extern int full_pv_depth;
@@ -99,6 +99,9 @@ inherit_move_lists( int stage );
 
 void
 reorder_move_list( int stage );
+
+void
+init_search_thread( void );
 
 void
 setup_search( void );

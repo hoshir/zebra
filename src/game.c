@@ -297,7 +297,7 @@ game_init( const char *file_name, int *side_to_move ) {
 
   reset_counter( &total_evaluations );
 
-  init_flip_stack();
+  init_search_thread();
 
   total_time = 0.0;
   max_depth_reached = 0;

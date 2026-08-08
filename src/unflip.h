@@ -16,8 +16,8 @@
 
 
 
-extern int *global_flip_stack[2048];
-extern int **flip_stack;
+extern _Thread_local int *global_flip_stack[2048];
+extern _Thread_local int **flip_stack;
 
 
 

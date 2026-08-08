@@ -27,7 +27,7 @@ extern "C" {
 
 /* The number of disks played from the initial position.
    Must match the current status of the BOARD variable. */
-extern int disks_played;
+extern _Thread_local int disks_played;
 
 /* Holds the last move made on the board for each different
    game stage. */
@@ -35,11 +35,11 @@ extern int last_move[65];
 
 /* The number of moves available after a certain number
    of disks played. */
-extern int move_count[MAX_SEARCH_DEPTH];
+extern _Thread_local int move_count[MAX_SEARCH_DEPTH];
 
 /* The actual moves available after a certain number of
    disks played. */
-extern int move_list[MAX_SEARCH_DEPTH][64];
+extern _Thread_local int move_list[MAX_SEARCH_DEPTH][64];
 
 /* Directional flip masks for all board positions. */
 extern const int dir_mask[100];

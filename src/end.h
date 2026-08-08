@@ -30,7 +30,7 @@ typedef struct  {
 } MoveLink;
 
 
-extern MoveLink end_move_list[100];
+extern _Thread_local MoveLink end_move_list[100];
 extern const unsigned int quadrant_mask[100];
 
 
