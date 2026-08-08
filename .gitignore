@@ -1,11 +1,4 @@
-*.o
-*.a
-zebra
-scrzebra
-booktool
-practice
-enddev
-tune8dbs
+build/
 current.gam
 current.mov
 *.log
