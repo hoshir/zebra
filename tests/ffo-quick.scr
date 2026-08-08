@@ -1,0 +1,18 @@
+%
+% File ffo-quick.scr
+%
+% A fast subset of the FFO endgame test suite (ffotest.scr):
+% positions #47, #40, #41, #42, #43, #44, #46 and #59, in that order.
+% Each solves in a few seconds; the full suite takes hours.
+%
+% Expected results (from http://radagast.se/othello/ffotest.html) are
+% checked by tests/check_ffo.sh.
+%
+-OOOOO----OOOO---OOOOX--XXXXXX---OXOOX--OOOXOX----OOXX----XXXX-- O
+O--OOOOX-OOOOOOXOOXXOOOXOOXOOOXXOOOOOOXX---OOOOX----O--X-------- X
+-OOOOO----OOOOX--OOOOOO-XXXXXOO--XXOOX--OOXOXX----OXXO---OOO--O- X
+--OOO-------XX-OOOOOOXOO-OOOOXOOX-OOOXXO---OOXOO---OOOXO--OOOO-- X
+--XXXXX---XXXX---OOOXX---OOXXXX--OOXXXO-OOOOXOO----XOX----XXXXX- O
+--O-X-O---O-XO-O-OOXXXOOOOOOXXXOOOOOXX--XXOOXO----XXXX-----XXX-- O
+---XXX----OOOX----OOOXX--OOOOXXX--OOOOXX--OXOXXX--XXOO---XXXX-O- X
+-----------------------O--OOOOO---OOOOOXOOOOXXXX--XXOOXX--XX-O-X X

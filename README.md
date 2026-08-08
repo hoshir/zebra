@@ -13,6 +13,43 @@ get the source from the `original` tag:
 git checkout original
 ```
 
+## Testing
+
+Run the test suite with:
+
+```
+make test
+```
+
+It takes about 5-10 seconds and runs two tests:
+
+* `tests/fliptest.c` — differential test verifying that the two
+  independent disc-flipping implementations (bitboard `TestFlips_bitboard`
+  and board-array `DoFlips`) agree on 50,000 random positions. The endgame
+  search relies on their agreement; a divergence corrupts the flip stack
+  and crashes.
+* `tests/check_ffo.sh` — solves a fast subset of the FFO endgame test
+  suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
+  `scrzebra` and checks the exact scores and best moves against the
+  published answers from http://radagast.se/othello/ffotest.html
+  Positions are solved in parallel (4 at a time by default); use
+  `make test FFO_JOBS=8` or `sh tests/check_ffo.sh quick 8` to change it.
+
+The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
+and verified with:
+
+```
+make test-full
+```
+
+**Caveat: this takes a very long time — expect multiple hours.** The
+reference result on the author's page is 2h06m for the whole suite (on a
+1.33 GHz Athlon); modern machines are faster but the hardest positions
+(#53-#58) still take from many minutes up to hours each. Positions run
+in parallel (default 4, e.g. `make test-full FFO_JOBS=8` to change it),
+each position's result and elapsed time is printed as soon as it is
+solved, and the raw results are collected in `build/ffo-full.out`.
+
 ## Web sites
 
 * Gunner's website: http://radagast.se/othello/
