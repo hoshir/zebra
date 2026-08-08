@@ -3,8 +3,6 @@
 
    Created:    November 29, 1999
    
-   Modified:   April 29, 2002
-
    Author:     Gunnar Andersson (gunnar@radagast.se)
 
    Contents:   The learning module.

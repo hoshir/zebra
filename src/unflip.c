@@ -3,8 +3,6 @@
 
    Created:        February 26, 1999
    
-   Modified:       July 12, 1999
-
    Author:         Gunnar Andersson (gunnar@radagast.se)
 
    Contents:       Low-level code to flip back the discs flipped by a move.

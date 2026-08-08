@@ -3,8 +3,6 @@
 
    Created:        June 5, 1997
    
-   Modified:       December 25, 2005
-
    Author:         Gunnar Andersson (gunnar@radagast.se)
 
    Contents:       The module which controls the operation of standalone Zebra.

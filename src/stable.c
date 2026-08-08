@@ -3,8 +3,6 @@
 
    Created:       March 20, 1999
 
-   Modified:      November 22, 2005
-
    Authors:       Gunnar Andersson (gunnar@radagast.se)
                   David John Summers
                   Toshihiko Okuhara

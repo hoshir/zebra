@@ -3,8 +3,6 @@
 
    Created:      November 4, 2001
 
-   Modified:
-
    Author:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:     System-specific stuff.

@@ -3,8 +3,6 @@
 
    Created:       March 30, 1999
    
-   Modified:      October 6, 2002
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      An interface to the Thor database designed to

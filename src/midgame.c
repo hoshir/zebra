@@ -3,8 +3,6 @@
 
    Created:       July 1, 1997
 
-   Modified:      November 23, 2002
-   
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Search routines designated to be used in the

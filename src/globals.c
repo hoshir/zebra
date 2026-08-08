@@ -3,8 +3,6 @@
 
    Created:    June 30, 1997
 
-   Modified:   October 30, 2001
-
    Author:     Gunnar Andersson (gunnar@radagast.se)
 
    Contents:   Global state variables.

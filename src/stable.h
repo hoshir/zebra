@@ -3,8 +3,6 @@
 
    Created:       March 20, 1999
 
-   Modified:      August 1, 2002
-   
    Authors:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Interface to the code which conservatively estimates

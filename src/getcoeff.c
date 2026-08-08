@@ -3,8 +3,6 @@
 
    Created:       November 19, 1997
 
-   Modified:      January 3, 2003
-   
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Unpacks the coefficient file, computes final-stage

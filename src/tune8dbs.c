@@ -3,8 +3,6 @@
 
    Created:       July 25, 1998
 
-   Modified:      December 20, 2001
-   
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      The database is analyzed with statistical methods;

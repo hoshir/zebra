@@ -3,8 +3,6 @@
 
    Created:       May 31, 1998
 
-   Modified:      November 14, 2005
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 
    Contents:      Some globally used macros.

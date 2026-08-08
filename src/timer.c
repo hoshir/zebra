@@ -3,8 +3,6 @@
 
    Created:      September 28, 1997
    
-   Modified:     November 13, 2001
-
    Author:       Gunnar Andersson (gunnar@radagast.se)
 
    Contents:     The time control mechanism.

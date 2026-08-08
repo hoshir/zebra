@@ -3,8 +3,6 @@
 
    Created:        December 31, 1997
 
-   Modified:       December 30, 2004
-   
    Author:         Gunnar Andersson (gunnar@radagast.se)
 
    Contents:       A module which implements the book algorithm which

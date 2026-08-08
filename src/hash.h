@@ -3,8 +3,6 @@
 
    Created:       June 29, 1997
 
-   Modified:      October 25, 2005
-
    Author:        Gunnar Andersson (gunnar@radagast.se)
 		  Toshihiko Okuhara
 
