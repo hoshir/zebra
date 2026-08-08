@@ -5,6 +5,14 @@ Othello program created by Gunnar Andersson
 
 This repository has started by uploading original code, as of 2014/04/29, by Gunnar Andersson
 
+The code in this repository has since been modified (e.g. ported to macOS,
+directory structure reorganized). If you want the original files as uploaded,
+get the source from the `original` tag:
+
+```
+git checkout original
+```
+
 ## Web sites
 
 * Gunner's website: http://radagast.se/othello/

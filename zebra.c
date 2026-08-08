@@ -94,7 +94,7 @@ static int wld_skill[3], exact_skill[3];
 static char *log_file_name;
 static double player_time[3], player_increment[3];
 static int skill[3];
-static int wait;
+static int wait_flag;
 static int use_book = DEFAULT_USE_BOOK;
 static int wld_only = DEFAULT_WLD_ONLY;
 static int use_learning;
@@ -176,7 +176,7 @@ main( int argc, char *argv[] ) {
 #endif
 
   use_random = DEFAULT_RANDOM;
-  wait = DEFAULT_WAIT;
+  wait_flag = DEFAULT_WAIT;
   echo = DEFAULT_ECHO;
   display_pv = DEFAULT_DISPLAY_PV;
   use_learning = FALSE;
@@ -264,7 +264,7 @@ main( int argc, char *argv[] ) {
 	help = TRUE;
 	continue;
       }
-      wait = atoi( argv[arg_index] );
+      wait_flag = atoi( argv[arg_index] );
     }
     else if ( !strcasecmp( argv[arg_index], "-p" ) ) {
       if ( ++arg_index == argc ) {
@@ -984,7 +984,7 @@ play_game( const char *file_name,
 
       (void) choose_thor_opening_move( board, side_to_move, echo );
 
-      if ( echo && wait )
+      if ( echo && wait_flag )
 	dumpch();
       if ( disks_played >= provided_move_count ) {
 	if ( skill[side_to_move] == 0 ) {
@@ -1259,7 +1259,7 @@ analyze_game( const char *move_string ) {
 
       (void) choose_thor_opening_move( board, side_to_move, echo );
 
-      if ( echo && wait )
+      if ( echo && wait_flag )
 	dumpch();
 
       start_move( player_time[side_to_move],

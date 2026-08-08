@@ -109,7 +109,12 @@ TUNE8DBS_EXE	=	tune8dbs
 
 # --- Libraries
 
+UNAME_S		:= $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+LDFLAGS		= -lm -lz
+else
 LDFLAGS		= -static -lm -lz
+endif
 #LDFLAGS	= -static -lm -lz -Wl,-Map,map.out
 
 
