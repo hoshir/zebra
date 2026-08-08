@@ -13,6 +13,26 @@ get the source from the `original` tag:
 git checkout original
 ```
 
+## Parallel endgame search
+
+`zebra` and `scrzebra` take `-n <threads>` (default 1) to search the
+endgame on several threads. Once a node has searched its first move, the
+remaining moves are handed to a worker pool with a null window; the ones
+proved not to beat alpha are then skipped by the sequential search.
+
+Exact scores and best moves do not depend on the thread count. The tail
+of the principal variation can, because the transposition table is
+shared and gets filled in a different order.
+
+Measured on an 8-core machine:
+
+| Position | 1 thread | 8 threads |
+|----------|---------:|----------:|
+| FFO #45  |   11.9 s |     3.3 s |
+| FFO #48  |    7.0 s |     2.3 s |
+| FFO #49  |    9.6 s |     3.6 s |
+| FFO #51  |   10.7 s |     4.0 s |
+
 ## Testing
 
 Run the test suite with:
