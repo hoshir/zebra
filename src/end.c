@@ -39,6 +39,7 @@
 #include "probcut.h"
 #include "search.h"
 #include "stable.h"
+#include "threads.h"
 #include "texts.h"
 #include "timer.h"
 #include "unflip.h"
@@ -1362,6 +1363,130 @@ update_best_list( int *best_list, int move, int best_list_index,
 
 
 
+
+
+static int
+end_tree_search( int level, int max_depth, BitBoard my_bits,
+		 BitBoard opp_bits, int side_to_move, int alpha, int beta,
+		 int selectivity, int *selective_cutoff, int void_legal );
+
+
+/*
+  PARALLEL ROOT SIBLINGS
+
+  Young-brothers-wait: the first root move is searched on its own, and
+  only once it has produced a bound are the remaining moves handed out
+  to the pool.  Each of them gets a null window, which is what the
+  sequential search would have given them anyway, and the vast majority
+  fail low -- those the sequential loop can then skip outright.  A move
+  that fails high is left alone here and re-searched in order by the
+  sequential loop, so the score and the principal variation are still
+  produced by exactly the same code as before.
+*/
+
+#define MAX_ROOT_MOVES               64
+
+typedef struct {
+  SearchState root;
+  int max_depth;
+  int side_to_move;
+  int alpha;                        /* null window is (alpha, alpha + 1) */
+  int selectivity;
+  int move[MAX_ROOT_MOVES];
+  int score[MAX_ROOT_MOVES];
+  int valid[MAX_ROOT_MOVES];
+} SiblingBatch;
+
+
+static void
+search_sibling( int index, void *context ) {
+  SiblingBatch *batch = (SiblingBatch *) context;
+  BitBoard my_bits, opp_bits, new_my_bits, new_opp_bits;
+  int move = batch->move[index];
+  int child_selective_cutoff = FALSE;
+  int score;
+  int **saved_flip_stack = flip_stack;
+
+  search_state_load( &batch->root );
+  set_bitboards( board, batch->side_to_move, &my_bits, &opp_bits );
+
+  if ( make_move( batch->side_to_move, move, TRUE ) == 0 ) {
+    flip_stack = saved_flip_stack;   /* cannot happen; be safe anyway */
+    return;
+  }
+  (void) TestFlips_wrapper( move, my_bits, opp_bits );
+  new_my_bits = bb_flips;
+  FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+
+  score = -end_tree_search( 1, batch->max_depth,
+			    new_opp_bits, new_my_bits,
+			    OPP( batch->side_to_move ),
+			    -(batch->alpha + 1), -batch->alpha,
+			    batch->selectivity, &child_selective_cutoff,
+			    TRUE );
+
+  /* The move is never unmade, so put the flip stack back by hand;
+     leaving it advanced would overflow it after a few jobs. */
+  flip_stack = saved_flip_stack;
+
+  if ( !is_panic_abort() && !force_return ) {
+    batch->score[index] = score;
+    batch->valid[index] = TRUE;
+  }
+}
+
+
+/*
+  DISPATCH_ROOT_SIBLINGS
+  Search every legal root move except SEARCHED_MOVE in parallel with a
+  null window around ALPHA.  Fills PROVEN[sq] with a score for each move
+  that was proved not to beat ALPHA.
+*/
+
+static void
+dispatch_root_siblings( BitBoard my_bits, BitBoard opp_bits,
+			int side_to_move, int max_depth, int alpha,
+			int selectivity, int searched_move,
+			int *proven, int *proven_score ) {
+  static SiblingBatch batch;     /* only the root thread gets here */
+  int i, j, sq, count = 0;
+
+  for ( i = 1; i <= 8; i++ )
+    for ( j = 1; j <= 8; j++ ) {
+      sq = 10 * i + j;
+      if ( (sq == searched_move) || (board[sq] != EMPTY) )
+	continue;
+      if ( TestFlips_wrapper( sq, my_bits, opp_bits ) == 0 )
+	continue;
+      if ( count < MAX_ROOT_MOVES ) {
+	batch.move[count] = sq;
+	batch.score[count] = 0;
+	batch.valid[count] = FALSE;
+	count++;
+      }
+    }
+  if ( count == 0 )
+    return;
+
+  batch.max_depth = max_depth;
+  batch.side_to_move = side_to_move;
+  batch.alpha = alpha;
+  batch.selectivity = selectivity;
+  search_state_save( &batch.root );
+
+  threads_run( search_sibling, &batch, count );
+
+  /* The calling thread takes part in the batch, so put its own state
+     back the way the sequential search left it. */
+  search_state_load( &batch.root );
+
+  for ( i = 0; i < count; i++ )
+    if ( batch.valid[i] && (batch.score[i] <= alpha) ) {
+      proven[batch.move[i]] = TRUE;
+      proven_score[batch.move[i]] = batch.score[i];
+    }
+}
+
 /*
   END_TREE_SEARCH
   Plain nega-scout with fastest-first move ordering.
@@ -1398,6 +1523,8 @@ end_tree_search( int level,
   int threshold;
   int best_list_index, best_list_length;
   int best_list[4];
+  int proven[100], proven_score[100];
+  int siblings_dispatched = FALSE;
   HashEntry entry, mid_entry;
 #if CHECK_HASH_CODES
   unsigned int h1, h2;
@@ -1588,6 +1715,9 @@ end_tree_search( int level,
 
   exp_depth = remains;
   first = TRUE;
+  if ( level == 0 )
+    for ( i = 0; i < 100; i++ )
+      proven[i] = FALSE;
   best = -INFINITE_EVAL;
   pre_search_done = FALSE;
   curr_alpha = alpha;
@@ -1767,11 +1897,14 @@ end_tree_search( int level,
     }
     else {
       curr_alpha = MAX( best, curr_alpha );
-      curr_val =
-	-end_tree_search( level + 1, level + exp_depth,
-			  new_opp_bits, new_my_bits, OPP( side_to_move ),
-			  -(curr_alpha + 1), -curr_alpha,
-			  selectivity, &child_selective_cutoff, TRUE );
+      if ( (level == 0) && proven[move] && (proven_score[move] <= curr_alpha) )
+	curr_val = proven_score[move];   /* already proved not to beat alpha */
+      else
+	curr_val =
+	  -end_tree_search( level + 1, level + exp_depth,
+			    new_opp_bits, new_my_bits, OPP( side_to_move ),
+			    -(curr_alpha + 1), -curr_alpha,
+			    selectivity, &child_selective_cutoff, TRUE );
       if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
 	if ( selectivity > 0 )
 	  curr_val =
@@ -1848,6 +1981,14 @@ end_tree_search( int level,
     if ( (best_list_index >= best_list_length) && !update_pv &&
 	 (best_list_length < 4) )
       best_list[best_list_length++] = move;
+
+    if ( (level == 0) && first && !siblings_dispatched &&
+	 (threads_count() > 1) && !is_panic_abort() && !force_return ) {
+      siblings_dispatched = TRUE;
+      dispatch_root_siblings( my_bits, opp_bits, side_to_move,
+			      level + exp_depth, best, selectivity,
+			      move, proven, proven_score );
+    }
 
     first = FALSE;
   }
