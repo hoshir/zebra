@@ -126,10 +126,16 @@ test		: $(FLIPTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh
 
+# Solves ALL positions in data/ffotest.scr and verifies the results.
+# WARNING: this takes a very long time (multiple hours).
+test-full	: $(FLIPTEST_EXE) scrzebra
+	$(FLIPTEST_EXE)
+	sh $(TESTDIR)/check_ffo.sh full
+
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
 
-.PHONY		: all clean test zebra scrzebra booktool practice enddev tune8dbs libzebra.a
+.PHONY		: all clean test test-full zebra scrzebra booktool practice enddev tune8dbs libzebra.a
 
 $(ZEBRA_EXE)	: $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) $(LDFLAGS)

@@ -33,11 +33,19 @@ It takes about 5-10 seconds and runs two tests:
   `scrzebra` and checks the exact scores and best moves against the
   published answers from http://radagast.se/othello/ffotest.html
 
-The full FFO suite is in `data/ffotest.scr` (takes hours to solve):
+The full FFO suite (`data/ffotest.scr`, positions #40-#59) can be solved
+and verified with:
 
 ```
-cd build/bin && ./scrzebra -script ../../data/ffotest.scr ffo.out
+make test-full
 ```
+
+**Caveat: this takes a very long time — expect multiple hours.** The
+reference result on the author's page is 2h06m for the whole suite (on a
+1.33 GHz Athlon); modern machines are faster but the hardest positions
+(#53-#58) still take from many minutes up to hours each. Each position's
+result and elapsed time is printed as soon as it is solved, and the raw
+results are appended to `build/ffo-full.out`.
 
 ## Web sites
 
