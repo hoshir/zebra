@@ -56,12 +56,15 @@ SRCS = \
 OBJS         = $(addprefix $(OBJDIR)/,$(SRCS:.c=.o))
 AUTOP_OBJ    = $(OBJDIR)/autop.o
 
+TESTDIR  = tests
+
 ZEBRA_EXE    = $(BINDIR)/zebra
 SCRZEBRA_EXE = $(BINDIR)/scrzebra
 BOOKTOOL_EXE = $(BINDIR)/booktool
 PRACTICE_EXE = $(BINDIR)/practice
 ENDDEV_EXE   = $(BINDIR)/enddev
 TUNE8DBS_EXE = $(BINDIR)/tune8dbs
+FLIPTEST_EXE = $(BINDIR)/fliptest
 
 LIB          = $(BUILDDIR)/libzebra.a
 
@@ -111,7 +114,22 @@ enddev		: $(ENDDEV_EXE) $(DATA_LINKS)
 tune8dbs	: $(TUNE8DBS_EXE)
 libzebra.a	: $(LIB)
 
-.PHONY		: all clean zebra scrzebra booktool practice enddev tune8dbs libzebra.a
+# --- Tests ---
+#
+# "make test" runs:
+#  1. fliptest: differential test of the bitboard vs. board-array
+#     flip implementations on random positions (see tests/fliptest.c)
+#  2. check_ffo.sh: solves a fast subset of the FFO endgame test suite
+#     and verifies the scores against the published answers
+
+test		: $(FLIPTEST_EXE) scrzebra
+	$(FLIPTEST_EXE)
+	sh $(TESTDIR)/check_ffo.sh
+
+$(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
+	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
+
+.PHONY		: all clean test zebra scrzebra booktool practice enddev tune8dbs libzebra.a
 
 $(ZEBRA_EXE)	: $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) $(LDFLAGS)

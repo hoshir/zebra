@@ -13,6 +13,32 @@ get the source from the `original` tag:
 git checkout original
 ```
 
+## Testing
+
+Run the test suite with:
+
+```
+make test
+```
+
+It takes about 5-10 seconds and runs two tests:
+
+* `tests/fliptest.c` — differential test verifying that the two
+  independent disc-flipping implementations (bitboard `TestFlips_bitboard`
+  and board-array `DoFlips`) agree on 50,000 random positions. The endgame
+  search relies on their agreement; a divergence corrupts the flip stack
+  and crashes.
+* `tests/check_ffo.sh` — solves a fast subset of the FFO endgame test
+  suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
+  `scrzebra` and checks the exact scores and best moves against the
+  published answers from http://radagast.se/othello/ffotest.html
+
+The full FFO suite is in `data/ffotest.scr` (takes hours to solve):
+
+```
+cd build/bin && ./scrzebra -script ../../data/ffotest.scr ffo.out
+```
+
 ## Web sites
 
 * Gunner's website: http://radagast.se/othello/
