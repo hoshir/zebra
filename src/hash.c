@@ -118,12 +118,16 @@ resize_hash( int new_hash_bits ) {
 
 static unsigned int
 popcount( unsigned int b ) {
+#if defined( __GNUC__ )
+  return __builtin_popcount( b );
+#else
   unsigned int n;
 
   for ( n = 0; b != 0; n++, b &= (b - 1) )
     ;
 
   return n;
+#endif
 }
 
 
