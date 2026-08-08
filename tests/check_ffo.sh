@@ -4,23 +4,83 @@
 # published answers from http://radagast.se/othello/ffotest.html
 #
 # Usage (from the repository root, typically via make):
-#   sh tests/check_ffo.sh          # quick subset (~5-10 seconds)
-#   sh tests/check_ffo.sh full     # all of data/ffotest.scr (takes HOURS)
+#   sh tests/check_ffo.sh [quick|full] [jobs]
 #
-# Each position is solved in its own scrzebra invocation so that the
-# elapsed time per position can be reported.
+#   quick : subset of fast positions (~5 seconds), the default
+#   full  : all of tests/ffotest.scr -- takes a VERY long time
+#   jobs  : how many positions to solve in parallel (default 4)
+#
+# Positions are solved in separate scrzebra processes (they share only
+# the read-only coeffs2.bin), so they can run concurrently.  A result
+# line with the elapsed time is printed as soon as each position is
+# solved, in completion order.
 #
 # Expected rows: FFO# <black discs> <white discs> <acceptable first moves>
 # FFO #59 has three optimal moves (g8, h4, e8 all win 64-0); all other
 # positions have a unique optimal move.
 
+# Wall-clock time in seconds, using only the standard date utility.
+# GNU date (Linux) supports nanoseconds via %N; BSD date (macOS) does
+# not, in which case we fall back to whole seconds.
+if date +%s.%N 2>/dev/null | grep -Eq '^[0-9]+\.[0-9]+$'; then
+  now() { date +%s.%N; }
+else
+  now() { date +%s; }
+fi
+
+# ----- worker: solve and check one position ---------------------------
+# Invoked (via xargs) as: check_ffo.sh __worker <idx> <ffo#> <black> <white> <moves>
+# Inherits OUT from the parent through the environment.
+if [ "$1" = "__worker" ]; then
+  i=$2; ffo=$3; eblack=$4; ewhite=$5; emoves=$6
+
+  pos_start=$(now)
+  ( cd build/bin && ./scrzebra -line 1 -script ffo-pos$i.scr ffo-pos$i.out ) >/dev/null
+  pos_end=$(now)
+  elapsed=$(awk "BEGIN { printf \"%.1f\", $pos_end - $pos_start }")
+
+  line=$(grep -v '^%' build/bin/ffo-pos$i.out 2>/dev/null | \
+         grep -v '^[[:space:]]*$' | head -1)
+  if [ -z "$line" ]; then
+    echo "FAIL  FFO#$ffo: scrzebra produced no output   (${elapsed}s)"
+    touch "$OUT.failed"
+    exit 0
+  fi
+
+  black=$(echo "$line" | awk '{print $1}')
+  white=$(echo "$line" | awk '{print $3}')
+  move=$(echo "$line" | awk '{print $4}')
+  if [ "$black" != "$eblack" ] || [ "$white" != "$ewhite" ]; then
+    echo "FAIL  FFO#$ffo: score $black-$white, expected $eblack-$ewhite   (${elapsed}s)"
+    touch "$OUT.failed"
+  else
+    case "|$emoves|" in
+      *"|$move|"*)
+        echo "ok    FFO#$ffo: $black-$white $move   (${elapsed}s)" ;;
+      *)
+        echo "FAIL  FFO#$ffo: best move $move, expected one of $emoves   (${elapsed}s)"
+        touch "$OUT.failed" ;;
+    esac
+  fi
+  exit 0
+fi
+
+# ----- main -----------------------------------------------------------
+
 MODE=${1:-quick}
+JOBS=${2:-4}
 BIN=build/bin/scrzebra
 
+case "$JOBS" in
+  ''|*[!0-9]*|0)
+    echo "check_ffo: jobs must be a positive integer" >&2
+    exit 1 ;;
+esac
+
 if [ "$MODE" = "full" ]; then
-  SCRIPT=data/ffotest.scr
+  SCRIPT=tests/ffotest.scr
   OUT=build/ffo-full.out
-  # data/ffotest.scr order: #47 first, then #40-#59 in order
+  # tests/ffotest.scr order: #47 first, then #40-#59 in order
   # (#47 appears a second time in its natural position).
   EXPECTED="47 30 34 g2
 40 51 13 a2
@@ -55,6 +115,7 @@ else
 46 28 36 b3
 59 64 0 g8|h4|e8"
 fi
+export OUT
 
 if [ ! -x "$BIN" ]; then
   echo "check_ffo: $BIN not found; run 'make scrzebra' first" >&2
@@ -63,58 +124,38 @@ fi
 
 if [ "$MODE" = "full" ]; then
   echo "check_ffo: solving the full FFO test suite; this takes a LONG time."
-  echo "check_ffo: each position is reported as soon as it is solved."
 fi
-
-now() {
-  perl -MTime::HiRes=time -e 'printf "%.2f\n", time'
-}
+echo "check_ffo: running $JOBS position(s) in parallel"
 
 # One position per line, comments stripped
 POSFILE=$OUT.positions
 grep -v '^%' "$SCRIPT" | grep -v '^[[:space:]]*$' > "$POSFILE"
 
-rm -f "$OUT" "$OUT.failed"
-suite_start=$(now)
+# Per-position script files and the worker argument list
+ARGSFILE=$OUT.args
+rm -f "$OUT" "$OUT.failed" "$ARGSFILE"
 i=0
 echo "$EXPECTED" | while read -r ffo eblack ewhite emoves; do
   i=$((i + 1))
-  sed -n "${i}p" "$POSFILE" > build/bin/ffo-current.scr
-
-  pos_start=$(now)
-  ( cd build/bin && ./scrzebra -line 1 -script ffo-current.scr ffo-current.out ) >/dev/null
-  pos_end=$(now)
-  elapsed=$(awk "BEGIN { printf \"%.1f\", $pos_end - $pos_start }")
-
-  line=$(grep -v '^%' build/bin/ffo-current.out 2>/dev/null | \
-         grep -v '^[[:space:]]*$' | head -1)
-  if [ -z "$line" ]; then
-    echo "FAIL  FFO#$ffo: scrzebra produced no output   (${elapsed}s)"
-    touch "$OUT.failed"
-    continue
-  fi
-  echo "$line" >> "$OUT"
-
-  black=$(echo "$line" | awk '{print $1}')
-  white=$(echo "$line" | awk '{print $3}')
-  move=$(echo "$line" | awk '{print $4}')
-  if [ "$black" != "$eblack" ] || [ "$white" != "$ewhite" ]; then
-    echo "FAIL  FFO#$ffo: score $black-$white, expected $eblack-$ewhite   (${elapsed}s)"
-    touch "$OUT.failed"
-  else
-    case "|$emoves|" in
-      *"|$move|"*)
-        echo "ok    FFO#$ffo: $black-$white $move   (${elapsed}s)" ;;
-      *)
-        echo "FAIL  FFO#$ffo: best move $move, expected one of $emoves   (${elapsed}s)"
-        touch "$OUT.failed" ;;
-    esac
-  fi
+  sed -n "${i}p" "$POSFILE" > build/bin/ffo-pos$i.scr
+  echo "__worker $i $ffo $eblack $ewhite $emoves" >> "$ARGSFILE"
 done
+
+suite_start=$(now)
+xargs -L1 -P "$JOBS" sh "$0" < "$ARGSFILE"
 suite_end=$(now)
 total=$(awk "BEGIN { printf \"%.1f\", $suite_end - $suite_start }")
 
-rm -f build/bin/ffo-current.scr build/bin/ffo-current.out "$POSFILE"
+# Collect raw results in position order, then clean up
+n=$(wc -l < "$POSFILE")
+i=0
+while [ $i -lt "$n" ]; do
+  i=$((i + 1))
+  grep -v '^%' build/bin/ffo-pos$i.out 2>/dev/null | \
+    grep -v '^[[:space:]]*$' | head -1 >> "$OUT"
+  rm -f build/bin/ffo-pos$i.scr build/bin/ffo-pos$i.out
+done
+rm -f "$POSFILE" "$ARGSFILE"
 
 if [ -f "$OUT.failed" ]; then
   rm -f "$OUT.failed"

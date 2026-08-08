@@ -32,8 +32,10 @@ It takes about 5-10 seconds and runs two tests:
   suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
   `scrzebra` and checks the exact scores and best moves against the
   published answers from http://radagast.se/othello/ffotest.html
+  Positions are solved in parallel (4 at a time by default); use
+  `make test FFO_JOBS=8` or `sh tests/check_ffo.sh quick 8` to change it.
 
-The full FFO suite (`data/ffotest.scr`, positions #40-#59) can be solved
+The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
 and verified with:
 
 ```
@@ -43,9 +45,10 @@ make test-full
 **Caveat: this takes a very long time — expect multiple hours.** The
 reference result on the author's page is 2h06m for the whole suite (on a
 1.33 GHz Athlon); modern machines are faster but the hardest positions
-(#53-#58) still take from many minutes up to hours each. Each position's
-result and elapsed time is printed as soon as it is solved, and the raw
-results are appended to `build/ffo-full.out`.
+(#53-#58) still take from many minutes up to hours each. Positions run
+in parallel (default 4, e.g. `make test-full FFO_JOBS=8` to change it),
+each position's result and elapsed time is printed as soon as it is
+solved, and the raw results are collected in `build/ffo-full.out`.
 
 ## Web sites
 

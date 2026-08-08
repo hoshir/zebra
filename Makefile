@@ -121,16 +121,19 @@ libzebra.a	: $(LIB)
 #     flip implementations on random positions (see tests/fliptest.c)
 #  2. check_ffo.sh: solves a fast subset of the FFO endgame test suite
 #     and verifies the scores against the published answers
+#
+# FFO positions are solved in parallel; override the degree with
+# e.g. "make test FFO_JOBS=8" (default 4).
 
 test		: $(FLIPTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
-	sh $(TESTDIR)/check_ffo.sh
+	sh $(TESTDIR)/check_ffo.sh quick $(FFO_JOBS)
 
-# Solves ALL positions in data/ffotest.scr and verifies the results.
+# Solves ALL positions in tests/ffotest.scr and verifies the results.
 # WARNING: this takes a very long time (multiple hours).
 test-full	: $(FLIPTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
-	sh $(TESTDIR)/check_ffo.sh full
+	sh $(TESTDIR)/check_ffo.sh full $(FFO_JOBS)
 
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
