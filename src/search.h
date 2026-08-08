@@ -100,8 +100,36 @@ inherit_move_lists( int stage );
 void
 reorder_move_list( int stage );
 
+/* A copy of the per-thread search state, enough for another thread to
+   pick up the search from the same position.  Only the state that is
+   read before it is written needs to travel: everything indexed by
+   disks_played (move lists, flip counts, stored hash keys) is written
+   on the way down before it is read on the way back up. */
+
+typedef struct {
+  Board board;
+  int piece_count[3][MAX_SEARCH_DEPTH];
+  int sorted_move_order[64][64];
+  unsigned int hash1, hash2;
+  int disks_played;
+} SearchState;
+
+
 void
 init_search_thread( void );
+
+
+/*
+  SEARCH_STATE_SAVE / SEARCH_STATE_LOAD
+  Copy the calling thread's search state out of / into the thread-local
+  globals, so that a worker can search from where another thread was.
+*/
+
+void
+search_state_save( SearchState *state );
+
+void
+search_state_load( const SearchState *state );
 
 void
 setup_search( void );
