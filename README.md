@@ -15,10 +15,11 @@ git checkout original
 
 ## Parallel endgame search
 
-`zebra` and `scrzebra` take `-n <threads>` (default 1) to search the
+`zebra` and `scrzebra` take `-n <threads>` (default 2) to search the
 endgame on several threads. Once a node has searched its first move, the
 remaining moves are handed to a worker pool with a null window; the ones
 proved not to beat alpha are then skipped by the sequential search.
+Pass `-n 1` for a purely sequential search.
 
 Exact scores and best moves do not depend on the thread count. The tail
 of the principal variation can, because the transposition table is
@@ -52,8 +53,11 @@ It takes about 5-10 seconds and runs two tests:
   suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
   `scrzebra` and checks the exact scores and best moves against the
   published answers from http://radagast.se/othello/ffotest.html
-  Positions are solved in parallel (4 at a time by default); use
-  `make test FFO_JOBS=8` or `sh tests/check_ffo.sh quick 8` to change it.
+  Positions are solved in parallel (4 at a time by default) and each
+  position's search can use several threads: `make test FFO_JOBS=8
+  FFO_THREADS=2`, or `sh tests/check_ffo.sh quick 8 2`. The two
+  multiply, so keep their product near the core count. `FFO_THREADS`
+  defaults to whatever `scrzebra` itself defaults to.
 
 The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
 and verified with:

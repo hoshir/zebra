@@ -63,6 +63,8 @@
 #define DEFAULT_USE_BOOK          TRUE
 #endif
 
+#define DEFAULT_THREADS           2
+
 /* Get rid of some ugly warnings by disallowing usage of the
    macro version of tolower (not time-critical anyway). */
 #ifdef tolower
@@ -164,7 +166,7 @@ main( int argc, char *argv[] ) {
   int repeat = 1;
 #endif
   int run_script;
-  int n_threads = 1;
+  int n_threads = DEFAULT_THREADS;
   int script_optimal_line = DEFAULT_DISPLAY_LINE;
 #if SCRIPT_ONLY
   int komi;
@@ -485,7 +487,7 @@ main( int argc, char *argv[] ) {
 	    DEFAULT_ECHO );
     puts( "  -n <search threads>" );
     printf( "    Number of threads used by the endgame search (default %d).\n\n",
-	    1 );
+	    DEFAULT_THREADS );
     puts( "  -h <bits in hash key>" );
     printf( "    Size of hash table is 2^{this value} (default %d).\n\n",
 	    DEFAULT_HASH_BITS );
@@ -506,7 +508,7 @@ main( int argc, char *argv[] ) {
     puts( "" );
 #else    
     puts( "Usage:" );
-    puts( "  zebra [-b -e -g -h -l -p -t -time -w -learn -slack -dev -log" );
+    puts( "  zebra [-b -e -g -h -l -n -p -t -time -w -learn -slack -dev -log" );
     puts( "         -keepdraw -draw2black -draw2white -draw2none" );
     puts( "         -private -public -test -seq -thor -script -analyze ?" );
     puts( "         -repeat -seqfile]" );
@@ -525,6 +527,9 @@ main( int argc, char *argv[] ) {
     puts( "" );
     puts( "  -g <game file>" );
     puts( "" );
+    puts( "  -n <search threads>" );
+    printf( "    Number of threads used by the endgame search (default %d).\n\n",
+	    DEFAULT_THREADS );
     puts( "  -h <bits in hash key>" );
     printf( "    Size of hash table is 2^{this value} (default %d).\n",
 	    DEFAULT_HASH_BITS );

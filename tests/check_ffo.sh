@@ -4,11 +4,18 @@
 # published answers from http://radagast.se/othello/ffotest.html
 #
 # Usage (from the repository root, typically via make):
-#   sh tests/check_ffo.sh [quick|full] [jobs]
+#   sh tests/check_ffo.sh [quick|full] [jobs] [threads]
 #
-#   quick : subset of fast positions (~5 seconds), the default
-#   full  : all of tests/ffotest.scr -- takes a VERY long time
-#   jobs  : how many positions to solve in parallel (default 4)
+# make passes these through as FFO_JOBS and FFO_THREADS.
+#
+#   quick   : subset of fast positions (~5 seconds), the default
+#   full    : all of tests/ffotest.scr -- takes a VERY long time
+#   jobs    : how many positions to solve in parallel (default 4)
+#   threads : search threads per position, i.e. scrzebra's -n
+#             (default: whatever scrzebra itself defaults to)
+#
+# Note that the two multiply: jobs x threads processes' worth of work
+# can be running at once.
 #
 # Positions are solved in separate scrzebra processes (they share only
 # the read-only coeffs2.bin), so they can run concurrently.  A result
@@ -30,12 +37,12 @@ fi
 
 # ----- worker: solve and check one position ---------------------------
 # Invoked (via xargs) as: check_ffo.sh __worker <idx> <ffo#> <black> <white> <moves>
-# Inherits OUT from the parent through the environment.
+# Inherits OUT and FFO_NFLAG from the parent through the environment.
 if [ "$1" = "__worker" ]; then
   i=$2; ffo=$3; eblack=$4; ewhite=$5; emoves=$6
 
   pos_start=$(now)
-  ( cd build/bin && ./scrzebra -line 1 -script ffo-pos$i.scr ffo-pos$i.out ) >/dev/null
+  ( cd build/bin && ./scrzebra $FFO_NFLAG -line 1 -script ffo-pos$i.scr ffo-pos$i.out ) >/dev/null
   pos_end=$(now)
   elapsed=$(awk "BEGIN { printf \"%.1f\", $pos_end - $pos_start }")
 
@@ -69,6 +76,7 @@ fi
 
 MODE=${1:-quick}
 JOBS=${2:-4}
+THREADS=$3
 BIN=build/bin/scrzebra
 
 case "$JOBS" in
@@ -76,6 +84,18 @@ case "$JOBS" in
     echo "check_ffo: jobs must be a positive integer" >&2
     exit 1 ;;
 esac
+
+if [ -n "$THREADS" ]; then
+  case "$THREADS" in
+    *[!0-9]*|0)
+      echo "check_ffo: threads must be a positive integer" >&2
+      exit 1 ;;
+  esac
+  FFO_NFLAG="-n $THREADS"
+else
+  FFO_NFLAG=""
+fi
+export FFO_NFLAG
 
 if [ "$MODE" = "full" ]; then
   SCRIPT=tests/ffotest.scr
@@ -125,7 +145,11 @@ fi
 if [ "$MODE" = "full" ]; then
   echo "check_ffo: solving the full FFO test suite; this takes a LONG time."
 fi
-echo "check_ffo: running $JOBS position(s) in parallel"
+if [ -n "$THREADS" ]; then
+  echo "check_ffo: running $JOBS position(s) in parallel, $THREADS thread(s) each"
+else
+  echo "check_ffo: running $JOBS position(s) in parallel"
+fi
 
 # One position per line, comments stripped
 POSFILE=$OUT.positions
