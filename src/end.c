@@ -135,8 +135,15 @@ static const double end_percentile[MAX_SELECTIVITY + 1] =
 
 #if USE_STABILITY
 #define  HIGH_STABILITY_THRESHOLD     24
-static const int stability_threshold[] = { 65, 65, 65, 65, 65, 46, 38, 30, 24,
-				           24, 24, 24, 0, 0, 0, 0, 0, 0, 0 };
+/* Alpha above which a stability cutoff is attempted, indexed by the
+   number of empty squares.  Proving a bound costs a stability count, so
+   it only pays when alpha is already high enough that few discs need to
+   be stable; the more empties remain, the higher that bar has to be.
+   Below 5 empties the specialized solvers take over and never consult
+   this table.  Tuned as 2 * empties on FFO #45/#48/#49/#51. */
+static const int stability_threshold[] = { 65, 65, 65, 65, 65, 10, 12, 14, 16,
+					   18, 20, 22, 24, 26, 28, 30, 32, 34,
+					   36 };
 #endif
 
 
