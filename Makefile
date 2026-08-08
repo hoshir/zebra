@@ -94,8 +94,8 @@ CXX		= g++
 DEFS =		-DINCLUDE_BOOKTOOL -DTEXT_BASED -DZLIB_STATIC
 
 WARNINGS =	-Wall -Wcast-align -Wwrite-strings -Wstrict-prototypes -Winline
-OPTS =		-O4 -s -fomit-frame-pointer -falign-functions=32
-#OPTS =		-O4 -s -fomit-frame-pointer -mtune=core2 -falign-functions=32
+OPTS =		-O3 -fomit-frame-pointer -falign-functions=32
+#OPTS =		-O3 -fomit-frame-pointer -mtune=core2 -falign-functions=32
 
 CFLAGS =	$(OPTS) $(WARNINGS) $(DEFS) -I$(SRCDIR) -MMD -MP
 CXXFLAGS =	$(CFLAGS)

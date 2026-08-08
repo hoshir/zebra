@@ -1048,7 +1048,7 @@ endgame_correlation( int side_to_move, int best_score, int best_move,
   int eval_list[64];
 
   display_board( stdout, board, BLACKSQ, FALSE, FALSE, FALSE );
-  set_hash_transformation( abs( my_random() ), abs( my_random() ) );
+  set_hash_transformation( labs( my_random() ), labs( my_random() ) );
   determine_hash_values( side_to_move, board );
   for ( depth = 1; depth <= spec.max_depth; depth++ ) {
     (void) middle_game( side_to_move, depth, FALSE, &dummy_info );
@@ -3926,7 +3926,7 @@ check_forced_opening( int side_to_move, const char *opening ) {
      randomly to avoid the same symmetry being chosen all the time.
      This is not a perfect scheme but good enough. */
 
-  symmetry = abs( my_random() ) % 8;
+  symmetry = labs( my_random() ) % 8;
   for ( symm_index = 0; symm_index < 8;
 	symm_index++, symmetry = (symmetry + 1) % 8 ) {
     same_position = TRUE;

@@ -348,7 +348,7 @@ void compute_patterns( void ) {
    Sorts an integer vector using bubble-sort.
 */
 
-INLINE
+static INLINE
 void sort( int *vec, int count ) {
   int i;
   int temp;
@@ -669,7 +669,7 @@ void determine_features( int side_to_move, int stage, int *global_parity,
 */   
 
 void perform_analysis( int index ) {
-  int coeff, start, stop;
+  int start, stop;
   int global_parity;
   int side_to_move, stage;
   int buffer_a[4], buffer_b[4], buffer_c[4], buffer_d[4];
@@ -693,7 +693,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_d[stop] == buffer_d[start]) )
       stop++;
-    coeff = stop - start;
     dfile[buffer_d[start]].frequency++;
     start = stop;
   } while (start < 4);
@@ -706,7 +705,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_c[stop] == buffer_c[start]) )
       stop++;
-    coeff = stop - start;
     cfile[buffer_c[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -719,7 +717,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_b[stop] == buffer_b[start]) )
       stop++;
-    coeff = stop - start;
     bfile[buffer_b[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -732,7 +729,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_a[stop] == buffer_a[start]) )
       stop++;
-    coeff = stop - start;
     if ( USE_A_FILE )
       afile[buffer_a[start]].frequency++;
     else if ( USE_A_FILE2X )
@@ -748,7 +744,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 2) && (buffer_8[stop] == buffer_8[start]) )
       stop++;
-    coeff = stop - start;
     diag8[buffer_8[start]].frequency++;
     start = stop;
   } while ( start < 2 );
@@ -761,7 +756,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_7[stop] == buffer_7[start]) )
       stop++;
-    coeff = stop - start;
     diag7[buffer_7[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -774,7 +768,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_6[stop] == buffer_6[start]) )
       stop++;
-    coeff = stop - start;
     diag6[buffer_6[start]].frequency++;
     start = stop;
   } while (start < 4 );
@@ -787,7 +780,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_5[stop] == buffer_5[start]) )
       stop++;
-    coeff = stop - start;
     diag5[buffer_5[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -800,7 +792,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_4[stop] == buffer_4[start]) )
       stop++;
-    coeff = stop - start;
     diag4[buffer_4[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -813,7 +804,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 8) && (buffer_52[stop] == buffer_52[start]) )
       stop++;
-    coeff = stop - start;
     corner52[buffer_52[start]].frequency++;
     start = stop;
   } while ( start < 8 );
@@ -826,7 +816,6 @@ void perform_analysis( int index ) {
     stop = start + 1;
     while ( (stop < 4) && (buffer_33[stop] == buffer_33[start]) )
       stop++;
-    coeff = stop - start;
     corner33[buffer_33[start]].frequency++;
     start = stop;
   } while ( start < 4 );
@@ -1068,7 +1057,7 @@ void perform_step_update( int index ) {
    A wrapper to the function given by the function pointer BFUNC.
 */
 
-INLINE
+static INLINE
 void perform_action( void (*bfunc)(int), int index ) {
   node_count++;
   if ( active[position_list[index].stage] ) {
@@ -1736,7 +1725,6 @@ int main(int argc, char *argv[]) {
   double grad_sum, old_grad_sum;
   int i;
   int iteration, max_iterations;
-  int count;
   time_t start_time, curr_time;
   FILE *option_stream;
 
@@ -1922,7 +1910,6 @@ int main(int argc, char *argv[]) {
     abs_error_sum = 0.0;
     printf( "\nDetermining gradient:      " );
     fflush( stdout );
-    count = 0;
     total_weight = 0.0;
     evaluate_games();
     printf( " %d\n", relevant_count );
@@ -2028,7 +2015,6 @@ int main(int argc, char *argv[]) {
 
     printf("Determining step:          ");
     fflush(stdout);
-    count = 0;
     quad_coeff = 0.0;
     lin_coeff = 0.0;
     const_coeff = 0.0;

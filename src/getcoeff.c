@@ -1041,6 +1041,7 @@ init_coeffs( void ) {
 
 
 
+#if TIME_EVAL
 static long long int
 rdtsc( void ) {
 #if defined(__GNUC__) && defined(__i386__)
@@ -1051,6 +1052,7 @@ rdtsc( void ) {
   return 0;
 #endif
 }
+#endif
 
 
 
