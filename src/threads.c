@@ -51,6 +51,7 @@ static pthread_t worker[MAX_THREADS];
 static int thread_count = 1;
 static int worker_count;   /* threads in worker[], i.e. thread_count - 1 */
 static int pool_created;
+static _Thread_local int is_worker;
 
 
 
@@ -86,6 +87,7 @@ worker_main( void *arg ) {
   int last_generation = 0;
 
   (void) arg;
+  is_worker = TRUE;
   init_search_thread();
 
   pthread_mutex_lock( &pool.lock );
@@ -174,6 +176,12 @@ threads_shutdown( void ) {
 int
 threads_count( void ) {
   return thread_count;
+}
+
+
+int
+threads_is_worker( void ) {
+  return is_worker;
 }
 
 

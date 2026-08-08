@@ -1386,14 +1386,19 @@ end_tree_search( int level, int max_depth, BitBoard my_bits,
 
 #define MAX_ROOT_MOVES               64
 
+/* Remaining depth at or above which a node is worth splitting */
+#define PARALLEL_SPLIT_DEPTH         14
+
 typedef struct {
   SearchState root;
+  int level;
   int max_depth;
   int side_to_move;
   int alpha;                        /* null window is (alpha, alpha + 1) */
   int selectivity;
   int move[MAX_ROOT_MOVES];
   int score[MAX_ROOT_MOVES];
+  int cutoff[MAX_ROOT_MOVES];
   int valid[MAX_ROOT_MOVES];
 } SiblingBatch;
 
@@ -1418,7 +1423,7 @@ search_sibling( int index, void *context ) {
   new_my_bits = bb_flips;
   FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
-  score = -end_tree_search( 1, batch->max_depth,
+  score = -end_tree_search( batch->level + 1, batch->max_depth,
 			    new_opp_bits, new_my_bits,
 			    OPP( batch->side_to_move ),
 			    -(batch->alpha + 1), -batch->alpha,
@@ -1431,24 +1436,29 @@ search_sibling( int index, void *context ) {
 
   if ( !is_panic_abort() && !force_return ) {
     batch->score[index] = score;
+    batch->cutoff[index] = child_selective_cutoff;
     batch->valid[index] = TRUE;
   }
 }
 
 
 /*
-  DISPATCH_ROOT_SIBLINGS
-  Search every legal root move except SEARCHED_MOVE in parallel with a
-  null window around ALPHA.  Fills PROVEN[sq] with a score for each move
-  that was proved not to beat ALPHA.
+  DISPATCH_SIBLINGS
+  Search every legal move of this node except SEARCHED_MOVE in parallel
+  with a null window around ALPHA.  Fills PROVEN[sq] with a score for
+  each move that was proved not to beat ALPHA, which the sequential
+  loop can then take instead of searching the move itself.
 */
 
 static void
-dispatch_root_siblings( BitBoard my_bits, BitBoard opp_bits,
-			int side_to_move, int max_depth, int alpha,
-			int selectivity, int searched_move,
-			int *proven, int *proven_score ) {
-  static SiblingBatch batch;     /* only the root thread gets here */
+dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
+		   int side_to_move, int level, int max_depth, int alpha,
+		   int selectivity, int searched_move,
+		   int *proven, int *proven_score, int *proven_cutoff ) {
+  /* Only the search thread splits, and it is inside one split at a
+     time -- an inner split finishes before its parent starts one --
+     so a single batch is enough and it need not be on the stack. */
+  static SiblingBatch batch;
   int i, j, sq, count = 0;
 
   for ( i = 1; i <= 8; i++ )
@@ -1461,6 +1471,7 @@ dispatch_root_siblings( BitBoard my_bits, BitBoard opp_bits,
       if ( count < MAX_ROOT_MOVES ) {
 	batch.move[count] = sq;
 	batch.score[count] = 0;
+	batch.cutoff[count] = FALSE;
 	batch.valid[count] = FALSE;
 	count++;
       }
@@ -1468,6 +1479,7 @@ dispatch_root_siblings( BitBoard my_bits, BitBoard opp_bits,
   if ( count == 0 )
     return;
 
+  batch.level = level;
   batch.max_depth = max_depth;
   batch.side_to_move = side_to_move;
   batch.alpha = alpha;
@@ -1484,6 +1496,7 @@ dispatch_root_siblings( BitBoard my_bits, BitBoard opp_bits,
     if ( batch.valid[i] && (batch.score[i] <= alpha) ) {
       proven[batch.move[i]] = TRUE;
       proven_score[batch.move[i]] = batch.score[i];
+      proven_cutoff[batch.move[i]] = batch.cutoff[i];
     }
 }
 
@@ -1523,8 +1536,9 @@ end_tree_search( int level,
   int threshold;
   int best_list_index, best_list_length;
   int best_list[4];
-  int proven[100], proven_score[100];
+  int proven[100], proven_score[100], proven_cutoff[100];
   int siblings_dispatched = FALSE;
+  int can_split;
   HashEntry entry, mid_entry;
 #if CHECK_HASH_CODES
   unsigned int h1, h2;
@@ -1715,7 +1729,12 @@ end_tree_search( int level,
 
   exp_depth = remains;
   first = TRUE;
-  if ( level == 0 )
+  /* Split only near the top of the tree: further down a subtree is not
+     worth a batch, and only the search thread splits (see
+     threads_is_worker). */
+  can_split = (remains >= PARALLEL_SPLIT_DEPTH) && (threads_count() > 1) &&
+    !threads_is_worker();
+  if ( can_split )
     for ( i = 0; i < 100; i++ )
       proven[i] = FALSE;
   best = -INFINITE_EVAL;
@@ -1897,14 +1916,19 @@ end_tree_search( int level,
     }
     else {
       curr_alpha = MAX( best, curr_alpha );
-      if ( (level == 0) && proven[move] && (proven_score[move] <= curr_alpha) )
-	curr_val = proven_score[move];   /* already proved not to beat alpha */
+      if ( can_split && proven[move] && (proven_score[move] <= curr_alpha) ) {
+	/* Already proved not to beat alpha; the child's selectivity flag
+	   has to come along, the caller stores it in the hash entry. */
+	curr_val = proven_score[move];
+	child_selective_cutoff = proven_cutoff[move];
+      }
       else
 	curr_val =
 	  -end_tree_search( level + 1, level + exp_depth,
 			    new_opp_bits, new_my_bits, OPP( side_to_move ),
 			    -(curr_alpha + 1), -curr_alpha,
 			    selectivity, &child_selective_cutoff, TRUE );
+
       if ( (curr_val > curr_alpha) && (curr_val < beta) ) {
 	if ( selectivity > 0 )
 	  curr_val =
@@ -1982,12 +2006,12 @@ end_tree_search( int level,
 	 (best_list_length < 4) )
       best_list[best_list_length++] = move;
 
-    if ( (level == 0) && first && !siblings_dispatched &&
-	 (threads_count() > 1) && !is_panic_abort() && !force_return ) {
+    if ( can_split && first && !siblings_dispatched &&
+	 !is_panic_abort() && !force_return ) {
       siblings_dispatched = TRUE;
-      dispatch_root_siblings( my_bits, opp_bits, side_to_move,
-			      level + exp_depth, best, selectivity,
-			      move, proven, proven_score );
+      dispatch_siblings( my_bits, opp_bits, side_to_move, level,
+			 level + exp_depth, best, selectivity,
+			 move, proven, proven_score, proven_cutoff );
     }
 
     first = FALSE;
