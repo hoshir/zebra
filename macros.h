@@ -43,7 +43,7 @@ extern "C" {
 
 
 /* Define function attributes directive when available */
-#if __GNUC__ >= 3
+#if __GNUC__ >= 3 && defined(__i386__)
 #define	REGPARM(num)	__attribute__((regparm(num)))
 #else
 #if defined (_MSC_VER) || defined(__BORLANDC__)

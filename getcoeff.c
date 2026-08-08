@@ -1045,7 +1045,7 @@ init_coeffs( void ) {
 
 static long long int
 rdtsc( void ) {
-#if defined(__GNUC__)
+#if defined(__GNUC__) && defined(__i386__)
   long long a;
   asm volatile("rdtsc":"=A" (a));
   return a;

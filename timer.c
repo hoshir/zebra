@@ -16,7 +16,7 @@
 /* CRON_SUPPORTED should be enabled when Zebra is compiled for
    a Unix system which supports the Cron daemon. */
 
-#ifdef __linux__
+#if defined( __linux__ ) || defined( __APPLE__ )
 #define CRON_SUPPORTED
 #endif
 
