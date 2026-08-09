@@ -48,6 +48,7 @@ SRCS = \
 	probcut.c \
 	safemem.c \
 	search.c \
+	threads.c \
 	stable.c \
 	thordb.c \
 	timer.c \
@@ -65,6 +66,7 @@ PRACTICE_EXE = $(BINDIR)/practice
 ENDDEV_EXE   = $(BINDIR)/enddev
 TUNE8DBS_EXE = $(BINDIR)/tune8dbs
 FLIPTEST_EXE = $(BINDIR)/fliptest
+THREADTEST_EXE = $(BINDIR)/threadtest
 
 LIB          = $(BUILDDIR)/libzebra.a
 
@@ -76,9 +78,9 @@ DATA_LINKS   = $(BINDIR)/book.bin $(BINDIR)/coeffs2.bin
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-LDFLAGS		= -lm -lz
+LDFLAGS		= -lm -lz -pthread
 else
-LDFLAGS		= -static -lm -lz
+LDFLAGS		= -static -lm -lz -pthread
 endif
 #LDFLAGS	= -static -lm -lz -Wl,-Map,map.out
 
@@ -92,12 +94,13 @@ CXX		= g++
 # --- Flags ---
 
 DEFS =		-DINCLUDE_BOOKTOOL -DTEXT_BASED -DZLIB_STATIC
+THREAD_FLAGS =	-pthread
 
 WARNINGS =	-Wall -Wcast-align -Wwrite-strings -Wstrict-prototypes -Winline
 OPTS =		-O3 -fomit-frame-pointer -falign-functions=32
 #OPTS =		-O3 -fomit-frame-pointer -mtune=core2 -falign-functions=32
 
-CFLAGS =	$(OPTS) $(WARNINGS) $(DEFS) -I$(SRCDIR) -MMD -MP
+CFLAGS =	$(OPTS) $(WARNINGS) $(DEFS) $(THREAD_FLAGS) -I$(SRCDIR) -MMD -MP
 CXXFLAGS =	$(CFLAGS)
 
 
@@ -125,18 +128,23 @@ libzebra.a	: $(LIB)
 # FFO positions are solved in parallel; override the degree with
 # e.g. "make test FFO_JOBS=8" (default 4).
 
-test		: $(FLIPTEST_EXE) scrzebra
+test		: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
+	$(THREADTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh quick $(FFO_JOBS)
 
 # Solves ALL positions in tests/ffotest.scr and verifies the results.
 # WARNING: this takes a very long time (multiple hours).
-test-full	: $(FLIPTEST_EXE) scrzebra
+test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
+	$(THREADTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh full $(FFO_JOBS)
 
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
+
+$(THREADTEST_EXE)	: $(TESTDIR)/threadtest.c $(LIB) | $(BINDIR)
+	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/threadtest.c $(LIB) $(LDFLAGS)
 
 .PHONY		: all clean test test-full zebra scrzebra booktool practice enddev tune8dbs libzebra.a
 
