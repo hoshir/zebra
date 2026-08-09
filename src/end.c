@@ -201,6 +201,99 @@ TestFlips_wrapper( int sq,
 #endif
 
 
+/*
+  Helpers that let the endgame hash zone work on the bitboards alone,
+  without maintaining the board array, the flip stack or DoFlips_hash.
+*/
+
+#if defined( __GNUC__ )
+#define FIRST_BIT_32( x )  __builtin_ctz( x )
+#else
+static int
+FIRST_BIT_32( unsigned int x ) {
+  int n = 0;
+  while ( (x & 1) == 0 ) {
+    x >>= 1;
+    n++;
+  }
+  return n;
+}
+#endif
+
+
+/*
+  END_HASH_DIFF
+  Compute the incremental hash-key update for COLOR playing SQ,
+  from the difference between the old and new bitboards of the mover.
+  Replaces the array-based DoFlips_hash.
+*/
+
+static INLINE void
+end_hash_diff( const BitBoard new_my_bits, const BitBoard my_bits,
+	       int color, int sq,
+	       unsigned int *diff1, unsigned int *diff2 ) {
+  unsigned int fl;
+  int bit, index;
+  int move_bit = 8 * (sq / 10 - 1) + (sq % 10 - 1);
+  unsigned int d1 = hash_put_value1[color][sq];
+  unsigned int d2 = hash_put_value2[color][sq];
+
+  fl = new_my_bits.low ^ my_bits.low;
+  if ( move_bit < 32 )
+    fl &= ~(1u << move_bit);
+  while ( fl != 0 ) {
+    bit = FIRST_BIT_32( fl );
+    fl &= fl - 1;
+    index = 10 * (bit / 8 + 1) + (bit % 8) + 1;
+    d1 ^= hash_flip1[index];
+    d2 ^= hash_flip2[index];
+  }
+
+  fl = new_my_bits.high ^ my_bits.high;
+  if ( move_bit >= 32 )
+    fl &= ~(1u << (move_bit - 32));
+  while ( fl != 0 ) {
+    bit = FIRST_BIT_32( fl );
+    fl &= fl - 1;
+    index = 10 * (bit / 8 + 5) + (bit % 8) + 1;
+    d1 ^= hash_flip1[index];
+    d2 ^= hash_flip2[index];
+  }
+
+  *diff1 = d1;
+  *diff2 = d2;
+}
+
+
+/*
+  BB_VALID_MOVE
+  Determine if a (hash) move is legal in the position given by the
+  bitboards.  Replaces the array-based valid_move.
+  Note: clobbers bb_flips via TestFlips_wrapper.
+*/
+
+static int
+bb_valid_move( int move, BitBoard my_bits, BitBoard opp_bits ) {
+  int row = move / 10;
+  int col = move % 10;
+  int bit;
+  unsigned int occupied;
+
+  if ( (row < 1) || (row > 8) || (col < 1) || (col > 8) )
+    return FALSE;
+
+  bit = 8 * (row - 1) + (col - 1);
+  if ( bit < 32 )
+    occupied = (my_bits.low | opp_bits.low) >> bit;
+  else
+    occupied = (my_bits.high | opp_bits.high) >> (bit - 32);
+  if ( occupied & 1 )
+    return FALSE;
+
+  return TestFlips_wrapper( move, my_bits, opp_bits ) > 0;
+}
+
+
 
 /*
   PREPARE_TO_SOLVE
@@ -784,7 +877,7 @@ solve_parity_hash( BitBoard my_bits,
   find_hash( &entry, ENDGAME_MODE );
   if ( (entry.draft == empties) &&
        (entry.selectivity == 0) &&
-       valid_move( entry.move[0], color ) &&
+       bb_valid_move( entry.move[0], my_bits, opp_bits ) &&
        (entry.flags & ENDGAME_SCORE) &&
        ((entry.flags & EXACT_VALUE) ||
 	((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
@@ -982,7 +1075,7 @@ solve_parity_hash_high( BitBoard my_bits,
   if ( entry.draft == empties ) {
     if ( (entry.selectivity == 0) &&
 	 (entry.flags & ENDGAME_SCORE) &&
-	 valid_move( entry.move[0], color ) &&
+	 bb_valid_move( entry.move[0], my_bits, opp_bits ) &&
 	 ((entry.flags & EXACT_VALUE) ||
 	  ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
 	  ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
@@ -1074,11 +1167,7 @@ solve_parity_hash_high( BitBoard my_bits,
 
   sq = move_order[best_index];
 
-  (void) DoFlips_hash( sq, color );
-
-  board[sq] = color;
-  diff1 = hash_update1 ^ hash_put_value1[color][sq];
-  diff2 = hash_update2 ^ hash_put_value2[color][sq];
+  end_hash_diff( best_new_my_bits, my_bits, color, sq, &diff1, &diff2 );
   hash1 ^= diff1;
   hash2 ^= diff2;
 
@@ -1099,10 +1188,8 @@ solve_parity_hash_high( BitBoard my_bits,
 				     -beta, -alpha, oppcol, empties - 1,
 				     new_disc_diff, TRUE );
 
-  UndoFlips( best_flipped, oppcol );
   hash1 ^= diff1;
   hash2 ^= diff2;
-  board[sq] = EMPTY;
 
   region_parity ^= quadrant_mask[sq];
 
@@ -1142,10 +1229,7 @@ solve_parity_hash_high( BitBoard my_bits,
     flipped = TestFlips_wrapper( sq, my_bits, opp_bits );
     FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
-    (void) DoFlips_hash( sq, color );
-    board[sq] = color;
-    diff1 = hash_update1 ^ hash_put_value1[color][sq];
-    diff2 = hash_update2 ^ hash_put_value2[color][sq];
+    end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
     hash1 ^= diff1;
     hash2 ^= diff2;
 
@@ -1167,10 +1251,8 @@ solve_parity_hash_high( BitBoard my_bits,
 
     region_parity ^= quadrant_mask[sq];
 
-    UndoFlips( flipped, oppcol );
     hash1 ^= diff1;
     hash2 ^= diff2;
-    board[sq] = EMPTY;
 
     end_move_list[pred].succ = sq;
     end_move_list[succ].pred = sq;
