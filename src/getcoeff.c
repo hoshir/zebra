@@ -1066,7 +1066,7 @@ rdtsc( void ) {
 #include "display.h"
 #endif
 
-short pattern_score;
+_Thread_local short pattern_score;
 
 INLINE int
 pattern_evaluation( int side_to_move ) {

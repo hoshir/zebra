@@ -21,6 +21,7 @@
 #include "globals.h"
 #include "macros.h"
 #include "moves.h"
+#include "unflip.h"
 #include "search.h"
 #include "texts.h"
 
@@ -33,11 +34,13 @@ int root_eval;
 int force_return;
 int full_pv_depth;
 int full_pv[120];
-int list_inherited[61];
-int sorted_move_order[64][64];  /* 61*60 used */
-Board evals[61];
-CounterType nodes, total_nodes;
-CounterType evaluations, total_evaluations;
+_Thread_local int list_inherited[61];
+_Thread_local int sorted_move_order[64][64];  /* 61*60 used */
+_Thread_local Board evals[61];
+_Thread_local CounterType nodes;
+CounterType total_nodes;
+_Thread_local CounterType evaluations;
+CounterType total_evaluations;
 
 /* When no other information is available, JCW's endgame
    priority order is used also in the midgame. */
@@ -62,8 +65,8 @@ int position_list[100] = {
 /* Local variables */
 
 static int pondered_move = 0;
-static int negate_eval;
-static EvaluationType last_eval;
+static _Thread_local int negate_eval;
+static _Thread_local EvaluationType last_eval;
 
 
 
@@ -569,4 +572,17 @@ get_current_eval( void ) {
 void
 negate_current_eval( int negate ) {
   negate_eval = negate;
+}
+
+
+/*
+  INIT_SEARCH_THREAD
+  Initialize the thread-local search state.  Must be called once by
+  every thread that runs a search, before that thread searches
+  anything; the main thread gets it from game_init().
+*/
+
+void
+init_search_thread( void ) {
+  init_flip_stack();
 }

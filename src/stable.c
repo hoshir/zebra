@@ -48,7 +48,7 @@
 
 /* All discs determined as stable last time COUNT_STABLE was called
    for the two colors */
-BitBoard last_black_stable, last_white_stable;
+_Thread_local BitBoard last_black_stable, last_white_stable;
 
 
 
@@ -68,12 +68,12 @@ static unsigned char black_stable[6561], white_stable[6561];
 static short base_conversion[256];
 
 /* The base-3 indices for the edges */
-static int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
+static _Thread_local int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
 
 
 /* Position list used in the complete stability search */
 
-MoveLink stab_move_list[100];
+_Thread_local MoveLink stab_move_list[100];
 
 #if 0
 INLINE static void

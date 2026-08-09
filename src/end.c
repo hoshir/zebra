@@ -113,13 +113,13 @@ typedef enum {
 
 
 
-MoveLink end_move_list[100];
+_Thread_local MoveLink end_move_list[100];
 
 
 
 /* The parities of the regions are in the region_parity bit vector. */
 
-static unsigned int region_parity;
+static _Thread_local unsigned int region_parity;
 
 /* Pseudo-probabilities corresponding to the percentiles.
    These are taken from the normal distribution; to the percentile
@@ -150,7 +150,7 @@ static const int stability_threshold[] = { 65, 65, 65, 65, 65, 10, 12, 14, 16,
 
 static double fast_first_mean[61][64];
 static double fast_first_sigma[61][64];
-static int best_move, best_end_root_move;
+static _Thread_local int best_move, best_end_root_move;
 static int true_found, true_val;
 static int full_output_mode;
 static int earliest_wld_solve, earliest_full_solve;

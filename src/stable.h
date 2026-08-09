@@ -26,7 +26,7 @@ extern "C" {
 
 
 
-extern BitBoard last_black_stable, last_white_stable;
+extern _Thread_local BitBoard last_black_stable, last_white_stable;
 
 
 
