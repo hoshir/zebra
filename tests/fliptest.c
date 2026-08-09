@@ -64,6 +64,10 @@ main( int argc, char *argv[] ) {
 
   srand( (unsigned int) seed );
 
+  /* DoFlips pushes onto the global flip stack, so the stack pointer has
+     to be set up first; the engine does this from game_init(). */
+  init_flip_stack();
+
   for ( trial = 0; (trial < trials) && (mismatches < MAX_REPORTED);
 	trial++ ) {
     int side_to_move = (rand() & 1) ? BLACKSQ : WHITESQ;
