@@ -13,6 +13,27 @@ get the source from the `original` tag:
 git checkout original
 ```
 
+## Parallel endgame search
+
+`zebra` and `scrzebra` take `-n <threads>` (default 2) to search the
+endgame on several threads. Once a node has searched its first move, the
+remaining moves are handed to a worker pool with a null window; the ones
+proved not to beat alpha are then skipped by the sequential search.
+Pass `-n 1` for a purely sequential search.
+
+Exact scores and best moves do not depend on the thread count. The tail
+of the principal variation can, because the transposition table is
+shared and gets filled in a different order.
+
+Measured on an 8-core machine:
+
+| Position | 1 thread | 8 threads |
+|----------|---------:|----------:|
+| FFO #45  |   11.9 s |     3.3 s |
+| FFO #48  |    7.0 s |     2.3 s |
+| FFO #49  |    9.6 s |     3.6 s |
+| FFO #51  |   10.7 s |     4.0 s |
+
 ## Testing
 
 Run the test suite with:
@@ -32,8 +53,9 @@ It takes about 5-10 seconds and runs two tests:
   suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
   `scrzebra` and checks the exact scores and best moves against the
   published answers from http://radagast.se/othello/ffotest.html
-  Positions are solved in parallel (4 at a time by default); use
-  `make test FFO_JOBS=8` or `sh tests/check_ffo.sh quick 8` to change it.
+  Positions are solved one at a time, each search using one thread per
+  processor. Override that with `make test FFO_THREADS=4`, or
+  `sh tests/check_ffo.sh quick 4`.
 
 The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
 and verified with:
@@ -42,12 +64,13 @@ and verified with:
 make test-full
 ```
 
-**Caveat: this takes a very long time — expect multiple hours.** The
-reference result on the author's page is 2h06m for the whole suite (on a
-1.33 GHz Athlon); modern machines are faster but the hardest positions
-(#53-#58) still take from many minutes up to hours each. Positions run
-in parallel (default 4, e.g. `make test-full FFO_JOBS=8` to change it),
-each position's result and elapsed time is printed as soon as it is
+**Caveat: this takes several minutes** — about 8.5 on an 8-core arm64
+Mac. Most positions solve in under 10 seconds; the tail is #55 at
+roughly 3.5 minutes on its own, then #57 at 1.5 minutes and #54 at just
+over 1. For scale, the reference result on the author's page is 2h06m
+for the whole suite on a 1.33 GHz Athlon.
+
+Each position's result and elapsed time is printed as soon as it is
 solved, and the raw results are collected in `build/ffo-full.out`.
 
 ## Web sites

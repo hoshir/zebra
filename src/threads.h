@@ -49,12 +49,26 @@ threads_count( void );
 
 
 /*
+  THREADS_IS_WORKER
+  TRUE when called on one of the pool's worker threads.  A worker must
+  not start a batch of its own: the pool has no spare threads to run it
+  and would wait for itself.
+*/
+
+int
+threads_is_worker( void );
+
+
+/*
   THREADS_RUN
   Run JOB( index, context ) for each index in [0, JOB_COUNT) and return
   once all of them have finished.  Jobs are claimed by whichever thread
-  is free, the calling thread among them, so a job must not assume
-  anything about which thread runs it or in what order.  Each worker
-  has had init_search_thread() called on it.
+  is free, so a job must not assume anything about which thread runs it
+  or in what order.  The calling thread takes part rather than idling,
+  which means a job runs on it too, on top of the search it is suspended
+  in the middle of; it is the caller's job to keep the two from
+  trampling each other.  Each worker has had init_search_thread()
+  called on it.
 */
 
 void

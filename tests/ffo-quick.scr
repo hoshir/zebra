@@ -3,7 +3,7 @@
 %
 % A fast subset of the FFO endgame test suite (ffotest.scr):
 % positions #47, #40, #41, #42, #43, #44, #46 and #59, in that order.
-% Each solves in a few seconds; the full suite takes hours.
+% Each solves in a couple of seconds; the full suite takes minutes.
 %
 % Expected results (from http://radagast.se/othello/ffotest.html) are
 % checked by tests/check_ffo.sh.

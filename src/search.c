@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "constant.h"
 #include "counter.h"
@@ -585,4 +586,36 @@ negate_current_eval( int negate ) {
 void
 init_search_thread( void ) {
   init_flip_stack();
+}
+
+
+/*
+  SEARCH_STATE_SAVE
+*/
+
+void
+search_state_save( SearchState *state ) {
+  memcpy( state->board, board, sizeof( Board ) );
+  memcpy( state->piece_count, piece_count, sizeof( state->piece_count ) );
+  memcpy( state->sorted_move_order, sorted_move_order,
+	  sizeof( state->sorted_move_order ) );
+  state->hash1 = hash1;
+  state->hash2 = hash2;
+  state->disks_played = disks_played;
+}
+
+
+/*
+  SEARCH_STATE_LOAD
+*/
+
+void
+search_state_load( const SearchState *state ) {
+  memcpy( board, state->board, sizeof( Board ) );
+  memcpy( piece_count, state->piece_count, sizeof( state->piece_count ) );
+  memcpy( sorted_move_order, state->sorted_move_order,
+	  sizeof( state->sorted_move_order ) );
+  hash1 = state->hash1;
+  hash2 = state->hash2;
+  disks_played = state->disks_played;
 }

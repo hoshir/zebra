@@ -51,6 +51,7 @@ static pthread_t worker[MAX_THREADS];
 static int thread_count = 1;
 static int worker_count;   /* threads in worker[], i.e. thread_count - 1 */
 static int pool_created;
+static _Thread_local int is_worker;
 
 
 
@@ -86,6 +87,7 @@ worker_main( void *arg ) {
   int last_generation = 0;
 
   (void) arg;
+  is_worker = TRUE;
   init_search_thread();
 
   pthread_mutex_lock( &pool.lock );
@@ -177,6 +179,12 @@ threads_count( void ) {
 }
 
 
+int
+threads_is_worker( void ) {
+  return is_worker;
+}
+
+
 void
 threads_run( void (*job)( int index, void *context ), void *context,
 	     int job_count ) {
@@ -196,13 +204,18 @@ threads_run( void (*job)( int index, void *context ), void *context,
   pool.context = context;
   pool.job_count = job_count;
   pool.next_job = 0;
-  pool.busy_count = worker_count;
+  pool.busy_count = worker_count + 1;   /* the workers plus the caller */
   pool.generation++;
   pthread_cond_broadcast( &pool.work_ready );
 
-  /* The caller does not take part: it is in the middle of its own
-     search, and a job would overwrite the very state it is using. */
-  while ( pool.busy_count > 0 )
-    pthread_cond_wait( &pool.work_done, &pool.lock );
+  /* The caller helps rather than idling.  It is up to the caller to put
+     its own search state back afterwards, since a job overwrites the
+     state it was using, and not to start a nested batch from inside a
+     job -- the pool is already busy with this one. */
+  claim_jobs( pool.generation );
+
+  if ( --pool.busy_count > 0 )
+    while ( pool.busy_count > 0 )
+      pthread_cond_wait( &pool.work_done, &pool.lock );
   pthread_mutex_unlock( &pool.lock );
 }

@@ -59,6 +59,15 @@ AUTOP_OBJ    = $(OBJDIR)/autop.o
 
 TESTDIR  = tests
 
+# Search threads the FFO test gives each position; empty means one per
+# processor.  Positions are solved one at a time -- the endgame search
+# is parallel itself, so running several at once only makes them fight
+# over the same cores.  This is a plain assignment, not ?=, so that a
+# variable of the same name left exported in someone's environment
+# cannot quietly change what the test does; "make test FFO_THREADS=4"
+# still wins, because command line assignments override the makefile.
+FFO_THREADS =
+
 ZEBRA_EXE    = $(BINDIR)/zebra
 SCRZEBRA_EXE = $(BINDIR)/scrzebra
 BOOKTOOL_EXE = $(BINDIR)/booktool
@@ -125,20 +134,21 @@ libzebra.a	: $(LIB)
 #  2. check_ffo.sh: solves a fast subset of the FFO endgame test suite
 #     and verifies the scores against the published answers
 #
-# FFO positions are solved in parallel; override the degree with
-# e.g. "make test FFO_JOBS=8" (default 4).
+# Override the search threads with e.g. "make test FFO_THREADS=4"; see
+# where that is set above.
 
 test		: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	$(THREADTEST_EXE)
-	sh $(TESTDIR)/check_ffo.sh quick $(FFO_JOBS)
+	sh $(TESTDIR)/check_ffo.sh quick "$(FFO_THREADS)"
 
 # Solves ALL positions in tests/ffotest.scr and verifies the results.
-# WARNING: this takes a very long time (multiple hours).
+# Takes several minutes -- about 8.5 on an 8-core machine, half of
+# which is FFO #55 on its own.
 test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	$(THREADTEST_EXE)
-	sh $(TESTDIR)/check_ffo.sh full $(FFO_JOBS)
+	sh $(TESTDIR)/check_ffo.sh full "$(FFO_THREADS)"
 
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
