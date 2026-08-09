@@ -4,23 +4,20 @@
 # published answers from http://radagast.se/othello/ffotest.html
 #
 # Usage (from the repository root, typically via make):
-#   sh tests/check_ffo.sh [quick|full] [jobs] [threads]
+#   sh tests/check_ffo.sh [quick|full] [threads]
 #
-# make passes these through as FFO_JOBS and FFO_THREADS.
+# make passes the thread count through as FFO_THREADS.
 #
-#   quick   : subset of fast positions (~5 seconds), the default
+#   quick   : subset of fast positions (a few seconds), the default
 #   full    : all of tests/ffotest.scr -- takes several minutes
-#   jobs    : how many positions to solve in parallel (default 4)
 #   threads : search threads per position, i.e. scrzebra's -n
-#             (default: whatever scrzebra itself defaults to)
+#             (default: the number of processors on this machine)
 #
-# Note that the two multiply: jobs x threads processes' worth of work
-# can be running at once.
-#
-# Positions are solved in separate scrzebra processes (they share only
-# the read-only coeffs2.bin), so they can run concurrently.  A result
-# line with the elapsed time is printed as soon as each position is
-# solved, in completion order.
+# Positions are solved one at a time, each getting the whole machine.
+# The endgame search is parallel itself now, so solving several at once
+# would just make them fight over the same cores; it would also make the
+# elapsed time printed for each position meaningless, and those numbers
+# get quoted.
 #
 # Expected rows: FFO# <black discs> <white discs> <acceptable first moves>
 # FFO #59 has three optimal moves (g8, h4, e8 all win 64-0); all other
@@ -35,14 +32,28 @@ else
   now() { date +%s; }
 fi
 
-# ----- worker: solve and check one position ---------------------------
-# Invoked (via xargs) as: check_ffo.sh __worker <idx> <ffo#> <black> <white> <moves>
-# Inherits OUT and FFO_NFLAG from the parent through the environment.
-if [ "$1" = "__worker" ]; then
-  i=$2; ffo=$3; eblack=$4; ewhite=$5; emoves=$6
+# Processors online.  getconf is POSIX and answers on both Linux and
+# macOS; sysctl is the fallback for the BSDs that lack the getconf name.
+default_threads() {
+  n=$(getconf _NPROCESSORS_ONLN 2>/dev/null)
+  case "$n" in
+    ''|*[!0-9]*|0) n=$(sysctl -n hw.ncpu 2>/dev/null) ;;
+  esac
+  case "$n" in
+    ''|*[!0-9]*|0) n=2 ;;
+  esac
+  echo "$n"
+}
+
+# ----- solve and check one position -----------------------------------
+# run_position <idx> <ffo#> <black> <white> <moves>; sets `failed' on a
+# mismatch.  Runs in this shell, so it can just set the variable.
+run_position() {
+  i=$1; ffo=$2; eblack=$3; ewhite=$4; emoves=$5
 
   pos_start=$(now)
-  ( cd build/bin && ./scrzebra $FFO_NFLAG -line 1 -script ffo-pos$i.scr ffo-pos$i.out ) >/dev/null
+  ( cd build/bin && ./scrzebra -n "$THREADS" -line 1 \
+      -script ffo-pos$i.scr ffo-pos$i.out ) >/dev/null
   pos_end=$(now)
   elapsed=$(awk "BEGIN { printf \"%.1f\", $pos_end - $pos_start }")
 
@@ -50,8 +61,8 @@ if [ "$1" = "__worker" ]; then
          grep -v '^[[:space:]]*$' | head -1)
   if [ -z "$line" ]; then
     echo "FAIL  FFO#$ffo: scrzebra produced no output   (${elapsed}s)"
-    touch "$OUT.failed"
-    exit 0
+    failed=1
+    return
   fi
 
   black=$(echo "$line" | awk '{print $1}')
@@ -59,43 +70,34 @@ if [ "$1" = "__worker" ]; then
   move=$(echo "$line" | awk '{print $4}')
   if [ "$black" != "$eblack" ] || [ "$white" != "$ewhite" ]; then
     echo "FAIL  FFO#$ffo: score $black-$white, expected $eblack-$ewhite   (${elapsed}s)"
-    touch "$OUT.failed"
-  else
-    case "|$emoves|" in
-      *"|$move|"*)
-        echo "ok    FFO#$ffo: $black-$white $move   (${elapsed}s)" ;;
-      *)
-        echo "FAIL  FFO#$ffo: best move $move, expected one of $emoves   (${elapsed}s)"
-        touch "$OUT.failed" ;;
-    esac
+    failed=1
+    return
   fi
-  exit 0
-fi
+
+  case "|$emoves|" in
+    *"|$move|"*)
+      echo "ok    FFO#$ffo: $black-$white $move   (${elapsed}s)" ;;
+    *)
+      echo "FAIL  FFO#$ffo: best move $move, expected one of $emoves   (${elapsed}s)"
+      failed=1 ;;
+  esac
+}
 
 # ----- main -----------------------------------------------------------
 
 MODE=${1:-quick}
-JOBS=${2:-4}
-THREADS=$3
+THREADS=$2
 BIN=build/bin/scrzebra
 
-case "$JOBS" in
-  ''|*[!0-9]*|0)
-    echo "check_ffo: jobs must be a positive integer" >&2
-    exit 1 ;;
-esac
-
-if [ -n "$THREADS" ]; then
+if [ -z "$THREADS" ]; then
+  THREADS=$(default_threads)
+else
   case "$THREADS" in
     *[!0-9]*|0)
       echo "check_ffo: threads must be a positive integer" >&2
       exit 1 ;;
   esac
-  FFO_NFLAG="-n $THREADS"
-else
-  FFO_NFLAG=""
 fi
-export FFO_NFLAG
 
 if [ "$MODE" = "full" ]; then
   SCRIPT=tests/ffotest.scr
@@ -135,7 +137,6 @@ else
 46 28 36 b3
 59 64 0 g8|h4|e8"
 fi
-export OUT
 
 if [ ! -x "$BIN" ]; then
   echo "check_ffo: $BIN not found; run 'make scrzebra' first" >&2
@@ -145,44 +146,31 @@ fi
 if [ "$MODE" = "full" ]; then
   echo "check_ffo: solving the full FFO test suite; this takes several minutes."
 fi
-if [ -n "$THREADS" ]; then
-  echo "check_ffo: running $JOBS position(s) in parallel, $THREADS thread(s) each"
-else
-  echo "check_ffo: running $JOBS position(s) in parallel"
-fi
+echo "check_ffo: one position at a time, $THREADS search thread(s) each"
 
 # One position per line, comments stripped
 POSFILE=$OUT.positions
+rm -f "$OUT"
 grep -v '^%' "$SCRIPT" | grep -v '^[[:space:]]*$' > "$POSFILE"
 
-# Per-position script files and the worker argument list
-ARGSFILE=$OUT.args
-rm -f "$OUT" "$OUT.failed" "$ARGSFILE"
 i=0
-echo "$EXPECTED" | while read -r ffo eblack ewhite emoves; do
+suite_start=$(now)
+while read -r ffo eblack ewhite emoves; do
   i=$((i + 1))
   sed -n "${i}p" "$POSFILE" > build/bin/ffo-pos$i.scr
-  echo "__worker $i $ffo $eblack $ewhite $emoves" >> "$ARGSFILE"
-done
-
-suite_start=$(now)
-xargs -L1 -P "$JOBS" sh "$0" < "$ARGSFILE"
-suite_end=$(now)
-total=$(awk "BEGIN { printf \"%.1f\", $suite_end - $suite_start }")
-
-# Collect raw results in position order, then clean up
-n=$(wc -l < "$POSFILE")
-i=0
-while [ $i -lt "$n" ]; do
-  i=$((i + 1))
+  run_position "$i" "$ffo" "$eblack" "$ewhite" "$emoves"
   grep -v '^%' build/bin/ffo-pos$i.out 2>/dev/null | \
     grep -v '^[[:space:]]*$' | head -1 >> "$OUT"
   rm -f build/bin/ffo-pos$i.scr build/bin/ffo-pos$i.out
-done
-rm -f "$POSFILE" "$ARGSFILE"
+done <<EOF
+$EXPECTED
+EOF
+suite_end=$(now)
+total=$(awk "BEGIN { printf \"%.1f\", $suite_end - $suite_start }")
 
-if [ -f "$OUT.failed" ]; then
-  rm -f "$OUT.failed"
+rm -f "$POSFILE"
+
+if [ -n "$failed" ]; then
   echo "check_ffo: FAILED   (total ${total}s)"
   exit 1
 fi

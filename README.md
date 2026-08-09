@@ -53,11 +53,9 @@ It takes about 5-10 seconds and runs two tests:
   suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
   `scrzebra` and checks the exact scores and best moves against the
   published answers from http://radagast.se/othello/ffotest.html
-  Positions are solved in parallel (4 at a time by default) and each
-  position's search can use several threads: `make test FFO_JOBS=8
-  FFO_THREADS=2`, or `sh tests/check_ffo.sh quick 8 2`. The two
-  multiply, so keep their product near the core count. `FFO_THREADS`
-  defaults to whatever `scrzebra` itself defaults to.
+  Positions are solved one at a time, each search using one thread per
+  processor. Override that with `make test FFO_THREADS=4`, or
+  `sh tests/check_ffo.sh quick 4`.
 
 The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
 and verified with:
@@ -66,17 +64,14 @@ and verified with:
 make test-full
 ```
 
-**Caveat: this takes several minutes** — about 7 on an 8-core arm64 Mac
-with the default `FFO_JOBS=4 FFO_THREADS=2`. Most positions solve in
-under 15 seconds; the tail is #55 at roughly 6.5 minutes on its own,
-then #54 and #57 at a little over 2 minutes each. For scale, the
-reference result on the author's page is 2h06m for the whole suite on a
-1.33 GHz Athlon.
+**Caveat: this takes several minutes** — about 8.5 on an 8-core arm64
+Mac. Most positions solve in under 10 seconds; the tail is #55 at
+roughly 3.5 minutes on its own, then #57 at 1.5 minutes and #54 at just
+over 1. For scale, the reference result on the author's page is 2h06m
+for the whole suite on a 1.33 GHz Athlon.
 
-Positions run in parallel (default 4, e.g. `make test-full FFO_JOBS=8`
-to change it), each position's result and elapsed time is printed as
-soon as it is solved, and the raw results are collected in
-`build/ffo-full.out`.
+Each position's result and elapsed time is printed as soon as it is
+solved, and the raw results are collected in `build/ffo-full.out`.
 
 ## Web sites
 
