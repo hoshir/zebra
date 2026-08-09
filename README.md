@@ -66,13 +66,17 @@ and verified with:
 make test-full
 ```
 
-**Caveat: this takes a very long time — expect multiple hours.** The
-reference result on the author's page is 2h06m for the whole suite (on a
-1.33 GHz Athlon); modern machines are faster but the hardest positions
-(#53-#58) still take from many minutes up to hours each. Positions run
-in parallel (default 4, e.g. `make test-full FFO_JOBS=8` to change it),
-each position's result and elapsed time is printed as soon as it is
-solved, and the raw results are collected in `build/ffo-full.out`.
+**Caveat: this takes several minutes** — about 7 on an 8-core arm64 Mac
+with the default `FFO_JOBS=4 FFO_THREADS=2`. Most positions solve in
+under 15 seconds; the tail is #55 at roughly 6.5 minutes on its own,
+then #54 and #57 at a little over 2 minutes each. For scale, the
+reference result on the author's page is 2h06m for the whole suite on a
+1.33 GHz Athlon.
+
+Positions run in parallel (default 4, e.g. `make test-full FFO_JOBS=8`
+to change it), each position's result and elapsed time is printed as
+soon as it is solved, and the raw results are collected in
+`build/ffo-full.out`.
 
 ## Web sites
 

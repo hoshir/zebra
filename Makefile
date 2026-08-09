@@ -144,7 +144,8 @@ test		: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	sh $(TESTDIR)/check_ffo.sh quick "$(FFO_JOBS)" "$(FFO_THREADS)"
 
 # Solves ALL positions in tests/ffotest.scr and verifies the results.
-# WARNING: this takes a very long time (multiple hours).
+# Takes several minutes -- about 7 on an 8-core machine, most of which
+# is FFO #55 on its own.
 test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	$(THREADTEST_EXE)

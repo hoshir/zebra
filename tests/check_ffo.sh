@@ -9,7 +9,7 @@
 # make passes these through as FFO_JOBS and FFO_THREADS.
 #
 #   quick   : subset of fast positions (~5 seconds), the default
-#   full    : all of tests/ffotest.scr -- takes a VERY long time
+#   full    : all of tests/ffotest.scr -- takes several minutes
 #   jobs    : how many positions to solve in parallel (default 4)
 #   threads : search threads per position, i.e. scrzebra's -n
 #             (default: whatever scrzebra itself defaults to)
@@ -143,7 +143,7 @@ if [ ! -x "$BIN" ]; then
 fi
 
 if [ "$MODE" = "full" ]; then
-  echo "check_ffo: solving the full FFO test suite; this takes a LONG time."
+  echo "check_ffo: solving the full FFO test suite; this takes several minutes."
 fi
 if [ -n "$THREADS" ]; then
   echo "check_ffo: running $JOBS position(s) in parallel, $THREADS thread(s) each"
