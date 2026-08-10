@@ -489,15 +489,15 @@ static const struct {
    sparse form needed.  The doubled table serves the flipped discs,
    whose trit moves by two. */
 
-static unsigned short pattern_weight[100][EVAL_PATTERN_SLOTS];
-static unsigned short pattern_weight2[100][EVAL_PATTERN_SLOTS];
+static unsigned short pattern_weight[64][EVAL_PATTERN_SLOTS];
+static unsigned short pattern_weight2[64][EVAL_PATTERN_SLOTS];
 
 
 void
 init_pattern_dependencies( void ) {
   int p, i, sq;
 
-  for ( sq = 0; sq < 100; sq++ )
+  for ( sq = 0; sq < 64; sq++ )
     for ( p = 0; p < EVAL_PATTERN_SLOTS; p++ ) {
       pattern_weight[sq][p] = 0;
       pattern_weight2[sq][p] = 0;
@@ -507,7 +507,9 @@ init_pattern_dependencies( void ) {
     for ( i = 0; i < eval_pattern[p].len; i++ ) {
       unsigned short w = (unsigned short)
 	pow3[eval_pattern[p].len - 1 - i];
-      sq = eval_pattern[p].squares[i];
+      /* Indexed by bit number, so that the rows the flipped discs
+	 need are reached straight from the flip mask. */
+      sq = bit_position[eval_pattern[p].squares[i]];
       pattern_weight[sq][p] = w;
       pattern_weight2[sq][p] = 2 * w;
     }
@@ -550,12 +552,9 @@ determine_pattern_indices( void ) {
 */
 
 void
-update_pattern_indices( int color, int move, int flipped, int dir ) {
-  int i;
-  /* BOARD and FLIP_STACK are thread-local; resolve them once. */
+update_pattern_indices( int color, int move, BitBoard flipped, int dir ) {
+  /* EVAL_PATTERN_INDEX is thread-local; resolve it once. */
   unsigned short *pi = eval_pattern_index;
-  const int *b = board;
-  int *const *fs = flip_stack;
   const int subtract = ((color == BLACKSQ) == (dir > 0));
 
 #if defined( __ARM_NEON )
@@ -571,6 +570,16 @@ update_pattern_indices( int color, int move, int flipped, int dir ) {
     p5 = op( p5, vld1q_u16( w + 40 ) );				\
   }
 
+#define APPLY_MASK( op )					\
+  {								\
+    BitBoard m = flipped;					\
+    while ( m != 0 ) {						\
+      APPLY_ROW( op, pattern_weight2, FIRST_BIT( m ) );		\
+      m &= m - 1;						\
+    }								\
+    APPLY_ROW( op, pattern_weight, bit_position[move] );	\
+  }
+
   {
     uint16x8_t p0 = vld1q_u16( pi      );
     uint16x8_t p1 = vld1q_u16( pi +  8 );
@@ -579,16 +588,10 @@ update_pattern_indices( int color, int move, int flipped, int dir ) {
     uint16x8_t p4 = vld1q_u16( pi + 32 );
     uint16x8_t p5 = vld1q_u16( pi + 40 );
 
-    if ( subtract ) {
-      for ( i = 1; i <= flipped; i++ )
-	APPLY_ROW( vsubq_u16, pattern_weight2, (int) (fs[-i] - b) );
-      APPLY_ROW( vsubq_u16, pattern_weight, move );
-    }
-    else {
-      for ( i = 1; i <= flipped; i++ )
-	APPLY_ROW( vaddq_u16, pattern_weight2, (int) (fs[-i] - b) );
-      APPLY_ROW( vaddq_u16, pattern_weight, move );
-    }
+    if ( subtract )
+      APPLY_MASK( vsubq_u16 )
+    else
+      APPLY_MASK( vaddq_u16 )
 
     vst1q_u16( pi,      p0 );
     vst1q_u16( pi +  8, p1 );
@@ -598,30 +601,32 @@ update_pattern_indices( int color, int move, int flipped, int dir ) {
     vst1q_u16( pi + 40, p5 );
   }
 
+#undef APPLY_MASK
 #undef APPLY_ROW
 
 #else
 
   {
     int j;
+    BitBoard m;
 
     if ( subtract ) {
-      for ( i = 1; i <= flipped; i++ ) {
-	const unsigned short *w = pattern_weight2[fs[-i] - b];
+      for ( m = flipped; m != 0; m &= m - 1 ) {
+	const unsigned short *w = pattern_weight2[FIRST_BIT( m )];
 	for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
 	  pi[j] -= w[j];
       }
       for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
-	pi[j] -= pattern_weight[move][j];
+	pi[j] -= pattern_weight[bit_position[move]][j];
     }
     else {
-      for ( i = 1; i <= flipped; i++ ) {
-	const unsigned short *w = pattern_weight2[fs[-i] - b];
+      for ( m = flipped; m != 0; m &= m - 1 ) {
+	const unsigned short *w = pattern_weight2[FIRST_BIT( m )];
 	for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
 	  pi[j] += w[j];
       }
       for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
-	pi[j] += pattern_weight[move][j];
+	pi[j] += pattern_weight[bit_position[move]][j];
     }
   }
 

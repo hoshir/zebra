@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "bitbtest.h"
 #include "cntflip.h"
 #include "constant.h"
 #include "doflip.h"
@@ -52,7 +53,9 @@ const int move_offset[8] = { 1, -1, 9, -9, 10, -10, 11, -11 };
 
 /* Local variables */
 
-static _Thread_local int flip_count[65];
+/* The discs turned by the move made at each stage, so that
+   UNMAKE_MOVE can give them back without walking the board. */
+static _Thread_local BitBoard flip_mask[65];
 static _Thread_local int sweep_status[MAX_SEARCH_DEPTH];
 
 
@@ -208,42 +211,103 @@ game_in_progress( void ) {
 
 
 /*
+  APPLY_FLIPS
+  Write the discs turned by a move into the array board, and fold them
+  into the hash difference when the caller wants one.  The mask comes
+  straight out of the bitboard flip test, so there is nothing to look
+  up first.
+*/
+
+static INLINE void
+apply_flips( BitBoard mask, int side_to_move, int update_hash,
+	     unsigned int *diff1, unsigned int *diff2 ) {
+  unsigned int d1 = 0, d2 = 0;
+
+  while ( mask != 0 ) {
+    int sq = square_of_bit[FIRST_BIT( mask )];
+    mask &= mask - 1;
+    board[sq] = side_to_move;
+    if ( update_hash ) {
+      d1 ^= hash_flip1[sq];
+      d2 ^= hash_flip2[sq];
+    }
+  }
+
+  *diff1 = d1;
+  *diff2 = d2;
+}
+
+
+/*
+  UNDO_FLIPS
+  Give the discs of MASK back to the opponent, in the array board, in
+  the bitboards and in the pattern indices, and empty the played
+  square.  BOARD[MOVE] has already been cleared by the caller.
+*/
+
+static INLINE void
+undo_flips( BitBoard mask, int side_to_move, int move ) {
+  int oppcol = OPP( side_to_move );
+  BitBoard m = mask;
+
+  while ( m != 0 ) {
+    int sq = square_of_bit[FIRST_BIT( m ) ];
+    m &= m - 1;
+    board[sq] = oppcol;
+  }
+
+  board_bits[side_to_move] &= ~(mask | square_mask[move]);
+  board_bits[oppcol] |= mask;
+
+  update_pattern_indices( side_to_move, move, mask, -1 );
+}
+
+
+/*
    MAKE_MOVE
    side_to_move = the side that is making the move
    move = the position giving the move
 
    Makes the necessary changes on the board and updates the
    counters.
+
+   The discs to turn are found with the bitboard flip test rather than
+   by walking the array board in eight directions: it is branch-free,
+   and the set of turned discs falls out as a mask, which is what the
+   board write, the hash difference and the pattern indices all want.
 */
 
 INLINE int
 make_move( int side_to_move, int move, int update_hash ) {
   int flipped;
   unsigned int diff1, diff2;
+  BitBoard my_bits = board_bits[side_to_move];
+  BitBoard opp_bits = board_bits[OPP( side_to_move )];
+  BitBoard mask, new_my_bits;
 
+  flipped = TestFlips_bitboard_to( move, my_bits, opp_bits, &new_my_bits );
+  if ( flipped == 0 )
+    return 0;
+
+  /* NEW_MY_BITS is the mover's discs with the turned ones and the
+     played square added, so the turned ones alone are what it gained. */
+  mask = new_my_bits & ~my_bits & ~square_mask[move];
+
+  board_bits[side_to_move] = new_my_bits;
+  board_bits[OPP( side_to_move )] = opp_bits & ~mask;
+  flip_mask[disks_played] = mask;
+
+  apply_flips( mask, side_to_move, update_hash, &diff1, &diff2 );
+
+  hash_stored1[disks_played] = hash1;
+  hash_stored2[disks_played] = hash2;
   if ( update_hash ) {
-    flipped = DoFlips_hash( move, side_to_move );
-    if ( flipped == 0 )
-      return 0;
-    diff1 = hash_update1 ^ hash_put_value1[side_to_move][move];
-    diff2 = hash_update2 ^ hash_put_value2[side_to_move][move];
-    hash_stored1[disks_played] = hash1;
-    hash_stored2[disks_played] = hash2;
-    hash1 ^= diff1;
-    hash2 ^= diff2;
+    hash1 ^= diff1 ^ hash_put_value1[side_to_move][move];
+    hash2 ^= diff2 ^ hash_put_value2[side_to_move][move];
   }
-  else {
-    flipped = DoFlips_no_hash( move, side_to_move );
-    if ( flipped == 0 )
-      return 0;
-    hash_stored1[disks_played] = hash1;
-    hash_stored2[disks_played] = hash2;
-  }
-
-  flip_count[disks_played] = flipped;
 
   board[move] = side_to_move;
-  update_pattern_indices( side_to_move, move, flipped, 1 );
+  update_pattern_indices( side_to_move, move, mask, 1 );
 
   if ( side_to_move == BLACKSQ ) {
     piece_count[BLACKSQ][disks_played + 1] =
@@ -277,15 +341,25 @@ make_move( int side_to_move, int move, int update_hash ) {
 INLINE int
 make_move_no_hash( int side_to_move, int move ) {
   int flipped;
+  unsigned int diff1, diff2;
+  BitBoard my_bits = board_bits[side_to_move];
+  BitBoard opp_bits = board_bits[OPP( side_to_move )];
+  BitBoard mask, new_my_bits;
 
-  flipped = DoFlips_no_hash( move, side_to_move );
+  flipped = TestFlips_bitboard_to( move, my_bits, opp_bits, &new_my_bits );
   if ( flipped == 0 )
     return 0;
 
-  flip_count[disks_played] = flipped;
+  mask = new_my_bits & ~my_bits & ~square_mask[move];
+
+  board_bits[side_to_move] = new_my_bits;
+  board_bits[OPP( side_to_move )] = opp_bits & ~mask;
+  flip_mask[disks_played] = mask;
+
+  apply_flips( mask, side_to_move, FALSE, &diff1, &diff2 );
 
   board[move] = side_to_move;
-  update_pattern_indices( side_to_move, move, flipped, 1 );
+  update_pattern_indices( side_to_move, move, mask, 1 );
 
 #if 1
   if ( side_to_move == BLACKSQ ) {
@@ -326,10 +400,7 @@ unmake_move( int side_to_move, int move ) {
   hash1 = hash_stored1[disks_played];
   hash2 = hash_stored2[disks_played];
 
-  /* The flipped discs are still on the flip stack here. */
-  update_pattern_indices( side_to_move, move, flip_count[disks_played], -1 );
-
-  UndoFlips_inlined( flip_count[disks_played], OPP( side_to_move ) );
+  undo_flips( flip_mask[disks_played], side_to_move, move );
 }
 
 
@@ -345,10 +416,7 @@ unmake_move_no_hash( int side_to_move, int move ) {
 
   disks_played--;
 
-  /* The flipped discs are still on the flip stack here. */
-  update_pattern_indices( side_to_move, move, flip_count[disks_played], -1 );
-
-  UndoFlips_inlined( flip_count[disks_played], OPP( side_to_move ) );
+  undo_flips( flip_mask[disks_played], side_to_move, move );
 }
 
 

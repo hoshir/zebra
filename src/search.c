@@ -389,6 +389,7 @@ hash_expand_pv( int side_to_move,
 
   determine_hash_values( side_to_move, board );
   determine_pattern_indices();
+  set_board_bits();
   new_pv_depth = 0;
   pass_count = 0;
 
@@ -625,4 +626,5 @@ search_state_load( const SearchState *state ) {
   hash2 = state->hash2;
   disks_played = state->disks_played;
   determine_pattern_indices();
+  set_board_bits();
 }

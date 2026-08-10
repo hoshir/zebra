@@ -15,6 +15,7 @@
 
 
 
+#include "bitboard.h"
 #include "constant.h"
 
 
@@ -137,7 +138,7 @@ void
 determine_pattern_indices( void );
 
 void
-update_pattern_indices( int color, int move, int flipped, int dir );
+update_pattern_indices( int color, int move, BitBoard flipped, int dir );
 
 void
 verify_pattern_indices( void );

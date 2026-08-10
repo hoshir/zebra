@@ -943,6 +943,7 @@ do_midgame_statistics( int index, StatisticsSpec spec ) {
     setup_hash( FALSE );
     determine_hash_values( side_to_move, board );
     determine_pattern_indices();
+    set_board_bits();
     for ( depth = 1; depth <= spec.max_depth; depth += 2 ) {
       (void) middle_game( side_to_move, depth, FALSE, &dummy_info );
       eval_list[depth] = root_eval;
@@ -956,6 +957,7 @@ do_midgame_statistics( int index, StatisticsSpec spec ) {
     setup_hash( FALSE );
     determine_hash_values( side_to_move, board );
     determine_pattern_indices();
+    set_board_bits();
     for ( depth = 2; depth <= spec.max_depth; depth += 2 ) {
       (void) middle_game( side_to_move, depth, FALSE, &dummy_info );
       eval_list[depth] = root_eval;
@@ -1053,6 +1055,7 @@ endgame_correlation( int side_to_move, int best_score, int best_move,
   set_hash_transformation( labs( my_random() ), labs( my_random() ) );
   determine_hash_values( side_to_move, board );
   determine_pattern_indices();
+  set_board_bits();
   for ( depth = 1; depth <= spec.max_depth; depth++ ) {
     (void) middle_game( side_to_move, depth, FALSE, &dummy_info );
     eval_list[depth] = root_eval;
@@ -1128,6 +1131,7 @@ do_endgame_statistics( int index, StatisticsSpec spec ) {
     setup_hash( FALSE );
     determine_hash_values( side_to_move, board );
     determine_pattern_indices();
+    set_board_bits();
 #ifdef TEXT_BASED
     printf( "\nSolving with %d empty...\n\n", 60 - disks_played );
 #endif
@@ -1224,6 +1228,7 @@ nega_scout( int depth, int allow_mpc, int side_to_move,
   clear_hash_drafts();
   determine_hash_values( side_to_move, board );
   determine_pattern_indices();
+  set_board_bits();
 
   /* First determine the best move in the current position
      and its score when searched to depth DEPTH.
@@ -1748,6 +1753,7 @@ do_correct( int index, int max_empty, int full_solve,
   generate_all( side_to_move );
   determine_hash_values( side_to_move, board );
   determine_pattern_indices();
+  set_board_bits();
 
   if ( disks_played >= 60 - max_empty ) {
     really_evaluate =
@@ -2597,6 +2603,7 @@ add_new_game( int move_count, short *game_move_list,
     generate_all( side_to_move );
     determine_hash_values( side_to_move, board );
     determine_pattern_indices();
+    set_board_bits();
 #ifdef TEXT_BASED
     if ( echo ) {
       puts( "" );
@@ -2665,6 +2672,7 @@ add_new_game( int move_count, short *game_move_list,
       generate_all( side_to_move );
       determine_hash_values( side_to_move, board );
       determine_pattern_indices();
+      set_board_bits();
       if ( disks_played >= 60 - max_full_solve ) {
 	/* Only solve the position if it hasn't been solved already */
 	if ( !(node[this_node].flags & FULL_SOLVED) ) {
