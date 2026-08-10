@@ -68,6 +68,20 @@ generate_all_c( const BitBoard my_bits,
 }
 
 
+/*
+  BITBOARD_MOVES
+  Every square where the side to move has a legal move.  A move is
+  legal exactly when it turns a disc, so this is the same set the
+  array-board test produces, one square at a time.
+*/
+
+BitBoard
+bitboard_moves( const BitBoard my_bits,
+		const BitBoard opp_bits ) {
+  return generate_all_c( my_bits, opp_bits );
+}
+
+
 int
 bitboard_mobility( const BitBoard my_bits,
 		   const BitBoard opp_bits ) {

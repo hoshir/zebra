@@ -30,6 +30,7 @@
 #include "constant.h"
 #include "globals.h"
 #include "bitboard.h"
+#include "bitbmob.h"
 #include "bitbtest.h"
 #include "doflip.h"
 #include "unflip.h"
@@ -75,6 +76,7 @@ main( int argc, char *argv[] ) {
     int side_to_move = (rand() & 1) ? BLACKSQ : WHITESQ;
     int fill = 20 + rand() % 75;   /* percent nonempty */
     BitBoard my_bits, opp_bits;
+    BitBoard legal = 0;
 
     for ( i = 0; i < 128; i++ )
       board[i] = OUTSIDE;
@@ -107,6 +109,9 @@ main( int argc, char *argv[] ) {
 	memcpy( board, saved, sizeof( Board ) );
 	flip_stack = stack_before;
 
+	if ( bb_count != 0 )
+	  legal |= square_mask[sq];
+
 	if ( bb_count != do_count ) {
 	  printf( "MISMATCH trial=%d sq=%c%d: "
 		  "TestFlips_bitboard=%d DoFlips=%d\n",
@@ -117,6 +122,15 @@ main( int argc, char *argv[] ) {
 	  mismatches++;
 	}
       }
+
+    /* The move generator gets the same set in one fill; generate_all()
+       relies on that instead of testing squares one at a time. */
+    if ( bitboard_moves( my_bits, opp_bits ) != legal ) {
+      printf( "MOVE MISMATCH trial=%d: bitboard_moves=%016llx expected=%016llx\n",
+	      trial, bitboard_moves( my_bits, opp_bits ), legal );
+      print_pos( side_to_move );
+      mismatches++;
+    }
   }
 
   if ( mismatches == 0 ) {

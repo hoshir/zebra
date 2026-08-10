@@ -64,9 +64,6 @@ init_moves( void );
 int
 generate_specific( int curr_move, int side_to_move );
 
-int
-generate_move( int side_to_move );
-
 void
 generate_all( int side_to_move );
 

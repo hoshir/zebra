@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "bitbmob.h"
 #include "bitbtest.h"
 #include "cntflip.h"
 #include "constant.h"
@@ -56,7 +57,6 @@ const int move_offset[8] = { 1, -1, 9, -9, 10, -10, 11, -11 };
 /* The discs turned by the move made at each stage, so that
    UNMAKE_MOVE can give them back without walking the board. */
 static _Thread_local BitBoard flip_mask[65];
-static _Thread_local int sweep_status[MAX_SEARCH_DEPTH];
 
 
 
@@ -88,17 +88,6 @@ init_moves( void ) {
 
 
 /*
-   RESET_GENERATION
-   Prepare for move generation at a given level in the tree.
-*/
-
-INLINE static void
-reset_generation( int side_to_move ) {
-  sweep_status[disks_played] = 0;
-}
-
-
-/*
    GENERATE_SPECIFIC
 */
 
@@ -110,57 +99,35 @@ generate_specific( int curr_move, int side_to_move ) {
 
 
 /*
-   GENERATE_MOVE
-   side_to_move = the side to generate moves for
-
-   Generate the next move in the ordering. This way not all moves possible
-   in a position are generated, only those who need be considered.
-*/
-
-INLINE int
-generate_move(int side_to_move) {
-  int move;
-  int move_index = 0;
-
-  move_index = sweep_status[disks_played];
-  while ( move_index < MOVE_ORDER_SIZE ) {
-    move = sorted_move_order[disks_played][move_index];
-    if ( (board[move] == EMPTY) &&
-	 generate_specific( move, side_to_move ) ) {
-      sweep_status[disks_played] = move_index + 1;
-      return move;
-    }
-    else
-      move_index++;
-  }
-
-  sweep_status[disks_played] = move_index;
-  return ILLEGAL;
-}
-
-
-
-/*
    GENERATE_ALL
    Generates a list containing all the moves possible in a position.
+
+   Every legal move comes out of one bitboard fill, so the list is
+   built by walking the move order once and keeping the squares the
+   fill marked.  The order is the one the caller expects; only the
+   legality test changed, from an eight-direction walk of the array
+   per candidate square to a lookup in the mask.
 */
 
 INLINE void
 generate_all( int side_to_move ) {
-  int count, curr_move;
+  BitBoard moves = bitboard_moves( board_bits[side_to_move],
+				   board_bits[OPP( side_to_move )] );
+  const int *order = sorted_move_order[disks_played];
+  int count = 0;
+  int i;
 
-  reset_generation( side_to_move );
-  count = 0;
-  curr_move = generate_move( side_to_move );
-  while ( curr_move != ILLEGAL ) {
-    move_list[disks_played][count] = curr_move;
-    count++;
-    curr_move = generate_move( side_to_move );
+  for ( i = 0; i < MOVE_ORDER_SIZE; i++ ) {
+    int move = order[i];
+    if ( moves & square_mask[move] ) {
+      move_list[disks_played][count] = move;
+      count++;
+    }
   }
+
   move_list[disks_played][count] = ILLEGAL;
   move_count[disks_played] = count;
 }
-
 
 
 /*

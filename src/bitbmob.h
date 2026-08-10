@@ -20,6 +20,12 @@
 
 
 
+BitBoard
+bitboard_moves( const BitBoard my_bits,
+		const BitBoard opp_bits );
+
+
+
 int
 weighted_mobility( const BitBoard my_bits,
 		   const BitBoard opp_bits );
