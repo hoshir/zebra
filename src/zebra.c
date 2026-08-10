@@ -629,6 +629,17 @@ main( int argc, char *argv[] ) {
     exit( EXIT_FAILURE );
   }
 
+  /* The learning database is the opening book, and init_learn() -- which
+     is what names it -- runs only when the book is in use.  Without it
+     the name stays empty and the game is played out in full before
+     failing on a database called ''. */
+
+  if ( use_learning && !use_book ) {
+    printf( "-learn writes what it learns back into the opening book, "
+	    "so it cannot be combined with -b 0\n" );
+    exit( EXIT_FAILURE );
+  }
+
   global_setup( use_random, hash_bits );
   threads_init( n_threads );
   init_thor_database();
