@@ -1224,6 +1224,12 @@ nega_scout( int depth, int allow_mpc, int side_to_move,
      and its score when searched to depth DEPTH.
      This is done using standard negascout with iterative deepening. */
 
+  /* DEPTH == 0 makes the loop below exit before its first iteration,
+     leaving *BEST_INDEX at whatever the caller passed in; it is
+     dereferenced unconditionally once the loop is done. */
+
+  *best_index = 0;
+
   for ( curr_depth = 2 - (depth % 2); curr_depth <= depth; curr_depth += 2 ) {
     low_score = -INFINITE_EVAL;
     curr_alpha = -INFINITE_EVAL;
@@ -4041,7 +4047,14 @@ fill_move_alternatives( int side_to_move,
       score = 0;
     }
 
+    /* A move can be feasible without a book node behind it: the branch
+       above accepts the deviation move even when the child is missing.
+       SLOT is then NOT_AVAILABLE or refers to an empty slot, and both
+       sentinels are -1, so neither may be used as an index. */
+
     if ( child_feasible && (score == 0) &&
+	 (slot != NOT_AVAILABLE) &&
+	 (book_hash_table[slot] != EMPTY_HASH_SLOT) &&
 	 !(node[index].flags & WLD_SOLVED) &&
 	 (node[book_hash_table[slot]].flags & WLD_SOLVED) ) {
       /* Check if this is a book draw that should be avoided, i.e., one

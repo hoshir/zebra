@@ -809,7 +809,11 @@ play_game( const char *file_name,
   if ( move_file != NULL ) {
     char *newline_pos;
 
-    fgets( line_buffer, sizeof line_buffer, move_file );
+    /* An empty or already exhausted move file leaves LINE_BUFFER
+       untouched, and everything below reads it as a string. */
+
+    if ( fgets( line_buffer, sizeof line_buffer, move_file ) == NULL )
+      line_buffer[0] = 0;
     newline_pos = strchr( line_buffer, '\n' );
     if ( newline_pos != NULL )
       *newline_pos = 0;

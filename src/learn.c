@@ -16,6 +16,7 @@
 #include <string.h>
 #include "constant.h"
 #include "end.h"
+#include "error.h"
 #include "game.h"
 #include "globals.h"
 #include "hash.h"
@@ -149,6 +150,18 @@ learn_game( int game_length, int private_game, int save_database ) {
       side_to_move = OPP( side_to_move );
       generate_all( side_to_move );
     }
+
+    /* Nothing checks GAME_MOVE before this loop.  GAME_LEARNABLE exists
+       for the purpose but is never called from anywhere, and play_game()
+       reaches learn_game() on use_learning alone.  A game set up from a
+       board file stores no moves for the discs that were already on the
+       board, so those entries are still ILLEGAL and MAKE_MOVE indexes
+       the board with -1: 'zebra -learn 2 16 -g <board>' segfaults. */
+
+    if ( game_move[i] == ILLEGAL )
+      fatal_error( "Cannot learn game: move %d of %d was never stored\n",
+		   i + 1, game_length );
+
     (void) make_move( side_to_move, game_move[i], TRUE );
     if ( side_to_move == WHITESQ )
       game_move[i] = -game_move[i];
