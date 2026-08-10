@@ -192,9 +192,8 @@ TestFlips_wrapper( int sq,
 		   BitBoard opp_bits ) {
   int flipped;
 
-  if ( ((neighborhood_mask[sq].high & opp_bits.high) |
-       (neighborhood_mask[sq].low & opp_bits.low)) != 0 )
-    flipped = TestFlips_bitboard[sq - 11]( my_bits.high, my_bits.low, opp_bits.high, opp_bits.low );
+  if ( (neighborhood_mask[sq] & opp_bits) != 0 )
+    flipped = TestFlips_bitboard( sq, my_bits, opp_bits );
   else
     flipped = 0;
 
@@ -203,7 +202,7 @@ TestFlips_wrapper( int sq,
 
 #else
 #define TestFlips_wrapper( sq, my_bits, opp_bits ) \
-  TestFlips_bitboard[sq - 11]( my_bits.high, my_bits.low, opp_bits.high, opp_bits.low )
+  TestFlips_bitboard( sq, my_bits, opp_bits )
 
 
 #endif
@@ -215,10 +214,10 @@ TestFlips_wrapper( int sq,
 */
 
 #if defined( __GNUC__ )
-#define FIRST_BIT_32( x )  __builtin_ctz( x )
+#define FIRST_BIT_64( x )  __builtin_ctzll( x )
 #else
 static int
-FIRST_BIT_32( unsigned int x ) {
+FIRST_BIT_64( BitBoard x ) {
   int n = 0;
   while ( (x & 1) == 0 ) {
     x >>= 1;
@@ -240,30 +239,16 @@ static INLINE void
 end_hash_diff( const BitBoard new_my_bits, const BitBoard my_bits,
 	       int color, int sq,
 	       unsigned int *diff1, unsigned int *diff2 ) {
-  unsigned int fl;
+  BitBoard fl;
   int bit, index;
-  int move_bit = 8 * (sq / 10 - 1) + (sq % 10 - 1);
   unsigned int d1 = hash_put_value1[color][sq];
   unsigned int d2 = hash_put_value2[color][sq];
 
-  fl = new_my_bits.low ^ my_bits.low;
-  if ( move_bit < 32 )
-    fl &= ~(1u << move_bit);
+  fl = (new_my_bits ^ my_bits) & ~square_mask[sq];
   while ( fl != 0 ) {
-    bit = FIRST_BIT_32( fl );
+    bit = FIRST_BIT_64( fl );
     fl &= fl - 1;
     index = 10 * (bit / 8 + 1) + (bit % 8) + 1;
-    d1 ^= hash_flip1[index];
-    d2 ^= hash_flip2[index];
-  }
-
-  fl = new_my_bits.high ^ my_bits.high;
-  if ( move_bit >= 32 )
-    fl &= ~(1u << (move_bit - 32));
-  while ( fl != 0 ) {
-    bit = FIRST_BIT_32( fl );
-    fl &= fl - 1;
-    index = 10 * (bit / 8 + 5) + (bit % 8) + 1;
     d1 ^= hash_flip1[index];
     d2 ^= hash_flip2[index];
   }
@@ -284,18 +269,11 @@ static int
 bb_valid_move( int move, BitBoard my_bits, BitBoard opp_bits ) {
   int row = move / 10;
   int col = move % 10;
-  int bit;
-  unsigned int occupied;
 
   if ( (row < 1) || (row > 8) || (col < 1) || (col > 8) )
     return FALSE;
 
-  bit = 8 * (row - 1) + (col - 1);
-  if ( bit < 32 )
-    occupied = (my_bits.low | opp_bits.low) >> bit;
-  else
-    occupied = (my_bits.high | opp_bits.high) >> (bit - 32);
-  if ( occupied & 1 )
+  if ( (my_bits | opp_bits) & square_mask[move] )
     return FALSE;
 
   return TestFlips_wrapper( move, my_bits, opp_bits ) > 0;
@@ -428,11 +406,11 @@ solve_two_empty( BitBoard my_bits,
 	if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
 	  ev += 2;
 	  if ( ev < beta )  /* Only bother if not certain fail-high */
-	    ev += 2 * CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+	    ev += 2 * CountFlips_bitboard( sq2, bb_flips );
 	}
 	else {
 	  if ( ev < beta ) {  /* Only bother if not fail-high already */
-	    flipped = CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+	    flipped = CountFlips_bitboard( sq2, bb_flips );
 	    if ( flipped != 0 )  /* SQ2 feasible for me, game over */
 	      ev += 2 * (flipped + 1);
 	    /* ELSE: SQ2 will end up empty, game over */
@@ -442,18 +420,18 @@ solve_two_empty( BitBoard my_bits,
     }
     else {
 #endif
-      flipped = CountFlips_bitboard[sq2 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
+      flipped = CountFlips_bitboard( sq2, opp_bits & ~bb_flips );
       if ( flipped != 0 )
 	ev -= 2 * flipped;
       else {  /* He passes, check if SQ2 is feasible for me */
 	if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
 	  ev += 2;
 	  if ( ev < beta )  /* Only bother if not certain fail-high */
-	    ev += 2 * CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+	    ev += 2 * CountFlips_bitboard( sq2, bb_flips );
 	}
 	else {
 	  if ( ev < beta ) {  /* Only bother if not fail-high already */
-	    flipped = CountFlips_bitboard[sq2 - 11]( bb_flips.high, bb_flips.low );
+	    flipped = CountFlips_bitboard( sq2, bb_flips );
 	    if ( flipped != 0 )  /* SQ2 feasible for me, game over */
 	      ev += 2 * (flipped + 1);
 	    /* ELSE: SQ2 will end up empty, game over */
@@ -489,11 +467,11 @@ solve_two_empty( BitBoard my_bits,
 	if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
 	  ev += 2;
 	  if ( ev < beta )  /* Only bother if not certain fail-high */
-	    ev += 2 * CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+	    ev += 2 * CountFlips_bitboard( sq1, bb_flips );
 	}
 	else {
 	  if ( ev < beta ) {  /* Only bother if not fail-high already */
-	    flipped = CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+	    flipped = CountFlips_bitboard( sq1, bb_flips );
 	    if ( flipped != 0 )  /* SQ1 feasible for me, game over */
 	      ev += 2 * (flipped + 1);
 	    /* ELSE: SQ1 will end up empty, game over */
@@ -503,18 +481,18 @@ solve_two_empty( BitBoard my_bits,
     }
     else {
 #endif
-      flipped = CountFlips_bitboard[sq1 - 11]( opp_bits.high & ~bb_flips.high, opp_bits.low & ~bb_flips.low );
+      flipped = CountFlips_bitboard( sq1, opp_bits & ~bb_flips );
       if ( flipped != 0 )  /* SQ1 feasible for him, game over */
 	ev -= 2 * flipped;
       else {  /* He passes, check if SQ1 is feasible for me */
 	if ( ev >= 0 ) {  /* I'm ahead, so EV will increase by at least 2 */
 	  ev += 2;
 	  if ( ev < beta )  /* Only bother if not certain fail-high */
-	    ev += 2 * CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+	    ev += 2 * CountFlips_bitboard( sq1, bb_flips );
 	}
 	else {
 	  if ( ev < beta ) {  /* Only bother if not fail-high already */
-	    flipped = CountFlips_bitboard[sq1 - 11]( bb_flips.high, bb_flips.low );
+	    flipped = CountFlips_bitboard( sq1, bb_flips );
 	    if ( flipped != 0 )  /* SQ1 feasible for me, game over */
 	      ev += 2 * (flipped + 1);
 	    /* ELSE: SQ1 will end up empty, game over */
@@ -2093,7 +2071,6 @@ end_tree_wrapper( int level,
   int selective_cutoff;
   BitBoard my_bits, opp_bits;
 
-  init_mmx();
   set_bitboards( board, side_to_move, &my_bits, &opp_bits );
 
   return end_tree_search( level, max_depth,
@@ -2663,16 +2640,12 @@ setup_end( void ) {
       int shift = 8 * (i - 1) + (j - 1);
       unsigned int k;
 
-      neighborhood_mask[pos].low = 0;
-      neighborhood_mask[pos].high = 0;
+      neighborhood_mask[pos] = 0;
 
       for ( k = 0; k < 8; k++ )
 	if ( dir_mask[pos] & (1 << k) ) {
 	  unsigned int neighbor = shift + dir_shift[k];
-	  if ( neighbor < 32 )
-	    neighborhood_mask[pos].low |= (1 << neighbor);
-	  else
-	    neighborhood_mask[pos].high |= (1 << (neighbor - 32));
+	  neighborhood_mask[pos] |= 1ull << neighbor;
 	}
     }
 

@@ -20,11 +20,6 @@
 
 
 
-void
-init_mmx( void );
-
-
-
 int
 weighted_mobility( const BitBoard my_bits,
 		   const BitBoard opp_bits );
