@@ -201,7 +201,8 @@ global_terminate( void ) {
 
 static void
 setup_game( const char *file_name, int *side_to_move ) {
-  char buffer[65];
+  /* 64 board characters, CR, LF and the terminator all have to fit. */
+  char buffer[70];
   int i, j;
   int pos, token;
   FILE *stream;
@@ -224,7 +225,7 @@ setup_game( const char *file_name, int *side_to_move ) {
     stream = fopen( file_name, "r" );
     if ( stream == NULL )
       fatal_error( "%s '%s'\n", GAME_LOAD_ERROR, file_name );
-    fgets( buffer, 70, stream );
+    fgets( buffer, sizeof buffer, stream );
     token = 0;
     for ( i = 1; i <= 8; i++ )
       for ( j = 1; j <= 8; j++ ) {
@@ -243,7 +244,7 @@ setup_game( const char *file_name, int *side_to_move ) {
 	  break;
 	default:
 #if TEXT_BASED
-	  printf( "%s '%c' %s\n", BAD_CHARACTER_ERROR, buffer[pos],
+	  printf( "%s '%c' %s\n", BAD_CHARACTER_ERROR, buffer[token],
 		  GAME_FILE_TEXT);
 #endif
 	  break;
@@ -261,6 +262,16 @@ setup_game( const char *file_name, int *side_to_move ) {
 		   GAME_FILE_TEXT);
   }
   disks_played = disc_count( BLACKSQ ) + disc_count( WHITESQ ) - 4;
+
+  /* No legal position has fewer than four discs, so this only rejects a
+     malformed board file -- but the file is arbitrary user input, and
+     DISKS_PLAYED indexes the move lists, the hash stack and the move
+     string built by play_game().  Left unchecked, such a file makes it
+     negative and the game ends without a word rather than failing. */
+
+  if ( disks_played < 0 )
+    fatal_error( "Board file '%s' holds fewer than four discs\n",
+		 file_name );
 
   determine_hash_values( *side_to_move, board );
 
