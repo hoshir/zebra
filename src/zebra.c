@@ -1157,9 +1157,20 @@ play_game( const char *file_name,
   repeat--;
 
   toggle_abort_check( FALSE );
-  if ( use_learning && !one_position_only )
-    learn_game( disks_played, (skill[BLACKSQ] != 0) && (skill[WHITESQ] != 0),
-		repeat == 0 );
+  if ( use_learning && !one_position_only ) {
+
+    /* A game begun from a board file has no moves stored behind the discs
+       it started with, so it is not learnable.  game_learnable() inspects
+       only the moves before the learning cutoff, so learn_game() still has
+       to check the ones it replays.  FINISHED is TRUE: the only way out of
+       the loop above without finishing is ONE_POSITION_ONLY. */
+
+    if ( game_learnable( TRUE, disks_played ) )
+      learn_game( disks_played, (skill[BLACKSQ] != 0) && (skill[WHITESQ] != 0),
+		  repeat == 0 );
+    else
+      puts( "Game not learnable - not added to the opening book" );
+  }
   toggle_abort_check( TRUE );
 
   if ( repeat > 0 )
