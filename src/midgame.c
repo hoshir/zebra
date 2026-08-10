@@ -80,7 +80,11 @@ static _Thread_local int do_check_midgame_abort = TRUE;
 static _Thread_local int counter_phase;
 static _Thread_local int apply_perturbation = TRUE;
 static int perturbation_amplitude = 0;
-static _Thread_local int stage_reached[61], stage_score[61];
+/* Indexed by BASE_STAGE + DEPTH, i.e. the stage the search ends at.
+   game.c keeps deepening while DISKS_PLAYED + the depth is at most 61,
+   so the last index in use is 61 and 62 entries are needed. */
+
+static _Thread_local int stage_reached[62], stage_score[62];
 static int score_perturbation[100];
 static _Thread_local int feas_index_list[64][64];
 
@@ -97,7 +101,7 @@ setup_midgame( void ) {
 
   allow_midgame_hash_probe = TRUE;
   allow_midgame_hash_update = TRUE;
-  for ( i = 0; i <= 60; i++ )
+  for ( i = 0; i <= 61; i++ )
     stage_reached[i] = FALSE;
 
   calculate_perturbation();
@@ -1375,7 +1379,8 @@ middle_game( int side_to_move, int max_depth,
     /* Adjust the eval for oscillations odd/even by simply averaging the
        last two stages (if they are available). */
 
-    if ( stage_reached[base_stage + depth] &&
+    if ( (base_stage + depth >= 1) &&
+	 stage_reached[base_stage + depth] &&
 	 stage_reached[base_stage + depth - 1] && update_evals ) {
       if ( side_to_move == BLACKSQ )
 	adjusted_val = (stage_score[base_stage + depth] +

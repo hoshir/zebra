@@ -35,8 +35,12 @@ int root_eval;
 int force_return;
 int full_pv_depth;
 int full_pv[120];
-_Thread_local int list_inherited[61];
-_Thread_local int sorted_move_order[64][64];  /* 61*60 used */
+/* Indexed by the stage a search ends at, which is DISKS_PLAYED plus the
+   search depth.  game.c lets that reach 61 -- one past the last real
+   stage of a game -- so 62 entries are needed, not 61. */
+
+_Thread_local int list_inherited[62];
+_Thread_local int sorted_move_order[64][64];  /* 62*60 used */
 _Thread_local Board evals[61];
 _Thread_local CounterType nodes;
 CounterType total_nodes;
@@ -80,11 +84,11 @@ static void
 init_move_lists( void ) {
   int i, j;
 
-  for ( i = 0; i <= 60; i++ ) {
+  for ( i = 0; i <= 61; i++ ) {
     for ( j = 0; j < MOVE_ORDER_SIZE; j++ )
       sorted_move_order[i][j] = position_list[j];
   }
-  for ( i = 0; i <= 60; i++ )
+  for ( i = 0; i <= 61; i++ )
     list_inherited[i] = FALSE;
 }
 
