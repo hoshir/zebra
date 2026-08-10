@@ -22,6 +22,7 @@
 #include "globals.h"
 #include "macros.h"
 #include "moves.h"
+#include "patterns.h"
 #include "unflip.h"
 #include "search.h"
 #include "texts.h"
@@ -387,6 +388,7 @@ hash_expand_pv( int side_to_move,
   HashEntry entry;
 
   determine_hash_values( side_to_move, board );
+  determine_pattern_indices();
   new_pv_depth = 0;
   pass_count = 0;
 
@@ -622,4 +624,5 @@ search_state_load( const SearchState *state ) {
   hash1 = state->hash1;
   hash2 = state->hash2;
   disks_played = state->disks_played;
+  determine_pattern_indices();
 }

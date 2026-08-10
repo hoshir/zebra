@@ -54,6 +54,13 @@
 /* Calculate cycle counts for the eval function? */
 #define TIME_EVAL             0
 
+/* Check the incrementally maintained pattern indices against a
+   recomputation from the board at every evaluation.  Very slow;
+   build with -DVERIFY_INCREMENTAL_EVAL=1 to switch it on. */
+#ifndef VERIFY_INCREMENTAL_EVAL
+#define VERIFY_INCREMENTAL_EVAL   0
+#endif
+
 
 
 typedef struct {
@@ -1115,2669 +1122,482 @@ pattern_evaluation( int side_to_move ) {
 
   /* The pattern features. */
 
-  if ( side_to_move == BLACKSQ ) {
-#ifdef USE_PENTIUM_ASM
-    int pattern0;
-    int pattern1;
-    int pattern2;
-    int pattern3;
-    asm( 
-         "movl _board+288,%0\n\t"
-         "movl _board+308,%1\n\t"
-         "movl _board+108,%2\n\t"
-         "movl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+88,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+288,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+324,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+352,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+284,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+312,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+244,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+272,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+204,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+232,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+164,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+192,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+152,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+52,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+332,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+112,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+48,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+328,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+44,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+324,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].afile2x[pattern0];
-    score += set[eval_phase].afile2x[pattern1];
-    score += set[eval_phase].afile2x[pattern2];
-    score += set[eval_phase].afile2x[pattern3];
-    asm( 
-         "movl _board+328,%0\n\t"
-         "movl _board+348,%1\n\t"
-         "movl _board+112,%2\n\t"
-         "movl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+288,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+308,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+248,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+268,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+208,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+228,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+168,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+188,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+96,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+148,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+92,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+292,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+88,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+288,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+68,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+84,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+284,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].bfile[pattern0];
-    score += set[eval_phase].bfile[pattern1];
-    score += set[eval_phase].bfile[pattern2];
-    score += set[eval_phase].bfile[pattern3];
-    asm( 
-         "movl _board+332,%0\n\t"
-         "movl _board+344,%1\n\t"
-         "movl _board+152,%2\n\t"
-         "movl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+292,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+304,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+148,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+252,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+264,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+144,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+212,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+224,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+140,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+260,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+172,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+184,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+136,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+256,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+132,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+144,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+132,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+252,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+104,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+128,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+248,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+64,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+124,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+244,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].cfile[pattern0];
-    score += set[eval_phase].cfile[pattern1];
-    score += set[eval_phase].cfile[pattern2];
-    score += set[eval_phase].cfile[pattern3];
-    asm( 
-         "movl _board+336,%0\n\t"
-         "movl _board+340,%1\n\t"
-         "movl _board+192,%2\n\t"
-         "movl _board+232,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+296,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+300,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+188,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+256,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+260,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+184,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+224,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+216,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+220,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+180,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+220,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+176,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+180,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+176,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+216,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+136,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+140,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+172,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+212,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+100,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+168,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+208,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+60,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+164,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+204,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].dfile[pattern0];
-    score += set[eval_phase].dfile[pattern1];
-    score += set[eval_phase].dfile[pattern2];
-    score += set[eval_phase].dfile[pattern3];
-    asm( 
-         "movl _board+352,%0\n\t"
-         "movl _board+324,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+308,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+264,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+252,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+220,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+216,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+176,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+180,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+132,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+144,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1"
-         : "=r" (pattern0), "=r" (pattern1) : );
-    score += set[eval_phase].diag8[pattern0];
-    score += set[eval_phase].diag8[pattern1];
-    asm( 
-         "movl _board+312,%0\n\t"
-         "movl _board+348,%1\n\t"
-         "movl _board+284,%2\n\t"
-         "movl _board+328,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+268,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+304,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+248,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+292,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+224,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+260,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+212,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+256,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+180,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+216,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+176,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+220,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+136,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+172,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+140,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+184,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+128,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+148,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+84,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+112,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag7[pattern0];
-    score += set[eval_phase].diag7[pattern1];
-    score += set[eval_phase].diag7[pattern2];
-    score += set[eval_phase].diag7[pattern3];
-    asm( 
-         "movl _board+272,%0\n\t"
-         "movl _board+344,%1\n\t"
-         "movl _board+244,%2\n\t"
-         "movl _board+332,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+228,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+300,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+208,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+184,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+256,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+172,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+260,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+140,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+212,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+136,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+224,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+168,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+188,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+124,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+152,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag6[pattern0];
-    score += set[eval_phase].diag6[pattern1];
-    score += set[eval_phase].diag6[pattern2];
-    score += set[eval_phase].diag6[pattern3];
-    asm( 
-         "movl _board+232,%0\n\t"
-         "movl _board+340,%1\n\t"
-         "movl _board+204,%2\n\t"
-         "movl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+188,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+296,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+168,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+144,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+252,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+132,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+100,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+208,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+96,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+164,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+192,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag5[pattern0];
-    score += set[eval_phase].diag5[pattern1];
-    score += set[eval_phase].diag5[pattern2];
-    score += set[eval_phase].diag5[pattern3];
-    asm( 
-         "movl _board+192,%0\n\t"
-         "movl _board+336,%1\n\t"
-         "movl _board+164,%2\n\t"
-         "movl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+148,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+128,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+104,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+248,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+92,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+60,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+204,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+232,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag4[pattern0];
-    score += set[eval_phase].diag4[pattern1];
-    score += set[eval_phase].diag4[pattern2];
-    score += set[eval_phase].diag4[pattern3];
-    asm( 
-         "movl _board+132,%0\n\t"
-         "movl _board+252,%1\n\t"
-         "movl _board+144,%2\n\t"
-         "movl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+248,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+148,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+244,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+152,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+284,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+112,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+332,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+328,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+324,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner33[pattern0];
-    score += set[eval_phase].corner33[pattern1];
-    score += set[eval_phase].corner33[pattern2];
-    score += set[eval_phase].corner33[pattern3];
-    asm( 
-         "movl _board+100,%0\n\t"
-         "movl _board+300,%1\n\t"
-         "movl _board+96,%2\n\t"
-         "movl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+296,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+284,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+112,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+60,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+340,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+336,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+332,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+328,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+324,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner52[pattern0];
-    score += set[eval_phase].corner52[pattern1];
-    score += set[eval_phase].corner52[pattern2];
-    score += set[eval_phase].corner52[pattern3];
-    asm( 
-         "movl _board+208,%0\n\t"
-         "movl _board+228,%1\n\t"
-         "movl _board+168,%2\n\t"
-         "movl _board+188,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+168,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+188,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+208,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+148,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+248,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+288,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+68,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+328,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+204,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+232,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+164,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+192,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+164,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+192,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+204,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+232,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+152,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+244,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+112,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+284,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+324,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner52[pattern0];
-    score += set[eval_phase].corner52[pattern1];
-    score += set[eval_phase].corner52[pattern2];
-    score += set[eval_phase].corner52[pattern3];
-#else
-  int pattern0;
-  pattern0 = board[72];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[81];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pattern0] );
-#endif
-  score += set[eval_phase].afile2x[pattern0];
-  pattern0 = board[77];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[88];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pattern0] );
-#endif
-  score += set[eval_phase].afile2x[pattern0];
-  pattern0 = board[27];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[18];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pattern0] );
-#endif
-  score += set[eval_phase].afile2x[pattern0];
-  pattern0 = board[77];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[88];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pattern0] );
-#endif
-  score += set[eval_phase].afile2x[pattern0];
-  pattern0 = board[82];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[12];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile[pattern0] );
-#endif
-  score += set[eval_phase].bfile[pattern0];
-  pattern0 = board[87];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[17];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile[pattern0] );
-#endif
-  score += set[eval_phase].bfile[pattern0];
-  pattern0 = board[28];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile[pattern0] );
-#endif
-  score += set[eval_phase].bfile[pattern0];
-  pattern0 = board[78];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile[pattern0] );
-#endif
-  score += set[eval_phase].bfile[pattern0];
-  pattern0 = board[83];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[13];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile[pattern0] );
-#endif
-  score += set[eval_phase].cfile[pattern0];
-  pattern0 = board[86];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[16];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile[pattern0] );
-#endif
-  score += set[eval_phase].cfile[pattern0];
-  pattern0 = board[38];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[31];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile[pattern0] );
-#endif
-  score += set[eval_phase].cfile[pattern0];
-  pattern0 = board[68];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[61];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile[pattern0] );
-#endif
-  score += set[eval_phase].cfile[pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile[pattern0] );
-#endif
-  score += set[eval_phase].dfile[pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile[pattern0] );
-#endif
-  score += set[eval_phase].dfile[pattern0];
-  pattern0 = board[48];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[41];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile[pattern0] );
-#endif
-  score += set[eval_phase].dfile[pattern0];
-  pattern0 = board[58];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[51];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile[pattern0] );
-#endif
-  score += set[eval_phase].dfile[pattern0];
-  pattern0 = board[88];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag8[pattern0] );
-#endif
-  score += set[eval_phase].diag8[pattern0];
-  pattern0 = board[81];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag8[pattern0] );
-#endif
-  score += set[eval_phase].diag8[pattern0];
-  pattern0 = board[78];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[12];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7[pattern0] );
-#endif
-  score += set[eval_phase].diag7[pattern0];
-  pattern0 = board[87];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[21];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7[pattern0] );
-#endif
-  score += set[eval_phase].diag7[pattern0];
-  pattern0 = board[71];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[17];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7[pattern0] );
-#endif
-  score += set[eval_phase].diag7[pattern0];
-  pattern0 = board[82];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[28];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7[pattern0] );
-#endif
-  score += set[eval_phase].diag7[pattern0];
-  pattern0 = board[68];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[13];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6[pattern0] );
-#endif
-  score += set[eval_phase].diag6[pattern0];
-  pattern0 = board[86];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[31];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6[pattern0] );
-#endif
-  score += set[eval_phase].diag6[pattern0];
-  pattern0 = board[61];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[16];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6[pattern0] );
-#endif
-  score += set[eval_phase].diag6[pattern0];
-  pattern0 = board[83];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[38];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6[pattern0] );
-#endif
-  score += set[eval_phase].diag6[pattern0];
-  pattern0 = board[58];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5[pattern0] );
-#endif
-  score += set[eval_phase].diag5[pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[41];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5[pattern0] );
-#endif
-  score += set[eval_phase].diag5[pattern0];
-  pattern0 = board[51];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5[pattern0] );
-#endif
-  score += set[eval_phase].diag5[pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[48];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5[pattern0] );
-#endif
-  score += set[eval_phase].diag5[pattern0];
-  pattern0 = board[48];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4[pattern0] );
-#endif
-  score += set[eval_phase].diag4[pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[51];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4[pattern0] );
-#endif
-  score += set[eval_phase].diag4[pattern0];
-  pattern0 = board[41];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4[pattern0] );
-#endif
-  score += set[eval_phase].diag4[pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[58];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4[pattern0] );
-#endif
-  score += set[eval_phase].diag4[pattern0];
-  pattern0 = board[33];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33[pattern0] );
-#endif
-  score += set[eval_phase].corner33[pattern0];
-  pattern0 = board[63];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33[pattern0] );
-#endif
-  score += set[eval_phase].corner33[pattern0];
-  pattern0 = board[36];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33[pattern0] );
-#endif
-  score += set[eval_phase].corner33[pattern0];
-  pattern0 = board[66];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33[pattern0] );
-#endif
-  score += set[eval_phase].corner33[pattern0];
-  pattern0 = board[25];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[75];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[24];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[74];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[52];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[57];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[42];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-  pattern0 = board[47];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52[pattern0] );
-#endif
-  score += set[eval_phase].corner52[pattern0];
-#endif
-  }
-  else {
-#ifdef USE_PENTIUM_ASM
-    int pattern0;
-    int pattern1;
-    int pattern2;
-    int pattern3;
-    asm( 
-         "movl _board+288,%0\n\t"
-         "movl _board+308,%1\n\t"
-         "movl _board+108,%2\n\t"
-         "movl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+88,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+288,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+324,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+352,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+284,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+312,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+244,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+272,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+204,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+232,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+164,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+192,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+152,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+52,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+332,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+112,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+48,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+328,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+44,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+324,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].afile2x_last[-pattern0];
-    score += set[eval_phase].afile2x_last[-pattern1];
-    score += set[eval_phase].afile2x_last[-pattern2];
-    score += set[eval_phase].afile2x_last[-pattern3];
-    asm( 
-         "movl _board+328,%0\n\t"
-         "movl _board+348,%1\n\t"
-         "movl _board+112,%2\n\t"
-         "movl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+288,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+308,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+248,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+268,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+208,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+228,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+168,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+188,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+96,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+148,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+92,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+292,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+88,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+288,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+68,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+84,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+284,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].bfile_last[-pattern0];
-    score += set[eval_phase].bfile_last[-pattern1];
-    score += set[eval_phase].bfile_last[-pattern2];
-    score += set[eval_phase].bfile_last[-pattern3];
-    asm( 
-         "movl _board+332,%0\n\t"
-         "movl _board+344,%1\n\t"
-         "movl _board+152,%2\n\t"
-         "movl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+292,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+304,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+148,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+252,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+264,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+144,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+212,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+224,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+140,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+260,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+172,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+184,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+136,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+256,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+132,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+144,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+132,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+252,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+104,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+128,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+248,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+64,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+124,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+244,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].cfile_last[-pattern0];
-    score += set[eval_phase].cfile_last[-pattern1];
-    score += set[eval_phase].cfile_last[-pattern2];
-    score += set[eval_phase].cfile_last[-pattern3];
-    asm( 
-         "movl _board+336,%0\n\t"
-         "movl _board+340,%1\n\t"
-         "movl _board+192,%2\n\t"
-         "movl _board+232,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+296,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+300,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+188,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+256,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+260,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+184,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+224,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+216,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+220,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+180,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+220,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+176,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+180,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+176,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+216,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+136,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+140,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+172,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+212,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+100,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+168,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+208,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+60,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+164,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+204,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].dfile_last[-pattern0];
-    score += set[eval_phase].dfile_last[-pattern1];
-    score += set[eval_phase].dfile_last[-pattern2];
-    score += set[eval_phase].dfile_last[-pattern3];
-    asm( 
-         "movl _board+352,%0\n\t"
-         "movl _board+324,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+308,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+264,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+252,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+220,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+216,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+176,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+180,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+132,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+144,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1"
-         : "=r" (pattern0), "=r" (pattern1) : );
-    score += set[eval_phase].diag8_last[-pattern0];
-    score += set[eval_phase].diag8_last[-pattern1];
-    asm( 
-         "movl _board+312,%0\n\t"
-         "movl _board+348,%1\n\t"
-         "movl _board+284,%2\n\t"
-         "movl _board+328,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+268,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+304,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+248,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+292,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+224,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+260,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+212,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+256,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+180,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+216,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+176,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+220,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+136,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+172,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+140,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+184,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+128,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+148,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+84,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+112,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag7_last[-pattern0];
-    score += set[eval_phase].diag7_last[-pattern1];
-    score += set[eval_phase].diag7_last[-pattern2];
-    score += set[eval_phase].diag7_last[-pattern3];
-    asm( 
-         "movl _board+272,%0\n\t"
-         "movl _board+344,%1\n\t"
-         "movl _board+244,%2\n\t"
-         "movl _board+332,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+228,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+300,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+208,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+184,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+256,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+172,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+260,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+140,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+212,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+136,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+224,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+168,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+188,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+124,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+152,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag6_last[-pattern0];
-    score += set[eval_phase].diag6_last[-pattern1];
-    score += set[eval_phase].diag6_last[-pattern2];
-    score += set[eval_phase].diag6_last[-pattern3];
-    asm( 
-         "movl _board+232,%0\n\t"
-         "movl _board+340,%1\n\t"
-         "movl _board+204,%2\n\t"
-         "movl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+188,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+296,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+168,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+144,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+252,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+132,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+100,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+208,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+96,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+164,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+192,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag5_last[-pattern0];
-    score += set[eval_phase].diag5_last[-pattern1];
-    score += set[eval_phase].diag5_last[-pattern2];
-    score += set[eval_phase].diag5_last[-pattern3];
-    asm( 
-         "movl _board+192,%0\n\t"
-         "movl _board+336,%1\n\t"
-         "movl _board+164,%2\n\t"
-         "movl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+148,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+128,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+104,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+248,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+92,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+60,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+204,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+232,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].diag4_last[-pattern0];
-    score += set[eval_phase].diag4_last[-pattern1];
-    score += set[eval_phase].diag4_last[-pattern2];
-    score += set[eval_phase].diag4_last[-pattern3];
-    asm( 
-         "movl _board+132,%0\n\t"
-         "movl _board+252,%1\n\t"
-         "movl _board+144,%2\n\t"
-         "movl _board+264,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+248,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+148,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+244,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+152,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+284,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+112,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+332,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+328,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+324,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner33_last[-pattern0];
-    score += set[eval_phase].corner33_last[-pattern1];
-    score += set[eval_phase].corner33_last[-pattern2];
-    score += set[eval_phase].corner33_last[-pattern3];
-    asm( 
-         "movl _board+100,%0\n\t"
-         "movl _board+300,%1\n\t"
-         "movl _board+96,%2\n\t"
-         "movl _board+296,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+96,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+296,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+100,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+300,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+92,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+292,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+104,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+304,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+288,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+108,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+284,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+112,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+60,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+340,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+56,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+336,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+56,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+336,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+60,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+340,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+52,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+332,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+64,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+344,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+328,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+68,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+324,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+72,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner52_last[-pattern0];
-    score += set[eval_phase].corner52_last[-pattern1];
-    score += set[eval_phase].corner52_last[-pattern2];
-    score += set[eval_phase].corner52_last[-pattern3];
-    asm( 
-         "movl _board+208,%0\n\t"
-         "movl _board+228,%1\n\t"
-         "movl _board+168,%2\n\t"
-         "movl _board+188,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+168,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+188,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+208,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+228,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+128,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+148,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+248,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+268,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+88,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+108,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+288,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+308,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+48,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+68,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+328,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+348,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+204,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+232,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+164,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+192,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+164,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+192,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+204,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+232,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+124,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+152,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+244,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+272,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+84,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+112,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+284,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+312,%3\n\t"
-         "leal (%0,%0,2),%0\n\t"
-         "addl _board+44,%0\n\t"
-         "leal (%1,%1,2),%1\n\t"
-         "addl _board+72,%1\n\t"
-         "leal (%2,%2,2),%2\n\t"
-         "addl _board+324,%2\n\t"
-         "leal (%3,%3,2),%3\n\t"
-         "addl _board+352,%3"
-         : "=r" (pattern0), "=r" (pattern1), "=r" (pattern2), "=r" (pattern3) : );
-    score += set[eval_phase].corner52_last[-pattern0];
-    score += set[eval_phase].corner52_last[-pattern1];
-    score += set[eval_phase].corner52_last[-pattern2];
-    score += set[eval_phase].corner52_last[-pattern3];
-#else
-  int pattern0;
-  pattern0 = board[72];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[81];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pattern0] );
-#endif
-  score += set[eval_phase].afile2x_last[-pattern0];
-  pattern0 = board[77];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[88];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pattern0] );
-#endif
-  score += set[eval_phase].afile2x_last[-pattern0];
-  pattern0 = board[27];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[18];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pattern0] );
-#endif
-  score += set[eval_phase].afile2x_last[-pattern0];
-  pattern0 = board[77];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[88];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pattern0] );
-#endif
-  score += set[eval_phase].afile2x_last[-pattern0];
-  pattern0 = board[82];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[12];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].bfile_last[-pattern0];
-  pattern0 = board[87];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[17];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].bfile_last[-pattern0];
-  pattern0 = board[28];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].bfile_last[-pattern0];
-  pattern0 = board[78];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].bfile_last[-pattern0];
-  pattern0 = board[83];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[13];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].cfile_last[-pattern0];
-  pattern0 = board[86];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[16];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].cfile_last[-pattern0];
-  pattern0 = board[38];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[31];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].cfile_last[-pattern0];
-  pattern0 = board[68];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[61];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].cfile_last[-pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].dfile_last[-pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].dfile_last[-pattern0];
-  pattern0 = board[48];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[41];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].dfile_last[-pattern0];
-  pattern0 = board[58];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[51];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pattern0] );
-#endif
-  score += set[eval_phase].dfile_last[-pattern0];
-  pattern0 = board[88];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag8_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag8_last[-pattern0];
-  pattern0 = board[81];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag8_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag8_last[-pattern0];
-  pattern0 = board[78];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[45];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[12];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag7_last[-pattern0];
-  pattern0 = board[87];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[54];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[21];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag7_last[-pattern0];
-  pattern0 = board[71];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[44];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[17];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag7_last[-pattern0];
-  pattern0 = board[82];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[55];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[28];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag7_last[-pattern0];
-  pattern0 = board[68];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[46];
-  pattern0 = 3 * pattern0 + board[35];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[13];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag6_last[-pattern0];
-  pattern0 = board[86];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[64];
-  pattern0 = 3 * pattern0 + board[53];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[31];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag6_last[-pattern0];
-  pattern0 = board[61];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[43];
-  pattern0 = 3 * pattern0 + board[34];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[16];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag6_last[-pattern0];
-  pattern0 = board[83];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[65];
-  pattern0 = 3 * pattern0 + board[56];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[38];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag6_last[-pattern0];
-  pattern0 = board[58];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[36];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag5_last[-pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[63];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[41];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag5_last[-pattern0];
-  pattern0 = board[51];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[33];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag5_last[-pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[66];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[48];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag5_last[-pattern0];
-  pattern0 = board[48];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[15];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag4_last[-pattern0];
-  pattern0 = board[84];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[51];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag4_last[-pattern0];
-  pattern0 = board[41];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[14];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag4_last[-pattern0];
-  pattern0 = board[85];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[58];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pattern0] );
-#endif
-  score += set[eval_phase].diag4_last[-pattern0];
-  pattern0 = board[33];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner33_last[-pattern0];
-  pattern0 = board[63];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner33_last[-pattern0];
-  pattern0 = board[36];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner33_last[-pattern0];
-  pattern0 = board[66];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner33_last[-pattern0];
-  pattern0 = board[25];
-  pattern0 = 3 * pattern0 + board[24];
-  pattern0 = 3 * pattern0 + board[23];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[13];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[75];
-  pattern0 = 3 * pattern0 + board[74];
-  pattern0 = 3 * pattern0 + board[73];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[83];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[24];
-  pattern0 = 3 * pattern0 + board[25];
-  pattern0 = 3 * pattern0 + board[26];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[14];
-  pattern0 = 3 * pattern0 + board[15];
-  pattern0 = 3 * pattern0 + board[16];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[74];
-  pattern0 = 3 * pattern0 + board[75];
-  pattern0 = 3 * pattern0 + board[76];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[84];
-  pattern0 = 3 * pattern0 + board[85];
-  pattern0 = 3 * pattern0 + board[86];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[52];
-  pattern0 = 3 * pattern0 + board[42];
-  pattern0 = 3 * pattern0 + board[32];
-  pattern0 = 3 * pattern0 + board[22];
-  pattern0 = 3 * pattern0 + board[12];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[31];
-  pattern0 = 3 * pattern0 + board[21];
-  pattern0 = 3 * pattern0 + board[11];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[57];
-  pattern0 = 3 * pattern0 + board[47];
-  pattern0 = 3 * pattern0 + board[37];
-  pattern0 = 3 * pattern0 + board[27];
-  pattern0 = 3 * pattern0 + board[17];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[38];
-  pattern0 = 3 * pattern0 + board[28];
-  pattern0 = 3 * pattern0 + board[18];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[42];
-  pattern0 = 3 * pattern0 + board[52];
-  pattern0 = 3 * pattern0 + board[62];
-  pattern0 = 3 * pattern0 + board[72];
-  pattern0 = 3 * pattern0 + board[82];
-  pattern0 = 3 * pattern0 + board[41];
-  pattern0 = 3 * pattern0 + board[51];
-  pattern0 = 3 * pattern0 + board[61];
-  pattern0 = 3 * pattern0 + board[71];
-  pattern0 = 3 * pattern0 + board[81];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
-  pattern0 = board[47];
-  pattern0 = 3 * pattern0 + board[57];
-  pattern0 = 3 * pattern0 + board[67];
-  pattern0 = 3 * pattern0 + board[77];
-  pattern0 = 3 * pattern0 + board[87];
-  pattern0 = 3 * pattern0 + board[48];
-  pattern0 = 3 * pattern0 + board[58];
-  pattern0 = 3 * pattern0 + board[68];
-  pattern0 = 3 * pattern0 + board[78];
-  pattern0 = 3 * pattern0 + board[88];
-#ifdef LOG_EVAL
-  fprintf( stream, "pattern=%d\n", pattern0 );
-  fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pattern0] );
-#endif
-  score += set[eval_phase].corner52_last[-pattern0];
+  /* The pattern indices are maintained incrementally by
+     MAKE_MOVE and UNMAKE_MOVE; see update_pattern_indices().
+     They are kept in black perspective, so the white-to-move
+     lookup reads the tables backwards, as it always has. */
+
+#if VERIFY_INCREMENTAL_EVAL
+  verify_pattern_indices();
 #endif
+
+  {
+    const unsigned short *pi = eval_pattern_index;
+
+    if ( side_to_move == BLACKSQ ) {
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[0] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pi[0]] );
+#endif
+      score += set[eval_phase].afile2x[pi[0]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[1] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pi[1]] );
+#endif
+      score += set[eval_phase].afile2x[pi[1]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[2] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pi[2]] );
+#endif
+      score += set[eval_phase].afile2x[pi[2]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[3] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x[pi[3]] );
+#endif
+      score += set[eval_phase].afile2x[pi[3]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[4] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile[pi[4]] );
+#endif
+      score += set[eval_phase].bfile[pi[4]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[5] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile[pi[5]] );
+#endif
+      score += set[eval_phase].bfile[pi[5]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[6] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile[pi[6]] );
+#endif
+      score += set[eval_phase].bfile[pi[6]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[7] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile[pi[7]] );
+#endif
+      score += set[eval_phase].bfile[pi[7]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[8] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile[pi[8]] );
+#endif
+      score += set[eval_phase].cfile[pi[8]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[9] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile[pi[9]] );
+#endif
+      score += set[eval_phase].cfile[pi[9]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[10] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile[pi[10]] );
+#endif
+      score += set[eval_phase].cfile[pi[10]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[11] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile[pi[11]] );
+#endif
+      score += set[eval_phase].cfile[pi[11]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[12] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile[pi[12]] );
+#endif
+      score += set[eval_phase].dfile[pi[12]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[13] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile[pi[13]] );
+#endif
+      score += set[eval_phase].dfile[pi[13]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[14] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile[pi[14]] );
+#endif
+      score += set[eval_phase].dfile[pi[14]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[15] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile[pi[15]] );
+#endif
+      score += set[eval_phase].dfile[pi[15]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[16] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag8[pi[16]] );
+#endif
+      score += set[eval_phase].diag8[pi[16]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[17] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag8[pi[17]] );
+#endif
+      score += set[eval_phase].diag8[pi[17]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[18] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7[pi[18]] );
+#endif
+      score += set[eval_phase].diag7[pi[18]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[19] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7[pi[19]] );
+#endif
+      score += set[eval_phase].diag7[pi[19]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[20] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7[pi[20]] );
+#endif
+      score += set[eval_phase].diag7[pi[20]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[21] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7[pi[21]] );
+#endif
+      score += set[eval_phase].diag7[pi[21]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[22] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6[pi[22]] );
+#endif
+      score += set[eval_phase].diag6[pi[22]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[23] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6[pi[23]] );
+#endif
+      score += set[eval_phase].diag6[pi[23]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[24] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6[pi[24]] );
+#endif
+      score += set[eval_phase].diag6[pi[24]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[25] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6[pi[25]] );
+#endif
+      score += set[eval_phase].diag6[pi[25]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[26] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5[pi[26]] );
+#endif
+      score += set[eval_phase].diag5[pi[26]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[27] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5[pi[27]] );
+#endif
+      score += set[eval_phase].diag5[pi[27]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[28] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5[pi[28]] );
+#endif
+      score += set[eval_phase].diag5[pi[28]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[29] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5[pi[29]] );
+#endif
+      score += set[eval_phase].diag5[pi[29]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[30] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4[pi[30]] );
+#endif
+      score += set[eval_phase].diag4[pi[30]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[31] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4[pi[31]] );
+#endif
+      score += set[eval_phase].diag4[pi[31]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[32] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4[pi[32]] );
+#endif
+      score += set[eval_phase].diag4[pi[32]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[33] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4[pi[33]] );
+#endif
+      score += set[eval_phase].diag4[pi[33]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[34] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33[pi[34]] );
+#endif
+      score += set[eval_phase].corner33[pi[34]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[35] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33[pi[35]] );
+#endif
+      score += set[eval_phase].corner33[pi[35]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[36] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33[pi[36]] );
+#endif
+      score += set[eval_phase].corner33[pi[36]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[37] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33[pi[37]] );
+#endif
+      score += set[eval_phase].corner33[pi[37]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[38] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[38]] );
+#endif
+      score += set[eval_phase].corner52[pi[38]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[39] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[39]] );
+#endif
+      score += set[eval_phase].corner52[pi[39]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[40] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[40]] );
+#endif
+      score += set[eval_phase].corner52[pi[40]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[41] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[41]] );
+#endif
+      score += set[eval_phase].corner52[pi[41]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[42] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[42]] );
+#endif
+      score += set[eval_phase].corner52[pi[42]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[43] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[43]] );
+#endif
+      score += set[eval_phase].corner52[pi[43]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[44] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[44]] );
+#endif
+      score += set[eval_phase].corner52[pi[44]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[45] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[45]] );
+#endif
+      score += set[eval_phase].corner52[pi[45]];
+    }
+    else {
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[0] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pi[0]] );
+#endif
+      score += set[eval_phase].afile2x_last[-pi[0]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[1] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pi[1]] );
+#endif
+      score += set[eval_phase].afile2x_last[-pi[1]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[2] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pi[2]] );
+#endif
+      score += set[eval_phase].afile2x_last[-pi[2]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[3] );
+      fprintf( stream, "score=%d\n", set[eval_phase].afile2x_last[-pi[3]] );
+#endif
+      score += set[eval_phase].afile2x_last[-pi[3]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[4] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pi[4]] );
+#endif
+      score += set[eval_phase].bfile_last[-pi[4]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[5] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pi[5]] );
+#endif
+      score += set[eval_phase].bfile_last[-pi[5]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[6] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pi[6]] );
+#endif
+      score += set[eval_phase].bfile_last[-pi[6]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[7] );
+      fprintf( stream, "score=%d\n", set[eval_phase].bfile_last[-pi[7]] );
+#endif
+      score += set[eval_phase].bfile_last[-pi[7]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[8] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pi[8]] );
+#endif
+      score += set[eval_phase].cfile_last[-pi[8]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[9] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pi[9]] );
+#endif
+      score += set[eval_phase].cfile_last[-pi[9]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[10] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pi[10]] );
+#endif
+      score += set[eval_phase].cfile_last[-pi[10]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[11] );
+      fprintf( stream, "score=%d\n", set[eval_phase].cfile_last[-pi[11]] );
+#endif
+      score += set[eval_phase].cfile_last[-pi[11]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[12] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pi[12]] );
+#endif
+      score += set[eval_phase].dfile_last[-pi[12]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[13] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pi[13]] );
+#endif
+      score += set[eval_phase].dfile_last[-pi[13]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[14] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pi[14]] );
+#endif
+      score += set[eval_phase].dfile_last[-pi[14]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[15] );
+      fprintf( stream, "score=%d\n", set[eval_phase].dfile_last[-pi[15]] );
+#endif
+      score += set[eval_phase].dfile_last[-pi[15]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[16] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag8_last[-pi[16]] );
+#endif
+      score += set[eval_phase].diag8_last[-pi[16]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[17] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag8_last[-pi[17]] );
+#endif
+      score += set[eval_phase].diag8_last[-pi[17]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[18] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pi[18]] );
+#endif
+      score += set[eval_phase].diag7_last[-pi[18]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[19] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pi[19]] );
+#endif
+      score += set[eval_phase].diag7_last[-pi[19]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[20] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pi[20]] );
+#endif
+      score += set[eval_phase].diag7_last[-pi[20]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[21] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag7_last[-pi[21]] );
+#endif
+      score += set[eval_phase].diag7_last[-pi[21]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[22] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pi[22]] );
+#endif
+      score += set[eval_phase].diag6_last[-pi[22]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[23] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pi[23]] );
+#endif
+      score += set[eval_phase].diag6_last[-pi[23]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[24] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pi[24]] );
+#endif
+      score += set[eval_phase].diag6_last[-pi[24]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[25] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag6_last[-pi[25]] );
+#endif
+      score += set[eval_phase].diag6_last[-pi[25]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[26] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pi[26]] );
+#endif
+      score += set[eval_phase].diag5_last[-pi[26]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[27] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pi[27]] );
+#endif
+      score += set[eval_phase].diag5_last[-pi[27]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[28] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pi[28]] );
+#endif
+      score += set[eval_phase].diag5_last[-pi[28]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[29] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag5_last[-pi[29]] );
+#endif
+      score += set[eval_phase].diag5_last[-pi[29]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[30] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pi[30]] );
+#endif
+      score += set[eval_phase].diag4_last[-pi[30]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[31] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pi[31]] );
+#endif
+      score += set[eval_phase].diag4_last[-pi[31]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[32] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pi[32]] );
+#endif
+      score += set[eval_phase].diag4_last[-pi[32]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[33] );
+      fprintf( stream, "score=%d\n", set[eval_phase].diag4_last[-pi[33]] );
+#endif
+      score += set[eval_phase].diag4_last[-pi[33]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[34] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pi[34]] );
+#endif
+      score += set[eval_phase].corner33_last[-pi[34]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[35] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pi[35]] );
+#endif
+      score += set[eval_phase].corner33_last[-pi[35]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[36] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pi[36]] );
+#endif
+      score += set[eval_phase].corner33_last[-pi[36]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[37] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner33_last[-pi[37]] );
+#endif
+      score += set[eval_phase].corner33_last[-pi[37]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[38] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[38]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[38]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[39] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[39]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[39]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[40] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[40]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[40]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[41] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[41]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[41]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[42] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[42]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[42]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[43] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[43]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[43]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[44] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[44]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[44]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[45] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[45]] );
+#endif
+      score += set[eval_phase].corner52_last[-pi[45]];
+    }
   }
 
 #ifdef LOG_EVAL

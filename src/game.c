@@ -274,6 +274,7 @@ setup_game( const char *file_name, int *side_to_move ) {
 		 file_name );
 
   determine_hash_values( *side_to_move, board );
+  determine_pattern_indices();
 
   /* Make the game score look right */
 
@@ -396,6 +397,7 @@ ponder_move( int side_to_move, int book, int mid, int exact, int wld ) {
   start_move( 0, 0, disc_count( BLACKSQ ) + disc_count( WHITESQ ) );
   clear_ponder_times();
   determine_hash_values( side_to_move, board );
+  determine_pattern_indices();
 
   reset_counter( &nodes );
 
@@ -549,6 +551,7 @@ extended_compute_move( int side_to_move, int book_only,
   start_move( 0, 0, disc_count( BLACKSQ ) + disc_count( WHITESQ ) );
   clear_ponder_times();
   determine_hash_values( side_to_move, board );
+  determine_pattern_indices();
 
   empties = 60 - disks_played;
 
@@ -1000,6 +1003,7 @@ perform_extended_solve( int side_to_move, int actual_move,
   start_move( 0, 0, disc_count( BLACKSQ ) + disc_count( WHITESQ ) );
   clear_ponder_times();
   determine_hash_values( side_to_move, board );
+  determine_pattern_indices();
   reset_counter( &nodes );
 
   /* Set search depths that result in Zebra solving after a brief
@@ -1181,6 +1185,7 @@ compute_move( int side_to_move,
   init_moves();
   generate_all( side_to_move );
   determine_hash_values( side_to_move, board );
+  determine_pattern_indices();
 
   calculate_perturbation();
 

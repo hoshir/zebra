@@ -17,6 +17,11 @@
 #include "globals.h"
 #include "macros.h"
 #include "patterns.h"
+#include "unflip.h"
+
+#if defined( __ARM_NEON )
+#include <arm_neon.h>
+#endif
 
 
 
@@ -361,6 +366,7 @@ init_patterns( void ) {
     }
 
   pattern_dependency();
+  init_pattern_dependencies();
 
   /* These values needed for compatibility with the old book format */
 
@@ -395,4 +401,252 @@ compute_line_patterns( int *in_board ) {
       row_pattern[row_no[pos]] += mask * pow3[row_index[pos]];
       col_pattern[col_no[pos]] += mask * pow3[col_index[pos]];
     }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Incremental evaluation pattern indices                             */
+/*                                                                    */
+/* pattern_evaluation() used to rebuild the base-3 index of every     */
+/* pattern from the board at each leaf.  The indices are maintained   */
+/* incrementally instead: a flipped disc changes one trit of each     */
+/* pattern its square belongs to, so MAKE_MOVE adds the trit deltas   */
+/* for the discs it turns and UNMAKE_MOVE subtracts them again.  The  */
+/* indices are kept in black perspective; the white-to-move lookup    */
+/* reads the coefficient tables backwards through the *_last          */
+/* pointers, exactly as the evaluation always has.                    */
+
+/* The indices are held as unsigned 16-bit lanes so that a whole move's
+   worth of update is a handful of vector adds.  The largest index is
+   3^10 - 1 = 59048 and the largest weight 2 * 3^9 = 39366, both inside
+   the range, and the arithmetic is exact modulo 2^16: intermediate
+   lanes may wrap while a move is being applied, but the value at the
+   end of the update is the true one.  The count is padded to a
+   multiple of eight so the tail is a whole vector. */
+
+#define EVAL_PATTERN_COUNT   46
+#define EVAL_PATTERN_SLOTS   48
+
+_Thread_local unsigned short eval_pattern_index[EVAL_PATTERN_SLOTS];
+
+static const struct {
+  short len;
+  short squares[10];   /* most significant trit first */
+} eval_pattern[EVAL_PATTERN_COUNT] = {
+  { 10, { 72, 22, 81, 71, 61, 51, 41, 31, 21, 11 } },	/* afile2x */
+  { 10, { 77, 27, 88, 78, 68, 58, 48, 38, 28, 18 } },	/* afile2x */
+  { 10, { 27, 22, 18, 17, 16, 15, 14, 13, 12, 11 } },	/* afile2x */
+  { 10, { 77, 72, 88, 87, 86, 85, 84, 83, 82, 81 } },	/* afile2x */
+  { 8, { 82, 72, 62, 52, 42, 32, 22, 12,  0,  0 } },	/* bfile */
+  { 8, { 87, 77, 67, 57, 47, 37, 27, 17,  0,  0 } },	/* bfile */
+  { 8, { 28, 27, 26, 25, 24, 23, 22, 21,  0,  0 } },	/* bfile */
+  { 8, { 78, 77, 76, 75, 74, 73, 72, 71,  0,  0 } },	/* bfile */
+  { 8, { 83, 73, 63, 53, 43, 33, 23, 13,  0,  0 } },	/* cfile */
+  { 8, { 86, 76, 66, 56, 46, 36, 26, 16,  0,  0 } },	/* cfile */
+  { 8, { 38, 37, 36, 35, 34, 33, 32, 31,  0,  0 } },	/* cfile */
+  { 8, { 68, 67, 66, 65, 64, 63, 62, 61,  0,  0 } },	/* cfile */
+  { 8, { 84, 74, 64, 54, 44, 34, 24, 14,  0,  0 } },	/* dfile */
+  { 8, { 85, 75, 65, 55, 45, 35, 25, 15,  0,  0 } },	/* dfile */
+  { 8, { 48, 47, 46, 45, 44, 43, 42, 41,  0,  0 } },	/* dfile */
+  { 8, { 58, 57, 56, 55, 54, 53, 52, 51,  0,  0 } },	/* dfile */
+  { 8, { 88, 77, 66, 55, 44, 33, 22, 11,  0,  0 } },	/* diag8 */
+  { 8, { 81, 72, 63, 54, 45, 36, 27, 18,  0,  0 } },	/* diag8 */
+  { 7, { 78, 67, 56, 45, 34, 23, 12,  0,  0,  0 } },	/* diag7 */
+  { 7, { 87, 76, 65, 54, 43, 32, 21,  0,  0,  0 } },	/* diag7 */
+  { 7, { 71, 62, 53, 44, 35, 26, 17,  0,  0,  0 } },	/* diag7 */
+  { 7, { 82, 73, 64, 55, 46, 37, 28,  0,  0,  0 } },	/* diag7 */
+  { 6, { 68, 57, 46, 35, 24, 13,  0,  0,  0,  0 } },	/* diag6 */
+  { 6, { 86, 75, 64, 53, 42, 31,  0,  0,  0,  0 } },	/* diag6 */
+  { 6, { 61, 52, 43, 34, 25, 16,  0,  0,  0,  0 } },	/* diag6 */
+  { 6, { 83, 74, 65, 56, 47, 38,  0,  0,  0,  0 } },	/* diag6 */
+  { 5, { 58, 47, 36, 25, 14,  0,  0,  0,  0,  0 } },	/* diag5 */
+  { 5, { 85, 74, 63, 52, 41,  0,  0,  0,  0,  0 } },	/* diag5 */
+  { 5, { 51, 42, 33, 24, 15,  0,  0,  0,  0,  0 } },	/* diag5 */
+  { 5, { 84, 75, 66, 57, 48,  0,  0,  0,  0,  0 } },	/* diag5 */
+  { 4, { 48, 37, 26, 15,  0,  0,  0,  0,  0,  0 } },	/* diag4 */
+  { 4, { 84, 73, 62, 51,  0,  0,  0,  0,  0,  0 } },	/* diag4 */
+  { 4, { 41, 32, 23, 14,  0,  0,  0,  0,  0,  0 } },	/* diag4 */
+  { 4, { 85, 76, 67, 58,  0,  0,  0,  0,  0,  0 } },	/* diag4 */
+  { 9, { 33, 32, 31, 23, 22, 21, 13, 12, 11,  0 } },	/* corner33 */
+  { 9, { 63, 62, 61, 73, 72, 71, 83, 82, 81,  0 } },	/* corner33 */
+  { 9, { 36, 37, 38, 26, 27, 28, 16, 17, 18,  0 } },	/* corner33 */
+  { 9, { 66, 67, 68, 76, 77, 78, 86, 87, 88,  0 } },	/* corner33 */
+  { 10, { 25, 24, 23, 22, 21, 15, 14, 13, 12, 11 } },	/* corner52 */
+  { 10, { 75, 74, 73, 72, 71, 85, 84, 83, 82, 81 } },	/* corner52 */
+  { 10, { 24, 25, 26, 27, 28, 14, 15, 16, 17, 18 } },	/* corner52 */
+  { 10, { 74, 75, 76, 77, 78, 84, 85, 86, 87, 88 } },	/* corner52 */
+  { 10, { 52, 42, 32, 22, 12, 51, 41, 31, 21, 11 } },	/* corner52 */
+  { 10, { 57, 47, 37, 27, 17, 58, 48, 38, 28, 18 } },	/* corner52 */
+  { 10, { 42, 52, 62, 72, 82, 41, 51, 61, 71, 81 } },	/* corner52 */
+  { 10, { 47, 57, 67, 77, 87, 48, 58, 68, 78, 88 } },	/* corner52 */
+};
+
+/* The trit weight of every square in every pattern, laid out densely
+   so that one square's contribution to all 46 indices is six vectors.
+   A square belongs to eight patterns at the most, so the rows are
+   mostly zero; the zero lanes cost nothing but make the update
+   branch-free and free of the scattered read-modify-writes that the
+   sparse form needed.  The doubled table serves the flipped discs,
+   whose trit moves by two. */
+
+static unsigned short pattern_weight[100][EVAL_PATTERN_SLOTS];
+static unsigned short pattern_weight2[100][EVAL_PATTERN_SLOTS];
+
+
+void
+init_pattern_dependencies( void ) {
+  int p, i, sq;
+
+  for ( sq = 0; sq < 100; sq++ )
+    for ( p = 0; p < EVAL_PATTERN_SLOTS; p++ ) {
+      pattern_weight[sq][p] = 0;
+      pattern_weight2[sq][p] = 0;
+    }
+
+  for ( p = 0; p < EVAL_PATTERN_COUNT; p++ )
+    for ( i = 0; i < eval_pattern[p].len; i++ ) {
+      unsigned short w = (unsigned short)
+	pow3[eval_pattern[p].len - 1 - i];
+      sq = eval_pattern[p].squares[i];
+      pattern_weight[sq][p] = w;
+      pattern_weight2[sq][p] = 2 * w;
+    }
+}
+
+
+/*
+  DETERMINE_PATTERN_INDICES
+  Recompute all indices from the board; the incremental updates keep
+  them current from here on.
+*/
+
+void
+determine_pattern_indices( void ) {
+  int p, i, index;
+
+  for ( p = 0; p < EVAL_PATTERN_COUNT; p++ ) {
+    index = 0;
+    for ( i = 0; i < eval_pattern[p].len; i++ )
+      index = 3 * index + board[eval_pattern[p].squares[i]];
+    eval_pattern_index[p] = (unsigned short) index;
+  }
+  for ( p = EVAL_PATTERN_COUNT; p < EVAL_PATTERN_SLOTS; p++ )
+    eval_pattern_index[p] = 0;
+}
+
+
+/*
+  UPDATE_PATTERN_INDICES
+  Apply (DIR = 1) or take back (DIR = -1) the index changes of a move:
+  the played square goes from EMPTY to COLOR and the FLIPPED entries
+  on top of the flip stack go from the opponent to COLOR.  Called by
+  MAKE_MOVE while the flipped discs are still on the stack.
+
+  Trits are the board values, BLACKSQ 0, EMPTY 1, WHITESQ 2, so playing
+  black lowers a trit and playing white raises it; taking the move back
+  reverses that.  Every square of the move therefore moves the indices
+  in the same direction, and the whole update is one sign applied to a
+  few rows of the weight tables.
+*/
+
+void
+update_pattern_indices( int color, int move, int flipped, int dir ) {
+  int i;
+  /* BOARD and FLIP_STACK are thread-local; resolve them once. */
+  unsigned short *pi = eval_pattern_index;
+  const int *b = board;
+  int *const *fs = flip_stack;
+  const int subtract = ((color == BLACKSQ) == (dir > 0));
+
+#if defined( __ARM_NEON )
+
+#define APPLY_ROW( op, table, sq )				\
+  {								\
+    const unsigned short *w = (table)[sq];			\
+    p0 = op( p0, vld1q_u16( w      ) );				\
+    p1 = op( p1, vld1q_u16( w +  8 ) );				\
+    p2 = op( p2, vld1q_u16( w + 16 ) );				\
+    p3 = op( p3, vld1q_u16( w + 24 ) );				\
+    p4 = op( p4, vld1q_u16( w + 32 ) );				\
+    p5 = op( p5, vld1q_u16( w + 40 ) );				\
+  }
+
+  {
+    uint16x8_t p0 = vld1q_u16( pi      );
+    uint16x8_t p1 = vld1q_u16( pi +  8 );
+    uint16x8_t p2 = vld1q_u16( pi + 16 );
+    uint16x8_t p3 = vld1q_u16( pi + 24 );
+    uint16x8_t p4 = vld1q_u16( pi + 32 );
+    uint16x8_t p5 = vld1q_u16( pi + 40 );
+
+    if ( subtract ) {
+      for ( i = 1; i <= flipped; i++ )
+	APPLY_ROW( vsubq_u16, pattern_weight2, (int) (fs[-i] - b) );
+      APPLY_ROW( vsubq_u16, pattern_weight, move );
+    }
+    else {
+      for ( i = 1; i <= flipped; i++ )
+	APPLY_ROW( vaddq_u16, pattern_weight2, (int) (fs[-i] - b) );
+      APPLY_ROW( vaddq_u16, pattern_weight, move );
+    }
+
+    vst1q_u16( pi,      p0 );
+    vst1q_u16( pi +  8, p1 );
+    vst1q_u16( pi + 16, p2 );
+    vst1q_u16( pi + 24, p3 );
+    vst1q_u16( pi + 32, p4 );
+    vst1q_u16( pi + 40, p5 );
+  }
+
+#undef APPLY_ROW
+
+#else
+
+  {
+    int j;
+
+    if ( subtract ) {
+      for ( i = 1; i <= flipped; i++ ) {
+	const unsigned short *w = pattern_weight2[fs[-i] - b];
+	for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
+	  pi[j] -= w[j];
+      }
+      for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
+	pi[j] -= pattern_weight[move][j];
+    }
+    else {
+      for ( i = 1; i <= flipped; i++ ) {
+	const unsigned short *w = pattern_weight2[fs[-i] - b];
+	for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
+	  pi[j] += w[j];
+      }
+      for ( j = 0; j < EVAL_PATTERN_SLOTS; j++ )
+	pi[j] += pattern_weight[move][j];
+    }
+  }
+
+#endif
+}
+
+
+/*
+  VERIFY_PATTERN_INDICES
+  Compare the incrementally maintained indices against a recomputation
+  from the board.  Debug builds call this from pattern_evaluation().
+*/
+
+void
+verify_pattern_indices( void ) {
+  int p, i, index;
+
+  for ( p = 0; p < EVAL_PATTERN_COUNT; p++ ) {
+    index = 0;
+    for ( i = 0; i < eval_pattern[p].len; i++ )
+      index = 3 * index + board[eval_pattern[p].squares[i]];
+    if ( index != (int) eval_pattern_index[p] ) {
+      fprintf( stderr, "pattern %d: incremental %d != recomputed %d\n",
+	       p, (int) eval_pattern_index[p], index );
+      abort();
+    }
+  }
 }

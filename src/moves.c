@@ -243,6 +243,7 @@ make_move( int side_to_move, int move, int update_hash ) {
   flip_count[disks_played] = flipped;
 
   board[move] = side_to_move;
+  update_pattern_indices( side_to_move, move, flipped, 1 );
 
   if ( side_to_move == BLACKSQ ) {
     piece_count[BLACKSQ][disks_played + 1] =
@@ -284,6 +285,7 @@ make_move_no_hash( int side_to_move, int move ) {
   flip_count[disks_played] = flipped;
 
   board[move] = side_to_move;
+  update_pattern_indices( side_to_move, move, flipped, 1 );
 
 #if 1
   if ( side_to_move == BLACKSQ ) {
@@ -324,6 +326,9 @@ unmake_move( int side_to_move, int move ) {
   hash1 = hash_stored1[disks_played];
   hash2 = hash_stored2[disks_played];
 
+  /* The flipped discs are still on the flip stack here. */
+  update_pattern_indices( side_to_move, move, flip_count[disks_played], -1 );
+
   UndoFlips_inlined( flip_count[disks_played], OPP( side_to_move ) );
 }
 
@@ -339,6 +344,9 @@ unmake_move_no_hash( int side_to_move, int move ) {
   board[move] = EMPTY;
 
   disks_played--;
+
+  /* The flipped discs are still on the flip stack here. */
+  update_pattern_indices( side_to_move, move, flip_count[disks_played], -1 );
 
   UndoFlips_inlined( flip_count[disks_played], OPP( side_to_move ) );
 }
