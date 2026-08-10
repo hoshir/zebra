@@ -103,7 +103,7 @@ typedef struct {
 typedef char MoveListType[64];
 
 typedef struct ThorOpeningNode_ {
-  unsigned int hash1, hash2;
+  unsigned int thor_hash1, thor_hash2;
   int current_match;
   int frequency;
   int matching_symmetry;
@@ -1674,8 +1674,8 @@ recursive_opening_scan( ThorOpeningNode *node, int depth, int moves_played,
     match = FALSE;
     matching_symmetry = 0;
     for ( i = 7; i >= 0; i-- )
-      if ( (node->hash1 == primary_hash[i]) &&
-	   (node->hash2 == secondary_hash[i]) ) {
+      if ( (node->thor_hash1 == primary_hash[i]) &&
+	   (node->thor_hash2 == secondary_hash[i]) ) {
 	match = TRUE;
 	matching_symmetry = i;
       }
@@ -1741,8 +1741,8 @@ recursive_frequency_count( ThorOpeningNode *node, int *freq_count, int depth,
   if ( depth == moves_played ) {
     for ( i = 0; i < 8; i++ ) {
       j = symmetries[i];
-      if ( (node->hash1 == primary_hash[j]) &&
-	   (node->hash2 == secondary_hash[j]) ) {
+      if ( (node->thor_hash1 == primary_hash[j]) &&
+	   (node->thor_hash2 == secondary_hash[j]) ) {
 	child_move = node->child_move;
 	child = node->child_node;
 	while ( child != NULL ) {
@@ -2656,7 +2656,7 @@ build_thor_opening_tree( void ) {
   int move;
   int branch_depth, end_depth;
   int flipped;
-  unsigned int hash1, hash2;
+  unsigned int thor_hash1, thor_hash2;
   ThorOpeningNode *parent, *last_child, *new_child;
   ThorOpeningNode *node_list[61];
 
@@ -2665,9 +2665,9 @@ build_thor_opening_tree( void ) {
   root_node = new_thor_opening_node( NULL );
   clear_thor_board();
   compute_thor_patterns( thor_board );
-  compute_partial_hash( &hash1, &hash2 );
-  root_node->hash1 = hash1;
-  root_node->hash2 = hash2;
+  compute_partial_hash( &thor_hash1, &thor_hash2 );
+  root_node->thor_hash1 = thor_hash1;
+  root_node->thor_hash2 = thor_hash2;
   node_list[0] = root_node;
 
   /* Add each of the openings to the tree */
@@ -2714,9 +2714,9 @@ build_thor_opening_tree( void ) {
     parent = node_list[branch_depth];
     new_child = new_thor_opening_node( parent );
     compute_thor_patterns( thor_board );
-    compute_partial_hash( &hash1, &hash2 );
-    new_child->hash1 = hash1;
-    new_child->hash2 = hash2;
+    compute_partial_hash( &thor_hash1, &thor_hash2 );
+    new_child->thor_hash1 = thor_hash1;
+    new_child->thor_hash2 = thor_hash2;
     if ( parent->child_node == NULL ) {
       parent->child_node = new_child;
       parent->child_move = thor_move_list[branch_depth];
@@ -2757,9 +2757,9 @@ build_thor_opening_tree( void ) {
       parent = new_child;
       new_child = new_thor_opening_node( parent );
       compute_thor_patterns( thor_board );
-      compute_partial_hash( &hash1, &hash2 );
-      new_child->hash1 = hash1;
-      new_child->hash2 = hash2;
+      compute_partial_hash( &thor_hash1, &thor_hash2 );
+      new_child->thor_hash1 = thor_hash1;
+      new_child->thor_hash2 = thor_hash2;
       parent->child_node = new_child;
       parent->child_move = thor_move_list[j];
       node_list[j + 1] = new_child;

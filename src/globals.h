@@ -17,6 +17,7 @@
 
 #include "bitboard.h"
 #include "constant.h"
+#include "tlstate.h"
 
 
 
@@ -38,10 +39,6 @@ extern _Thread_local int pv[MAX_SEARCH_DEPTH][MAX_SEARCH_DEPTH];
    from the root position. */
 extern _Thread_local int pv_depth[MAX_SEARCH_DEPTH];
 
-/* piece_count[col][n] holds the number of disks of color col after
-   n moves have been played. */
-extern _Thread_local int piece_count[3][MAX_SEARCH_DEPTH];
-
 /* These variables hold the game score. The meaning is similar
    to how a human would fill out a game score except for that
    the row counter, score_sheet_row, starts at zero. */
@@ -53,11 +50,9 @@ extern int white_moves[60];
    but all updates must be reversed when the search stops. */
 extern _Thread_local Board board;
 
-/* The same position as BOARD, one bit per square, indexed by colour.
-   Maintained by MAKE_MOVE and UNMAKE_MOVE alongside the array, and
-   resynchronised from it by SET_BOARD_BITS wherever the array is set
-   up wholesale. */
-extern _Thread_local BitBoard board_bits[3];
+/* BOARD_BITS in tlstate.h holds the same position one bit per square.
+   MAKE_MOVE and UNMAKE_MOVE keep the two in step; SET_BOARD_BITS
+   rebuilds the bits wherever the array is set up wholesale. */
 
 void
 set_board_bits( void );

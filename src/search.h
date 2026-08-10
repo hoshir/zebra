@@ -106,12 +106,16 @@ reorder_move_list( int stage );
    disks_played (move lists, flip counts, stored hash keys) is written
    on the way down before it is read on the way back up. */
 
+/* The members mirror the thread-local state of the same names, which
+   are macros into TLS (see tlstate.h) and so cannot be member names
+   as well. */
+
 typedef struct {
-  Board board;
-  int piece_count[3][MAX_SEARCH_DEPTH];
-  int sorted_move_order[64][64];
-  unsigned int hash1, hash2;
-  int disks_played;
+  Board saved_board;
+  int saved_piece_count[3][MAX_SEARCH_DEPTH];
+  int saved_sorted_move_order[64][64];
+  unsigned int saved_hash1, saved_hash2;
+  int saved_disks_played;
 } SearchState;
 
 
