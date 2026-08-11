@@ -49,7 +49,8 @@ highest_guarded_bit( BitBoard b ) {
 
 
 int
-TestFlips_bitboard( int sq, BitBoard my_bits, BitBoard opp_bits ) {
+TestFlips_bitboard_to( int sq, BitBoard my_bits, BitBoard opp_bits,
+		       BitBoard *new_my_bits ) {
   const FlipRays *r = &flip_rays[bit_position[sq]];
   BitBoard flips = 0;
   BitBoard ray, t, f;
@@ -76,7 +77,20 @@ TestFlips_bitboard( int sq, BitBoard my_bits, BitBoard opp_bits ) {
     flips |= f;
   }
 
-  bb_flips = my_bits | flips | square_mask[sq];
+  *new_my_bits = my_bits | flips | square_mask[sq];
 
   return non_iterative_popcount( flips );
+}
+
+
+/*
+  The endgame keeps the result in BB_FLIPS and reads it back some way
+  after the call -- across a shallow midgame search, in the
+  fastest-first ordering -- so anything that flips discs on the side
+  must leave that variable alone and use TestFlips_bitboard_to.
+*/
+
+int
+TestFlips_bitboard( int sq, BitBoard my_bits, BitBoard opp_bits ) {
+  return TestFlips_bitboard_to( sq, my_bits, opp_bits, &bb_flips );
 }

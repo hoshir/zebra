@@ -213,21 +213,6 @@ TestFlips_wrapper( int sq,
   without maintaining the board array, the flip stack or DoFlips_hash.
 */
 
-#if defined( __GNUC__ )
-#define FIRST_BIT_64( x )  __builtin_ctzll( x )
-#else
-static int
-FIRST_BIT_64( BitBoard x ) {
-  int n = 0;
-  while ( (x & 1) == 0 ) {
-    x >>= 1;
-    n++;
-  }
-  return n;
-}
-#endif
-
-
 /*
   END_HASH_DIFF
   Compute the incremental hash-key update for COLOR playing SQ,
@@ -246,7 +231,7 @@ end_hash_diff( const BitBoard new_my_bits, const BitBoard my_bits,
 
   fl = (new_my_bits ^ my_bits) & ~square_mask[sq];
   while ( fl != 0 ) {
-    bit = FIRST_BIT_64( fl );
+    bit = FIRST_BIT( fl );
     fl &= fl - 1;
     index = 10 * (bit / 8 + 1) + (bit % 8) + 1;
     d1 ^= hash_flip1[index];

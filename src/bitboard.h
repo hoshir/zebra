@@ -22,6 +22,24 @@
 typedef unsigned long long BitBoard;
 
 
+/* The index of the lowest set bit.  Undefined for zero, so the loops
+   that use it test the word first. */
+
+#if defined( __GNUC__ )
+#define FIRST_BIT( x )  __builtin_ctzll( x )
+#else
+static INLINE int
+FIRST_BIT( BitBoard x ) {
+  int n = 0;
+  while ( (x & 1) == 0 ) {
+    x >>= 1;
+    n++;
+  }
+  return n;
+}
+#endif
+
+
 /* The operation macros predate the 64-bit representation, when every
    one of them took two statements.  Kept so their call sites read the
    same as they always have. */
@@ -49,8 +67,10 @@ typedef unsigned long long BitBoard;
 
 extern BitBoard square_mask[100];
 
-/* Conversion from a board coordinate (11..88) to the bit index. */
+/* Conversion from a board coordinate (11..88) to the bit index, and
+   back again. */
 extern int bit_position[100];
+extern int square_of_bit[64];
 
 /* The squares a flip line through a given square can run over,
    one mask per ray.  The "down" rays run towards higher bit indices

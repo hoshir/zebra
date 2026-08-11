@@ -15,6 +15,7 @@
 
 
 
+#include "bitboard.h"
 #include "constant.h"
 
 
@@ -51,6 +52,15 @@ extern int white_moves[60];
 /* Holds the current board position. Updated as the search progresses,
    but all updates must be reversed when the search stops. */
 extern _Thread_local Board board;
+
+/* The same position as BOARD, one bit per square, indexed by colour.
+   Maintained by MAKE_MOVE and UNMAKE_MOVE alongside the array, and
+   resynchronised from it by SET_BOARD_BITS wherever the array is set
+   up wholesale. */
+extern _Thread_local BitBoard board_bits[3];
+
+void
+set_board_bits( void );
 
 
 #endif  /* GLOBALS_H */

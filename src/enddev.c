@@ -132,6 +132,8 @@ main( int argc, char *argv[] ) {
 	    disks_played + 4 );
 
     determine_hash_values( side_to_move, board );
+    determine_pattern_indices();
+    set_board_bits();
 
     generate_all( side_to_move );
     if ( move_count[disks_played] == 0 ) {

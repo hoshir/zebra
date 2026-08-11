@@ -19,6 +19,7 @@
 
 BitBoard square_mask[100];
 int bit_position[100];
+int square_of_bit[64];
 FlipRays flip_rays[64];
 
 
@@ -128,6 +129,7 @@ init_bitboard( void ) {
       int shift = 8 * (i - 1) + (j - 1);
       square_mask[pos] = 1ull << shift;
       bit_position[pos] = shift;
+      square_of_bit[shift] = pos;
     }
 
   for ( i = 1; i <= 8; i++ )

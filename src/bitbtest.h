@@ -22,9 +22,17 @@
 
 extern _Thread_local BitBoard bb_flips;
 
-/* SQ is a board coordinate, 11..88. */
+/* SQ is a board coordinate, 11..88.  The mover's discs with the
+   turned ones added land in BB_FLIPS, which the endgame reads back
+   well after the call; callers that only want the flips of a move
+   they are making must use the _TO form and keep out of that
+   variable. */
 int
 TestFlips_bitboard( int sq, BitBoard my_bits, BitBoard opp_bits );
+
+int
+TestFlips_bitboard_to( int sq, BitBoard my_bits, BitBoard opp_bits,
+		       BitBoard *new_my_bits );
 
 
 

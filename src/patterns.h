@@ -15,6 +15,7 @@
 
 
 
+#include "bitboard.h"
 #include "constant.h"
 
 
@@ -125,6 +126,22 @@ extern unsigned int modified_lo;
 extern unsigned int modified_hi;
 
 
+
+/* The evaluation pattern indices in black perspective, maintained
+   incrementally by MAKE_MOVE/UNMAKE_MOVE.  See patterns.c. */
+extern _Thread_local unsigned short eval_pattern_index[48];
+
+void
+init_pattern_dependencies( void );
+
+void
+determine_pattern_indices( void );
+
+void
+update_pattern_indices( int color, int move, BitBoard flipped, int dir );
+
+void
+verify_pattern_indices( void );
 
 void
 init_patterns( void );
