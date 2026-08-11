@@ -14,7 +14,7 @@
 
 
 int
-AnyFlips_compact( int *board, int sqnum, int color, int oppcol );
+AnyFlips_compact( int *in_board, int sqnum, int color, int oppcol );
 
 
 

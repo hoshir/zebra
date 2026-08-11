@@ -104,7 +104,7 @@ free_hash( void );
 
 void
 determine_hash_values( int side_to_move,
-		       const int *board );
+		       const int *in_board );
 
 void
 set_hash_transformation( unsigned int trans1,

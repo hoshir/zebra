@@ -95,7 +95,7 @@ unsigned int REGPARM(1)
 bit_reverse_32( unsigned int val );
 
 void
-set_bitboards( int *board, int side_to_move,
+set_bitboards( int *in_board, int side_to_move,
 	       BitBoard *my_out, BitBoard *opp_out );
 
 void

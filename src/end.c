@@ -272,7 +272,7 @@ bb_valid_move( int move, BitBoard my_bits, BitBoard opp_bits ) {
 */
 
 static void
-prepare_to_solve( const int *board ) {
+prepare_to_solve( const int *in_board ) {
   /* fixed square ordering: */
   /* jcw's order, which is the best of 4 tried (according to Warren Smith) */
   static const unsigned char worst2best[64] = {
@@ -295,7 +295,7 @@ prepare_to_solve( const int *board ) {
   last_sq = END_MOVE_LIST_HEAD;
   for ( i = 59; i >=0; i-- ) {
     int sq = worst2best[i];
-    if ( board[sq] == EMPTY ) {
+    if ( in_board[sq] == EMPTY ) {
       end_move_list[last_sq].succ = sq;
       end_move_list[sq].pred = last_sq;
       region_parity ^= quadrant_mask[sq];

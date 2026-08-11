@@ -355,7 +355,7 @@ stability_search( BitBoard my_bits,
 */
 
 static void
-complete_stability_search( int *board,
+complete_stability_search( int *in_board,
 			   int side_to_move,
 			   BitBoard *stable_bits ) {
   int i, j;
@@ -372,7 +372,7 @@ complete_stability_search( int *board,
   int last_sq = END_MOVE_LIST_HEAD;
   for ( i = 0; i < 60; i++ ) {
     int sq = position_list[i];
-    if ( board[sq] == EMPTY ) {
+    if ( in_board[sq] == EMPTY ) {
       stab_move_list[last_sq].succ = sq;
       stab_move_list[sq].pred = last_sq;
       last_sq = sq;
@@ -383,12 +383,12 @@ complete_stability_search( int *board,
   empties = 0;
   for ( i = 1; i <= 8; i++ )
     for ( j = 1; j <= 8; j++ )
-      if ( board[10 * i + j] == EMPTY )
+      if ( in_board[10 * i + j] == EMPTY )
 	empties++;
 
   /* Prepare the bitmaps for the stability search */
 
-  set_bitboards( board, side_to_move, &my_bits, &opp_bits );
+  set_bitboards( in_board, side_to_move, &my_bits, &opp_bits );
 
   FULL_OR( all_bits, my_bits, opp_bits );
 
@@ -433,14 +433,14 @@ complete_stability_search( int *board,
 */
 
 void
-get_stable( int *board,
+get_stable( int *in_board,
 	    int side_to_move,
 	    int *is_stable ) {
   int i, j;
   BitBoard mask;
   BitBoard black_bits, white_bits, all_stable;
 
-  set_bitboards( board, BLACKSQ, &black_bits, &white_bits );
+  set_bitboards( in_board, BLACKSQ, &black_bits, &white_bits );
 
   for ( i = 0; i < 100; i++ )
     is_stable[i] = FALSE;
@@ -456,7 +456,7 @@ get_stable( int *board,
 
     FULL_OR( all_stable, last_black_stable, last_white_stable );
 
-    complete_stability_search( board, side_to_move, &all_stable );
+    complete_stability_search( in_board, side_to_move, &all_stable );
 
     for ( i = 1, mask = 1; i <= 8; i++ )
       for ( j = 1; j <= 8; j++, mask <<= 1 )

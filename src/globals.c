@@ -22,7 +22,6 @@ _Thread_local int pv_depth[MAX_SEARCH_DEPTH];
 int score_sheet_row;
 int black_moves[60];
 int white_moves[60];
-_Thread_local Board board;
 
 
 /*
