@@ -17,10 +17,10 @@
 
 #include "bitboard.h"
 #include "macros.h"
+#include "tlstate.h"
 
 
 
-extern _Thread_local BitBoard bb_flips;
 
 /* SQ is a board coordinate, 11..88.  The mover's discs with the
    turned ones added land in BB_FLIPS, which the endgame reads back

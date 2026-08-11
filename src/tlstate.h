@@ -28,12 +28,22 @@
 
 #include "bitboard.h"
 #include "constant.h"
+#include "counter.h"
 
 
 
 /* The basic board type. One index for each position;
    a1=11, h1=18, a8=81, h8=88. */
 typedef int Board[128];
+
+
+/* A doubly linked entry in the list of empty squares the endgame
+   walks; defined here because the list itself lives below. */
+
+typedef struct {
+  int pred;
+  int succ;
+} MoveLink;
 
 
 typedef struct {
@@ -61,6 +71,22 @@ typedef struct {
   /* The number of discs played from the initial position.  Must match
      the current state of the BOARD variable. */
   int disks_played;
+
+  /* The endgame's own state.  Its solvers touch five or six of these
+     per node, which is why they are here rather than standing alone.
+
+     BB_FLIPS is where the flip test leaves the mover's discs with the
+     turned ones added; END_MOVE_LIST is the list of empty squares;
+     REGION_PARITY has a bit per quadrant with an odd number of them.
+     END_BEST_MOVE is the endgame's own, spelled apart from the
+     midgame local of the same name. */
+  BitBoard bb_flips;
+  MoveLink end_move_list[100];
+  unsigned int region_parity;
+  int end_best_move, end_best_root_move;
+
+  /* Counted once per node, so it is on the hottest path there is. */
+  CounterType nodes;
 } ThreadState;
 
 extern _Thread_local ThreadState tls;
@@ -76,6 +102,12 @@ extern _Thread_local ThreadState tls;
 #define hash1               (tls.hash1)
 #define hash2               (tls.hash2)
 #define disks_played        (tls.disks_played)
+#define bb_flips            (tls.bb_flips)
+#define end_move_list       (tls.end_move_list)
+#define region_parity       (tls.region_parity)
+#define end_best_move       (tls.end_best_move)
+#define end_best_root_move  (tls.end_best_root_move)
+#define nodes               (tls.nodes)
 
 
 

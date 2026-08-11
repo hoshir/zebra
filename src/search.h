@@ -73,7 +73,6 @@ extern _Thread_local CounterType evaluations;
 extern CounterType total_evaluations;
 
 /* Holds the number of nodes searched during the current search. */
-extern _Thread_local CounterType nodes;
 
 /* Holds the total number of nodes searched during the entire game. */
 extern CounterType total_nodes;

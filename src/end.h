@@ -16,6 +16,7 @@
 
 
 #include "search.h"
+#include "tlstate.h"
 
 
 
@@ -24,13 +25,6 @@
 
 
 
-typedef struct  {
-  int pred;
-  int succ;
-} MoveLink;
-
-
-extern _Thread_local MoveLink end_move_list[100];
 extern const unsigned int quadrant_mask[100];
 
 

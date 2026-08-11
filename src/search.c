@@ -43,7 +43,6 @@ int full_pv[120];
 _Thread_local int list_inherited[62];
 _Thread_local int sorted_move_order[64][64];  /* 62*60 used */
 _Thread_local Board evals[61];
-_Thread_local CounterType nodes;
 CounterType total_nodes;
 _Thread_local CounterType evaluations;
 CounterType total_evaluations;
