@@ -49,14 +49,14 @@ threads_count( void );
 
 
 /*
-  THREADS_IS_WORKER
-  TRUE when called on one of the pool's worker threads.  A worker must
-  not start a batch of its own: the pool has no spare threads to run it
-  and would wait for itself.
+  THREADS_IDLE_COUNT
+  How many threads are parked with nothing to do.  A hint, read without
+  locking and stale the moment it is returned: it is there so that a
+  search can decide whether splitting a node would buy it anything.
 */
 
 int
-threads_is_worker( void );
+threads_idle_count( void );
 
 
 /*
@@ -69,6 +69,11 @@ threads_is_worker( void );
   in the middle of; it is the caller's job to keep the two from
   trampling each other.  Each worker has had init_search_thread()
   called on it.
+
+  A job may call THREADS_RUN again.  While it waits for its own batch
+  the calling thread will run jobs from any batch that has them, its own
+  or another's, so nesting costs nothing but does mean a thread can be
+  carried arbitrarily far from where it started before it comes back.
 */
 
 void

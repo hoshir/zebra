@@ -1349,13 +1349,24 @@ end_tree_search( int level, int max_depth, BitBoard my_bits,
 /* Remaining depth at or above which a node is worth splitting */
 #define PARALLEL_SPLIT_DEPTH         14
 
-typedef struct {
+/* How far the splits may nest, and how much more of the tree a node has
+   to have left before it may start a batch at each level of nesting.
+   Splitting is speculative -- every sibling is searched, including the
+   ones a cutoff would have spared -- so a batch inside a batch costs
+   real work, and without the taper the top plies each pay for one. */
+#define MAX_SPLIT_NESTING             1
+#define SPLIT_NESTING_MARGIN          6
+
+typedef struct SiblingBatchTag {
   SearchState root;
+  struct SiblingBatchTag *parent;   /* the batch this one was started from */
   int level;
   int max_depth;
   int side_to_move;
   int alpha;                        /* null window is (alpha, alpha + 1) */
+  int beta;                         /* the split node's own beta */
   int selectivity;
+  volatile int abandon;             /* the node fails high; stop searching */
   int move[MAX_ROOT_MOVES];
   int score[MAX_ROOT_MOVES];
   int cutoff[MAX_ROOT_MOVES];
@@ -1363,10 +1374,45 @@ typedef struct {
 } SiblingBatch;
 
 
-/* Set while a thread is running a job, so that a node reached from
-   inside a job does not try to start a batch of its own -- the pool is
-   already busy with the batch this job belongs to. */
-static _Thread_local int inside_job;
+/* How many jobs deep this thread is, so that a node reached from inside
+   a job can tell how far the splitting has already nested, and the
+   innermost batch whose job it is running, so that it can tell whether
+   what it is searching is still wanted. */
+static _Thread_local int split_nesting;
+static _Thread_local SiblingBatch *current_batch;
+
+/* Batches in flight anywhere.  Reading a thread-local costs a call on
+   this platform, and the test below sits on the per-node path, so ask
+   this plain global first: it is zero for the whole of a search that
+   never split, which is every single-threaded one. */
+static volatile int active_splits;
+
+#define SPLIT_ABANDONED()  ((active_splits != 0) && split_abandoned())
+
+
+/*
+  SPLIT_ABANDONED
+  TRUE once the node a job belongs to -- or any node further out that
+  this thread is nested inside -- has been proved to fail high.  Every
+  sibling still being searched for such a node is work the sequential
+  search would never have done: it stops at the first move that reaches
+  beta, and the batch has now found one.
+
+  Callers on the per-node path go through the macro of the same name;
+  the two below are already inside a job, where the global cannot be
+  zero.
+*/
+
+static int
+split_abandoned( void ) {
+  const SiblingBatch *b;
+
+  for ( b = current_batch; b != NULL; b = b->parent )
+    if ( b->abandon )
+      return TRUE;
+
+  return FALSE;
+}
 
 
 static void
@@ -1375,16 +1421,20 @@ search_sibling( int index, void *context ) {
   BitBoard my_bits, opp_bits, new_my_bits, new_opp_bits;
   int move = batch->move[index];
   int child_selective_cutoff = FALSE;
-  int score;
+  int score, bailed;
   int **saved_flip_stack = flip_stack;
+  SiblingBatch *saved_batch = current_batch;
 
-  inside_job++;
+  split_nesting++;
+  current_batch = batch;
   search_state_load( &batch->root );
   set_bitboards( board, batch->side_to_move, &my_bits, &opp_bits );
 
-  if ( make_move( batch->side_to_move, move, TRUE ) == 0 ) {
-    flip_stack = saved_flip_stack;   /* cannot happen; be safe anyway */
-    inside_job--;
+  if ( split_abandoned() ||
+       (make_move( batch->side_to_move, move, TRUE ) == 0) ) {
+    flip_stack = saved_flip_stack;
+    current_batch = saved_batch;
+    split_nesting--;
     return;
   }
   (void) TestFlips_wrapper( move, my_bits, opp_bits );
@@ -1401,12 +1451,20 @@ search_sibling( int index, void *context ) {
   /* The move is never unmade, so put the flip stack back by hand;
      leaving it advanced would overflow it after a few jobs. */
   flip_stack = saved_flip_stack;
-  inside_job--;
 
-  if ( !is_panic_abort() && !force_return ) {
+  /* Ask before raising the flag ourselves: a job that was cut short
+     part way through has no score worth keeping, while the one that
+     ran to the end and found the cutoff does. */
+  bailed = split_abandoned();
+  current_batch = saved_batch;
+  split_nesting--;
+
+  if ( !bailed && !is_panic_abort() && !force_return ) {
     batch->score[index] = score;
     batch->cutoff[index] = child_selective_cutoff;
     batch->valid[index] = TRUE;
+    if ( score >= batch->beta )
+      batch->abandon = TRUE;
   }
 }
 
@@ -1417,17 +1475,27 @@ search_sibling( int index, void *context ) {
   with a null window around ALPHA.  Fills PROVEN[sq] with a score for
   each move that was proved not to beat ALPHA, which the sequential
   loop can then take instead of searching the move itself.
+
+  The batch stops early once one of the moves reaches BETA, since the
+  node then fails high and the sequential loop would never have looked
+  at the rest.  Without that the batch searches every sibling to the
+  end, which is what made splitting inside a split cost more than the
+  threads it kept busy were worth.
 */
 
 static void
 dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
-		   int side_to_move, int level, int max_depth, int alpha,
+		   int side_to_move, int level, int max_depth,
+		   int alpha, int beta,
 		   int selectivity, int searched_move,
 		   int *proven, int *proven_score, int *proven_cutoff ) {
-  /* Only the search thread splits, and it is inside one split at a
-     time -- an inner split finishes before its parent starts one --
-     so a single batch is enough and it need not be on the stack. */
-  static SiblingBatch batch;
+  /* Splits nest, so several batches can be live on one thread at once
+     and the batch cannot be a single static.  It carries a whole
+     SearchState, which is too much to want on the search's own stack
+     several times over, and a split is rare enough that the allocation
+     does not show up. */
+  SiblingBatch *batch;
+  int move[MAX_ROOT_MOVES];
   int i, j, sq, count = 0;
 
   for ( i = 1; i <= 8; i++ )
@@ -1437,36 +1505,50 @@ dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
 	continue;
       if ( TestFlips_wrapper( sq, my_bits, opp_bits ) == 0 )
 	continue;
-      if ( count < MAX_ROOT_MOVES ) {
-	batch.move[count] = sq;
-	batch.score[count] = 0;
-	batch.cutoff[count] = FALSE;
-	batch.valid[count] = FALSE;
-	count++;
-      }
+      if ( count < MAX_ROOT_MOVES )
+	move[count++] = sq;
     }
   if ( count == 0 )
     return;
 
-  batch.level = level;
-  batch.max_depth = max_depth;
-  batch.side_to_move = side_to_move;
-  batch.alpha = alpha;
-  batch.selectivity = selectivity;
-  search_state_save( &batch.root );
+  batch = (SiblingBatch *) malloc( sizeof( SiblingBatch ) );
+  if ( batch == NULL )
+    return;
 
-  threads_run( search_sibling, &batch, count );
+  for ( i = 0; i < count; i++ ) {
+    batch->move[i] = move[i];
+    batch->score[i] = 0;
+    batch->cutoff[i] = FALSE;
+    batch->valid[i] = FALSE;
+  }
 
-  /* The calling thread takes part in the batch, so put its own state
-     back the way the sequential search left it. */
-  search_state_load( &batch.root );
+  batch->parent = current_batch;
+  batch->abandon = FALSE;
+  batch->level = level;
+  batch->max_depth = max_depth;
+  batch->side_to_move = side_to_move;
+  batch->alpha = alpha;
+  batch->beta = beta;
+  batch->selectivity = selectivity;
+  search_state_save( &batch->root );
+
+  (void) __sync_fetch_and_add( &active_splits, 1 );
+  threads_run( search_sibling, batch, count );
+  (void) __sync_fetch_and_sub( &active_splits, 1 );
+
+  /* The calling thread takes part in the batch -- and in any other
+     batch that had work while it waited -- so put its own state back
+     the way the sequential search left it. */
+  search_state_load( &batch->root );
 
   for ( i = 0; i < count; i++ )
-    if ( batch.valid[i] && (batch.score[i] <= alpha) ) {
-      proven[batch.move[i]] = TRUE;
-      proven_score[batch.move[i]] = batch.score[i];
-      proven_cutoff[batch.move[i]] = batch.cutoff[i];
+    if ( batch->valid[i] && (batch->score[i] <= alpha) ) {
+      proven[batch->move[i]] = TRUE;
+      proven_score[batch->move[i]] = batch->score[i];
+      proven_cutoff[batch->move[i]] = batch->cutoff[i];
     }
+
+  free( batch );
 }
 
 /*
@@ -1698,11 +1780,17 @@ end_tree_search( int level,
 
   exp_depth = remains;
   first = TRUE;
-  /* Split only near the top of the tree: further down a subtree is not
-     worth a batch, and only the search thread splits (see
-     threads_is_worker). */
-  can_split = (remains >= PARALLEL_SPLIT_DEPTH) && (threads_count() > 1) &&
-    !threads_is_worker() && !inside_job;
+  /* Split only near the top of a subtree -- further down, a subtree is
+     not worth a batch -- and only while a thread is standing around
+     with nothing to do.  That last test is what lets a job split at
+     all: while the pool is saturated an extra batch would only add
+     bookkeeping, and once it is not, the thread it puts to work is one
+     that would otherwise have waited out the longest job of the batch
+     doing nothing. */
+  can_split = (remains >= PARALLEL_SPLIT_DEPTH +
+	       SPLIT_NESTING_MARGIN * split_nesting) &&
+    (split_nesting <= MAX_SPLIT_NESTING) && (threads_count() > 1) &&
+    (threads_idle_count() > 0);
   if ( can_split )
     for ( i = 0; i < 100; i++ )
       proven[i] = FALSE;
@@ -1933,7 +2021,10 @@ end_tree_search( int level,
 
     unmake_move( side_to_move, move );
 
-    if ( is_panic_abort() || force_return )
+    /* Give up here rather than at the top of the node: the board is
+       back the way the caller left it, and nothing has been written to
+       the hash table for a search that never finished. */
+    if ( is_panic_abort() || force_return || SPLIT_ABANDONED() )
       return SEARCH_ABORT;
 
     if ( (level == 0) && !get_ponder_move() ) {  /* Output some stats */
@@ -1975,12 +2066,16 @@ end_tree_search( int level,
 	 (best_list_length < 4) )
       best_list[best_list_length++] = move;
 
+    /* Ask about idle threads again: the first move was searched in the
+       meantime, which is where most of the node's time goes, and the
+       pool may well have filled up or emptied out since. */
     if ( can_split && first && !siblings_dispatched &&
+	 (threads_idle_count() > 0) &&
 	 !is_panic_abort() && !force_return ) {
       siblings_dispatched = TRUE;
       dispatch_siblings( my_bits, opp_bits, side_to_move, level,
-			 level + exp_depth, best, selectivity,
-			 move, proven, proven_score, proven_cutoff );
+			 level + exp_depth, best, beta, selectivity, move,
+			 proven, proven_score, proven_cutoff );
     }
 
     first = FALSE;
