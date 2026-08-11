@@ -20,6 +20,13 @@
 
    This test throws random positions at both implementations and fails
    on any square where the flip counts differ.
+
+   It also covers CountFlips_bitboard, which the endgame uses for the
+   last empty square.  That one assumes every square but the one being
+   played is occupied, so it is checked on a full board rather than on
+   the random one -- and it needs checking: it once returned short
+   counts for a whole release of nobody looking, because nothing here
+   called it.
 */
 
 #include <stdio.h>
@@ -30,6 +37,7 @@
 #include "constant.h"
 #include "globals.h"
 #include "bitboard.h"
+#include "bitbcnt.h"
 #include "bitbmob.h"
 #include "bitbtest.h"
 #include "doflip.h"
@@ -119,6 +127,29 @@ main( int argc, char *argv[] ) {
 	  print_pos( side_to_move );
 	  printf( "my_bits=%016llx opp_bits=%016llx\n\n",
 		  my_bits, opp_bits );
+	  mismatches++;
+	}
+      }
+
+    /* CountFlips_bitboard answers the same question on a full board,
+       where everything that is not the mover's is the opponent's. */
+    for ( i = 1; i <= 8; i++ )
+      for ( j = 1; j <= 8; j++ ) {
+	BitBoard full_my, full_opp;
+	int cnt, ref;
+
+	sq = 10 * i + j;
+	/* Fill every square but SQ, keeping the random colouring. */
+	full_my = my_bits & ~square_mask[sq];
+	full_opp = ~full_my & ~square_mask[sq];
+
+	cnt = CountFlips_bitboard( sq, full_my );
+	ref = TestFlips_bitboard( sq, full_my, full_opp );
+	if ( cnt != ref ) {
+	  printf( "COUNT MISMATCH trial=%d sq=%c%d: "
+		  "CountFlips_bitboard=%d TestFlips_bitboard=%d\n",
+		  trial, 'a' + j - 1, i, cnt, ref );
+	  printf( "my_bits=%016llx\n\n", full_my );
 	  mismatches++;
 	}
       }
