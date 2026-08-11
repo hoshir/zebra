@@ -2,7 +2,7 @@
    File:          bitboard.c
 
    Created:       November 21, 1999
-   
+
    Authors:       Gunnar Andersson (gunnar@radagast.se)
                   Toshihiko Okuhara
 
@@ -18,28 +18,26 @@
 
 
 BitBoard square_mask[100];
+int bit_position[100];
+FlipRays flip_rays[64];
 
 
 
 /*
   NON_ITERATIVE_POPCOUNT
   Counts the number of bits set in a 64-bit integer.
-  This is done using some bitfiddling tricks.
 */
 
-INLINE unsigned int REGPARM(2)
-non_iterative_popcount( unsigned int n1, unsigned int n2 ) {
+INLINE unsigned int REGPARM(1)
+non_iterative_popcount( BitBoard b ) {
 #if defined( __GNUC__ )
   /* Single hardware instruction on arm64 (cnt) and x86-64 (popcnt) */
-  return __builtin_popcountll( ((unsigned long long) n1 << 32) | n2 );
+  return __builtin_popcountll( b );
 #else
-  n1 = n1 - ((n1 >> 1) & 0x55555555u);
-  n2 = n2 - ((n2 >> 1) & 0x55555555u);
-  n1 = (n1 & 0x33333333u) + ((n1 >> 2) & 0x33333333u);
-  n2 = (n2 & 0x33333333u) + ((n2 >> 2) & 0x33333333u);
-  n1 = (n1 + (n1 >> 4)) & 0x0F0F0F0Fu;
-  n2 = (n2 + (n2 >> 4)) & 0x0F0F0F0Fu;
-  return ((n1 + n2) * 0x01010101u) >> 24;
+  b = b - ((b >> 1) & 0x5555555555555555ull);
+  b = (b & 0x3333333333333333ull) + ((b >> 2) & 0x3333333333333333ull);
+  b = (b + (b >> 4)) & 0x0F0F0F0F0F0F0F0Full;
+  return (b * 0x0101010101010101ull) >> 56;
 #endif
 }
 
@@ -47,22 +45,18 @@ non_iterative_popcount( unsigned int n1, unsigned int n2 ) {
 /*
   ITERATIVE_POPCOUNT
   Counts the number of bits set in a 64-bit integer.
-  This is done using an iterative procedure which loops
-  a number of times equal to the number of bits set,
-  hence this function is fast when the number of bits
-  set is low.
+  Kept as a separate entry point for the callers that used to pick it
+  for sparse words; both names are hardware popcounts nowadays.
 */
 
-INLINE unsigned int REGPARM(2)
-iterative_popcount( unsigned int n1, unsigned int n2 ) {
+INLINE unsigned int REGPARM(1)
+iterative_popcount( BitBoard b ) {
 #if defined( __GNUC__ )
-  return __builtin_popcountll( ((unsigned long long) n1 << 32) | n2 );
+  return __builtin_popcountll( b );
 #else
   unsigned int n;
   n = 0;
-  for ( ; n1 != 0; n++, n1 &= (n1 - 1) )
-    ;
-  for ( ; n2 != 0; n++, n2 &= (n2 - 1) )
+  for ( ; b != 0; n++, b &= (b - 1) )
     ;
 
   return n;
@@ -98,32 +92,20 @@ set_bitboards( int *board, int side_to_move,
 	       BitBoard *my_out, BitBoard *opp_out ) {
   int i, j;
   int pos;
-  unsigned int mask;
+  BitBoard mask;
   BitBoard my_bits, opp_bits;
 
-  my_bits.high = 0;
-  my_bits.low = 0;
-  opp_bits.high = 0;
-  opp_bits.low = 0;
+  my_bits = 0;
+  opp_bits = 0;
 
   mask = 1;
-  for ( i = 1; i <= 4; i++ )
+  for ( i = 1; i <= 8; i++ )
     for ( j = 1; j <= 8; j++, mask <<= 1 ) {
       pos = 10 * i + j;
       if ( board[pos] == side_to_move )
-	my_bits.low |= mask;
+	my_bits |= mask;
       else if ( board[pos] == OPP( side_to_move ) )
-	opp_bits.low |= mask;
-    }
-
-  mask = 1;
-  for ( i = 5; i <= 8; i++ )
-    for ( j = 1; j <= 8; j++, mask <<= 1 ) {
-      pos = 10 * i + j;
-      if ( board[pos] == side_to_move )
-	my_bits.high |= mask;
-      else if ( board[pos] == OPP( side_to_move ) )
-	opp_bits.high |= mask;
+	opp_bits |= mask;
     }
 
   *my_out = my_bits;
@@ -134,19 +116,36 @@ set_bitboards( int *board, int side_to_move,
 
 void
 init_bitboard( void ) {
-  int i, j;
+  int i, j, k;
+  /* The rays in bit-index order: E, S, SE, SW ("down"),
+     then W, N, NW, NE ("up").  Row and column steps per ray. */
+  static const int dir_di[8] = { 0, 1, 1,  1,  0, -1, -1, -1 };
+  static const int dir_dj[8] = { 1, 0, 1, -1, -1,  0, -1,  1 };
 
   for ( i = 1; i <= 8; i++ )
     for ( j = 1; j <= 8; j++ ) {
       int pos = 10 * i + j;
-      unsigned shift = 8 * (i - 1) + (j - 1);
-      if ( shift < 32 ) {
-	square_mask[pos].low = 1ul << shift;
-	square_mask[pos].high = 0;
-      }
-      else {
-	square_mask[pos].low = 0;
-	square_mask[pos].high = 1ul << (shift - 32);
+      int shift = 8 * (i - 1) + (j - 1);
+      square_mask[pos] = 1ull << shift;
+      bit_position[pos] = shift;
+    }
+
+  for ( i = 1; i <= 8; i++ )
+    for ( j = 1; j <= 8; j++ ) {
+      FlipRays *r = &flip_rays[8 * (i - 1) + (j - 1)];
+      for ( k = 0; k < 8; k++ ) {
+	BitBoard ray = 0;
+	int ci = i + dir_di[k];
+	int cj = j + dir_dj[k];
+	while ( (ci >= 1) && (ci <= 8) && (cj >= 1) && (cj <= 8) ) {
+	  ray |= 1ull << (8 * (ci - 1) + (cj - 1));
+	  ci += dir_di[k];
+	  cj += dir_dj[k];
+	}
+	if ( k < 4 )
+	  r->dn[k] = ray;
+	else
+	  r->up[k - 4] = ray;
       }
     }
 }

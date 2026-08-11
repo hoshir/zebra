@@ -20,7 +20,10 @@
 
 
 
-extern int (REGPARM(2) * const CountFlips_bitboard[78])(unsigned int my_bits_high, unsigned int my_bits_low);
+/* SQ is a board coordinate, 11..88.  Every square but SQ is assumed
+   occupied: whatever is not in MY_BITS belongs to the opponent. */
+int
+CountFlips_bitboard( int sq, BitBoard my_bits );
 
 
 

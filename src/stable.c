@@ -42,6 +42,9 @@
    output and then the program is terminated. */
 #define  DEBUG                    0
 
+/* The squares along the border of the board. */
+#define  BORDER_MASK              0xFF818181818181FFull
+
 
 
 /* Global variables */
@@ -70,39 +73,25 @@ static short base_conversion[256];
 /* The base-3 indices for the edges */
 static _Thread_local int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
 
+/* The fifteen diagonals in each direction, indexed by row + column
+   for the SW ones (bit step 7) and row - column for the SE ones
+   (bit step 9).  Built by INIT_STABLE. */
+static BitBoard diag7_mask[15], diag9_mask[15];
+
 
 /* Position list used in the complete stability search */
 
 _Thread_local MoveLink stab_move_list[100];
 
-#if 0
-INLINE static void
-apply_64( BitBoard *target,
-	  BitBoard base,
-	  unsigned int hi_mask,
-	  unsigned int lo_mask ) {
-  unsigned int cond_mask = (unsigned int) -(((~base.high & hi_mask) | (~base.low & lo_mask)) == 0);
-	/* All 1 if all of hi/lo mask bits are set */
-  target->high |= hi_mask & cond_mask;
-  target->low |= lo_mask & cond_mask;
-}
-#endif
+
 
 INLINE static void
 and_line_shift_64( BitBoard *target,
 	           BitBoard base,
 	           int shift,
 	           BitBoard dir_ss ) {
-  /* Shift to the left */
-  dir_ss.high |= (base.high << shift) | (base.low >> (32 - shift));
-  dir_ss.low |= base.low << shift;
-
-  /* Shift to the right */
-  dir_ss.high |= base.high >> shift;
-  dir_ss.low |= (base.low >> shift) | (base.high << (32 - shift));
-
-  target->high &= dir_ss.high;
-  target->low &= dir_ss.low;
+  dir_ss |= (base << shift) | (base >> shift);
+  *target &= dir_ss;
 }
 
 /*
@@ -121,13 +110,14 @@ edge_zardoz_stable( BitBoard *ss,
 
   BitBoard ost, fb, lrf, udf, daf, dbf;
   BitBoard expand_ss;
-  unsigned int t;
+  BitBoard t;
+  int i;
 
 /* ost is a simple test to see if numbers of
    stable disks have stopped increasing.
 
    fb is the squares which have been played
-   ie either by white or black 
+   ie either by white or black
 
    udf are the up-down columns that are filled, and so no vertical flips
    lrf are the left-right
@@ -138,76 +128,53 @@ edge_zardoz_stable( BitBoard *ss,
    side in each of the 4 directions
    N.B. beyond the edges is of course stable */
 
-  fb.high = dd.high | od.high;
-  fb.low = dd.low | od.low;
+  fb = dd | od;
 
-  t = fb.high;
-  t &= (t >> 4);
-  t &= (t >> 2);
-  t &= (t >> 1);
-  lrf.high = ((t & 0x01010101) * 255) | 0x81818181;
-  t = fb.low;
-  t &= (t >> 4);
-  t &= (t >> 2);
-  t &= (t >> 1);
-  lrf.low = ((t & 0x01010101) * 255) | 0x81818181;
+  /* A filled row protects its squares from horizontal flips; the a-
+     and h-files never flip horizontally. */
 
-  t = fb.high & fb.low;
-  t &= (t >> 16) | (t << 16);
-  t &= (t >> 8) | (t << 24);
-  udf.high = t | 0xFF000000;
-  udf.low = t | 0x000000FF;
+  t = fb;
+  t &= t >> 4;
+  t &= t >> 2;
+  t &= t >> 1;
+  lrf = ((t & 0x0101010101010101ull) * 255) | 0x8181818181818181ull;
 
-  daf.high = 0xFF818181;
-  daf.low = 0x818181FF;
-  t = ((((fb.high << 4) | 0x0F0F0F0F) & fb.low) | 0xE0C08000) & 0x1FFFFFFE;
-  t &= (t >> 14) | (t << 14);	/* rotate within bit 1 and bit 28 */
-  t &= (t >> 7) | (t << 21);
-  daf.low |= t & 0x1F3F7EFC;
-  daf.high |= (t >> 4) & 0x0103070F;
-  t = ((((fb.low >> 4) | 0xF0F0F0F0) & fb.high) | 0x00010307) & 0x7FFFFFF8;
-  t &= (t >> 14) | (t << 14);	/* rotate within bit 3 and bit 30 */
-  t &= (t >> 7) | (t << 21);
-  daf.high |= t & 0x3E7CF8F0;
-  daf.low |= (t << 4) & 0xE0C08000;
+  /* Filled columns, by folding the rotations: afterwards a bit is set
+     iff its whole column is.  Rows 1 and 8 never flip vertically. */
 
-  dbf.high = 0xFF818181;
-  dbf.low = 0x818181FF;
-  t = ((fb.high >> 4) | 0xF0F0F0F0) & fb.low;
-				/* 17 16 15 14 13 12 11 10  9  8 NG  6  5  4  3  2  1  0 */
-  t &= (t >> 18) | 0x0003C000;	/*  *  *  *  * 31 30 29 28 27 26 25 NG 23 22 21 20 19 18 */
-  t &= (t >> 9) | (t << 9);	/*  8 NG  6  5  4  3  2  1  0 17 16 15 14 13 12 11 10  9 */
-  t |= (t << 18);		/* 26 25 NG 23 22 21 20 19 18  *  *  *  * 31 30 29 28 27 */
-  dbf.low |= t & 0xF8FC7E3F;
-  dbf.high |= (t << 4) & 0x80C0E0F0;
-  t = ((fb.low << 4) | 0x0F0F0F0F) & fb.high;
-  t &= (t >> 18) | 0x0003C000;
-  t &= (t >> 9) | (t << 9);
-  t |= (t << 18);
-  dbf.high |= t & 0x7C3E1F0F;
-  dbf.low |= (t >> 4) & 0x07030100;
+  t = fb;
+  t &= (t >> 32) | (t << 32);
+  t &= (t >> 16) | (t << 48);
+  t &= (t >> 8) | (t << 56);
+  udf = t | 0xFF000000000000FFull;
 
-  ss->high |= (lrf.high & udf.high & daf.high & dbf.high & dd.high);
-  ss->low |= (lrf.low & udf.low & daf.low & dbf.low & dd.low);
+  /* Filled diagonals.  The border squares need no diagonal
+     protection, which also covers the short diagonals. */
 
-  if ((ss->high | ss->low) == 0)
+  daf = BORDER_MASK;
+  dbf = BORDER_MASK;
+  for ( i = 0; i < 15; i++ ) {
+    if ( (fb & diag7_mask[i]) == diag7_mask[i] )
+      daf |= diag7_mask[i];
+    if ( (fb & diag9_mask[i]) == diag9_mask[i] )
+      dbf |= diag9_mask[i];
+  }
+
+  *ss |= lrf & udf & daf & dbf & dd;
+
+  if ( *ss == 0 )
     return;
 
   do {
     ost = *ss;
 
-    expand_ss.high = lrf.high | (ost.high << 1) | (ost.high >> 1);
-    expand_ss.low = lrf.low | (ost.low << 1) | (ost.low >> 1);
+    expand_ss = lrf | (ost << 1) | (ost >> 1);
     and_line_shift_64( &expand_ss, ost, 8, udf );
     and_line_shift_64( &expand_ss, ost, 7, daf );
     and_line_shift_64( &expand_ss, ost, 9, dbf );
 
-    ss->high = ost.high | (expand_ss.high & dd.high);
-    ss->low = ost.low | (expand_ss.low & dd.low);
-  } while ( (ost.high ^ ss->high) | (ost.low ^ ss->low) );	/* changing */
-
-  // ss->high &= dd.high;
-  // ss->low &= dd.low;
+    *ss = ost | (expand_ss & dd);
+  } while ( ost != *ss );	/* changing */
 }
 
 
@@ -225,17 +192,17 @@ count_edge_stable( int color,
 		   BitBoard opp_bits ) {
   unsigned int col_mask, opp_mask, ix_a1a8, ix_h1h8, ix_a1h1, ix_a8h8;
 
-  col_mask = (((col_bits.low & 0x01010101) + ((col_bits.high & 0x01010101) << 4)) * 0x01020408) >> 24;
-  opp_mask = (((opp_bits.low & 0x01010101) + ((opp_bits.high & 0x01010101) << 4)) * 0x01020408) >> 24;
+  col_mask = ((col_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
+  opp_mask = ((opp_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
   ix_a1a8 = base_conversion[col_mask] - base_conversion[opp_mask];
 
-  col_mask = ((((col_bits.low & 0x80808080) >> 4) + (col_bits.high & 0x80808080)) * (0x01020408 / 8)) >> 24;
-  opp_mask = ((((opp_bits.low & 0x80808080) >> 4) + (opp_bits.high & 0x80808080)) * (0x01020408 / 8)) >> 24;
+  col_mask = (((col_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
+  opp_mask = (((opp_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
   ix_h1h8 = base_conversion[col_mask] - base_conversion[opp_mask];
 
-  ix_a1h1 = base_conversion[col_bits.low & 255] - base_conversion[opp_bits.low & 255];
+  ix_a1h1 = base_conversion[col_bits & 255] - base_conversion[opp_bits & 255];
 
-  ix_a8h8 = base_conversion[col_bits.high >> 24] - base_conversion[opp_bits.high >> 24];
+  ix_a8h8 = base_conversion[col_bits >> 56] - base_conversion[opp_bits >> 56];
 
   if ( color == BLACKSQ ) {
     edge_a1h1 = 3280 * EMPTY - ix_a1h1;
@@ -277,30 +244,29 @@ count_stable( int color,
 
   /* Stable edge discs */
 
-  common_stable.low = edge_stable[edge_a1h1];
+  common_stable = edge_stable[edge_a1h1];
 
-  common_stable.high = (edge_stable[edge_a8h8] << 24);
+  common_stable |= ((BitBoard) edge_stable[edge_a8h8]) << 56;
 
   t = edge_stable[edge_a1a8];
-  common_stable.low |= ((t & 0x0F) * 0x00204081) & 0x01010101;
-  common_stable.high |= ((t >> 4) * 0x00204081) & 0x01010101;
+  common_stable |= (BitBoard) (((t & 0x0F) * 0x00204081u) & 0x01010101u);
+  common_stable |= ((BitBoard) (((t >> 4) * 0x00204081u) & 0x01010101u)) << 32;
 
   t = edge_stable[edge_h1h8];
-  common_stable.low |= ((t & 0x0F) * 0x10204080) & 0x80808080;
-  common_stable.high |= ((t >> 4) * 0x10204080) & 0x80808080;
+  common_stable |= (BitBoard) (((t & 0x0F) * 0x10204080u) & 0x80808080u);
+  common_stable |= ((BitBoard) (((t >> 4) * 0x10204080u) & 0x80808080u)) << 32;
 
   /* Expand the stable edge discs into a full set of stable discs */
 
-  col_stable.high = col_bits.high & common_stable.high;
-  col_stable.low = col_bits.low & common_stable.low;
+  col_stable = col_bits & common_stable;
   edge_zardoz_stable( &col_stable, col_bits, opp_bits );
   if ( color == BLACKSQ )
     last_black_stable = col_stable;
   else
     last_white_stable = col_stable;
 
-  if ( col_stable.high | col_stable.low )
-    return non_iterative_popcount( col_stable.high, col_stable.low );
+  if ( col_stable != 0 )
+    return non_iterative_popcount( col_stable );
   else
     return 0;
 }
@@ -343,18 +309,15 @@ stability_search( BitBoard my_bits,
     }
     CLEAR( all_stable_bits );
     (void) count_edge_stable( BLACKSQ, black_bits, white_bits );
-    if ( (candidate_bits->high & black_bits.high) ||
-	 (candidate_bits->low  & black_bits.low ) ) {
+    if ( *candidate_bits & black_bits ) {
       (void) count_stable( BLACKSQ, black_bits, white_bits );
       APPLY_OR( all_stable_bits, last_black_stable );
     }
-    if ( (candidate_bits->high & white_bits.high) ||
-	 (candidate_bits->low  & white_bits.low ) ) {
+    if ( *candidate_bits & white_bits ) {
       (void) count_stable( WHITESQ, white_bits, black_bits );
       APPLY_OR( all_stable_bits, last_white_stable );
     }
-    if ( ((candidate_bits->high & ~all_stable_bits.high) == 0) &&
-	 ((candidate_bits->low  & ~all_stable_bits.low ) == 0) )
+    if ( (*candidate_bits & ~all_stable_bits) == 0 )
       return;
   }
 
@@ -362,7 +325,7 @@ stability_search( BitBoard my_bits,
   for ( old_sq = END_MOVE_LIST_HEAD, sq = stab_move_list[old_sq].succ;
 	sq != END_MOVE_LIST_TAIL;
 	old_sq = sq, sq = stab_move_list[sq].succ ) {
-    if ( TestFlips_bitboard[sq - 11]( my_bits.high, my_bits.low, opp_bits.high, opp_bits.low ) ) {
+    if ( TestFlips_bitboard( sq, my_bits, opp_bits ) ) {
       new_my_bits = bb_flips;
       APPLY_ANDNOT( bb_flips, my_bits );
       APPLY_ANDNOT( (*candidate_bits), bb_flips );
@@ -448,16 +411,13 @@ complete_stability_search( int *board,
     for ( j = 1; (j <= 8) && !abort; j++ ) {
       int sq = 10 * i + j;
       test_bits = square_mask[sq];
-      if ( (test_bits.high & candidate_bits.high) |
-	   (test_bits.low  & candidate_bits.low ) ) {
+      if ( test_bits & candidate_bits ) {
 	stability_search( my_bits, opp_bits, side_to_move, &test_bits,
 			  empties, FALSE, &stability_nodes );
 	abort = (stability_nodes > MAX_STABILITY_NODES);
 	if ( !abort ) {
-	  if ( test_bits.high | test_bits.low ) {
-	    stable_bits->high |= test_bits.high;
-	    stable_bits->low  |= test_bits.low;
-	  }
+	  if ( test_bits != 0 )
+	    *stable_bits |= test_bits;
 	}
       }
     }
@@ -477,7 +437,7 @@ get_stable( int *board,
 	    int side_to_move,
 	    int *is_stable ) {
   int i, j;
-  unsigned int mask;
+  BitBoard mask;
   BitBoard black_bits, white_bits, all_stable;
 
   set_bitboards( board, BLACKSQ, &black_bits, &white_bits );
@@ -485,8 +445,7 @@ get_stable( int *board,
   for ( i = 0; i < 100; i++ )
     is_stable[i] = FALSE;
 
-  if ( ((black_bits.high | black_bits.low) == 0) ||
-       ((white_bits.high | white_bits.low) == 0) )
+  if ( (black_bits == 0) || (white_bits == 0) )
     for ( i = 1; i <= 8; i++ )
       for ( j = 1; j <= 8; j++ )
 	is_stable[10 * i + j] = TRUE;
@@ -499,13 +458,9 @@ get_stable( int *board,
 
     complete_stability_search( board, side_to_move, &all_stable );
 
-    for ( i = 1, mask = 1; i <= 4; i++ )
+    for ( i = 1, mask = 1; i <= 8; i++ )
       for ( j = 1; j <= 8; j++, mask <<= 1 )
-	if ( all_stable.low & mask )
-	  is_stable[10 * i + j] = TRUE;
-    for ( i = 5, mask = 1; i <= 8; i++ )
-      for ( j = 1; j <= 8; j++, mask <<= 1 )
-	if ( all_stable.high & mask )
+	if ( all_stable & mask )
 	  is_stable[10 * i + j] = TRUE;
   }
 }
@@ -723,6 +678,16 @@ count_color_stable( void ) {
 void
 init_stable( void ) {
   int i, j;
+
+  for ( i = 0; i < 15; i++ ) {
+    diag7_mask[i] = 0;
+    diag9_mask[i] = 0;
+  }
+  for ( i = 0; i < 8; i++ )
+    for ( j = 0; j < 8; j++ ) {
+      diag7_mask[i + j] |= 1ull << (8 * i + j);
+      diag9_mask[i - j + 7] |= 1ull << (8 * i + j);
+    }
 
   for ( i = 0; i < 256; i++ ) {
     base_conversion[i] = 0;

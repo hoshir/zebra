@@ -65,8 +65,10 @@ main( int argc, char *argv[] ) {
   srand( (unsigned int) seed );
 
   /* DoFlips pushes onto the global flip stack, so the stack pointer has
-     to be set up first; the engine does this from game_init(). */
+     to be set up first; the engine does this from game_init().  The
+     bitboard side needs its ray masks, normally built there too. */
   init_flip_stack();
+  init_bitboard();
 
   for ( trial = 0; (trial < trials) && (mismatches < MAX_REPORTED);
 	trial++ ) {
@@ -97,8 +99,7 @@ main( int argc, char *argv[] ) {
 	if ( board[sq] != EMPTY )
 	  continue;
 
-	bb_count = TestFlips_bitboard[sq - 11]( my_bits.high, my_bits.low,
-						opp_bits.high, opp_bits.low );
+	bb_count = TestFlips_bitboard( sq, my_bits, opp_bits );
 	stack_before = flip_stack;
 	do_count = DoFlips_no_hash( sq, side_to_move );
 
@@ -111,8 +112,8 @@ main( int argc, char *argv[] ) {
 		  "TestFlips_bitboard=%d DoFlips=%d\n",
 		  trial, 'a' + j - 1, i, bb_count, do_count );
 	  print_pos( side_to_move );
-	  printf( "my_bits=%08x:%08x opp_bits=%08x:%08x\n\n",
-		  my_bits.high, my_bits.low, opp_bits.high, opp_bits.low );
+	  printf( "my_bits=%016llx opp_bits=%016llx\n\n",
+		  my_bits, opp_bits );
 	  mismatches++;
 	}
       }

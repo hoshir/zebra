@@ -2,11 +2,13 @@
    File:          bitboard.h
 
    Created:       November 21, 1999
-   
+
    Author:        Gunnar Andersson (gunnar@radagast.se)
                   Toshihiko Okuhara
 
-   Contents:
+   Contents:      The bitboard is a single 64-bit word.  Bit 0 is a1,
+                  bit 7 is h1 and bit 63 is h8: the bit for row i,
+                  column j (both 1-based) is 8*(i-1) + (j-1).
 */
 
 
@@ -17,72 +19,57 @@
 #include "macros.h"
 
 
-#define APPLY_NOT( a ) { \
-  a.high = ~a.high; \
-  a.low = ~a.low; \
-}
-
-#define APPLY_XOR( a, b ) { \
-  a.high ^= b.high; \
-  a.low ^= b.low; \
-}
-
-#define APPLY_OR( a, b ) { \
-  a.high |= b.high; \
-  a.low |= b.low; \
-}
-
-#define APPLY_AND( a, b ) { \
-  a.high &= b.high; \
-  a.low &= b.low; \
-}
-
-#define APPLY_ANDNOT( a, b ) { \
-  a.high &= ~b.high; \
-  a.low &= ~b.low; \
-}
-
-#define FULL_XOR( a, b, c ) { \
-  a.high = b.high ^ c.high; \
-  a.low = b.low ^ c.low; \
-}
-
-#define FULL_OR( a, b, c ) { \
-  a.high = b.high | c.high; \
-  a.low = b.low | c.low; \
-}
-
-#define FULL_AND( a, b, c ) { \
-  a.high = b.high & c.high; \
-  a.low = b.low & c.low; \
-}
-
-#define FULL_ANDNOT( a, b, c ) { \
-  a.high = b.high & ~c.high; \
-  a.low = b.low & ~c.low; \
-}
-
-#define CLEAR( a ) { \
-  a.high = 0; \
-  a.low = 0; \
-} 
+typedef unsigned long long BitBoard;
 
 
+/* The operation macros predate the 64-bit representation, when every
+   one of them took two statements.  Kept so their call sites read the
+   same as they always have. */
 
-typedef struct {
-  unsigned int high;
-  unsigned int low;
-} BitBoard;
+#define APPLY_NOT( a )          ((a) = ~(a))
+
+#define APPLY_XOR( a, b )       ((a) ^= (b))
+
+#define APPLY_OR( a, b )        ((a) |= (b))
+
+#define APPLY_AND( a, b )       ((a) &= (b))
+
+#define APPLY_ANDNOT( a, b )    ((a) &= ~(b))
+
+#define FULL_XOR( a, b, c )     ((a) = (b) ^ (c))
+
+#define FULL_OR( a, b, c )      ((a) = (b) | (c))
+
+#define FULL_AND( a, b, c )     ((a) = (b) & (c))
+
+#define FULL_ANDNOT( a, b, c )  ((a) = (b) & ~(c))
+
+#define CLEAR( a )              ((a) = 0)
+
 
 extern BitBoard square_mask[100];
 
+/* Conversion from a board coordinate (11..88) to the bit index. */
+extern int bit_position[100];
+
+/* The squares a flip line through a given square can run over,
+   one mask per ray.  The "down" rays run towards higher bit indices
+   (E, S, SE, SW), the "up" rays towards lower ones (W, N, NW, NE). */
+
+typedef struct {
+  BitBoard dn[4];
+  BitBoard up[4];
+} FlipRays;
+
+extern FlipRays flip_rays[64];
 
 
-unsigned int REGPARM(2)
-non_iterative_popcount( unsigned int n1, unsigned int n2 );
 
-unsigned int REGPARM(2)
-iterative_popcount( unsigned int n1, unsigned int n2 );
+unsigned int REGPARM(1)
+non_iterative_popcount( BitBoard b );
+
+unsigned int REGPARM(1)
+iterative_popcount( BitBoard b );
 
 unsigned int REGPARM(1)
 bit_reverse_32( unsigned int val );

@@ -22,7 +22,9 @@
 
 extern _Thread_local BitBoard bb_flips;
 
-extern int (REGPARM(2) * const TestFlips_bitboard[78])(unsigned int, unsigned int, unsigned int, unsigned int);
+/* SQ is a board coordinate, 11..88. */
+int
+TestFlips_bitboard( int sq, BitBoard my_bits, BitBoard opp_bits );
 
 
 
