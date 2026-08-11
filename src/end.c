@@ -114,13 +114,11 @@ typedef enum {
 
 
 
-_Thread_local MoveLink end_move_list[100];
 
 
 
 /* The parities of the regions are in the region_parity bit vector. */
 
-static _Thread_local unsigned int region_parity;
 
 /* Pseudo-probabilities corresponding to the percentiles.
    These are taken from the normal distribution; to the percentile
@@ -151,7 +149,6 @@ static const int stability_threshold[] = { 65, 65, 65, 65, 65, 10, 12, 14, 16,
 
 static double fast_first_mean[61][64];
 static double fast_first_sigma[61][64];
-static _Thread_local int best_move, best_end_root_move;
 static int true_found, true_val;
 static int full_output_mode;
 static int earliest_wld_solve, earliest_full_solve;
@@ -747,7 +744,7 @@ solve_parity( BitBoard my_bits,
 	  if ( ev > score ) {
 	    if ( ev > alpha ) {
 	      if ( ev >= beta ) {
-		best_move = sq;
+		end_best_move = sq;
 		return ev;
 	      }
 	      alpha = ev;
@@ -792,7 +789,7 @@ solve_parity( BitBoard my_bits,
 	if ( ev > score ) {
 	  if ( ev > alpha ) {
 	    if ( ev >= beta ) {
-	      best_move = sq;
+	      end_best_move = sq;
 	      return ev;
 	    }
 	    alpha = ev;
@@ -816,7 +813,7 @@ solve_parity( BitBoard my_bits,
       return -solve_parity( opp_bits, my_bits, -beta, -alpha, oppcol,
 			    empties, -disc_diff, FALSE );
   }
-  best_move = best_sq;
+  end_best_move = best_sq;
 
   return score;
 }
@@ -853,7 +850,7 @@ solve_parity_hash( BitBoard my_bits,
        ((entry.flags & EXACT_VALUE) ||
 	((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
 	((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
-    best_move = entry.move[0];
+    end_best_move = entry.move[0];
     return entry.eval;
   }
 
@@ -900,8 +897,8 @@ solve_parity_hash( BitBoard my_bits,
 	    score = ev;
 	    if ( ev > alpha ) {
 	      if ( ev >= beta ) { 
-		best_move = sq;
-		add_hash( ENDGAME_MODE, score, best_move,
+		end_best_move = sq;
+		add_hash( ENDGAME_MODE, score, end_best_move,
 			  ENDGAME_SCORE | LOWER_BOUND, empties, 0 );
 		return score;
 	      }
@@ -938,8 +935,8 @@ solve_parity_hash( BitBoard my_bits,
 	  score = ev;
 	  if ( ev > alpha ) {
 	    if ( ev >= beta ) { 
-	      best_move = sq;
-	      add_hash( ENDGAME_MODE, score, best_move,
+	      end_best_move = sq;
+	      add_hash( ENDGAME_MODE, score, end_best_move,
 			ENDGAME_SCORE | LOWER_BOUND, empties, 0 );
 	      return score;
 	    }
@@ -969,12 +966,12 @@ solve_parity_hash( BitBoard my_bits,
     }
   }
   else {
-    best_move = best_sq;
+    end_best_move = best_sq;
     if ( score > in_alpha)
-      add_hash( ENDGAME_MODE, score, best_move, ENDGAME_SCORE | EXACT_VALUE,
+      add_hash( ENDGAME_MODE, score, end_best_move, ENDGAME_SCORE | EXACT_VALUE,
 		empties, 0 );
     else
-      add_hash( ENDGAME_MODE, score, best_move, ENDGAME_SCORE | UPPER_BOUND,
+      add_hash( ENDGAME_MODE, score, end_best_move, ENDGAME_SCORE | UPPER_BOUND,
 		empties, 0 );
   }
 
@@ -1050,7 +1047,7 @@ solve_parity_hash_high( BitBoard my_bits,
 	 ((entry.flags & EXACT_VALUE) ||
 	  ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
 	  ((entry.flags & UPPER_BOUND) && entry.eval <= alpha)) ) {
-      best_move = entry.move[0];
+      end_best_move = entry.move[0];
       return entry.eval;
     }
   }
@@ -1170,8 +1167,8 @@ solve_parity_hash_high( BitBoard my_bits,
   best_sq = sq;
   if ( score > alpha ) {
     if ( score >= beta ) { 
-      best_move = best_sq;
-      add_hash( ENDGAME_MODE, score, best_move,
+      end_best_move = best_sq;
+      add_hash( ENDGAME_MODE, score, end_best_move,
 		ENDGAME_SCORE | LOWER_BOUND, empties, 0 );
       return score;
     }
@@ -1232,8 +1229,8 @@ solve_parity_hash_high( BitBoard my_bits,
       score = ev;
       if ( ev > alpha ) {
 	if ( ev >= beta ) { 
-	  best_move = sq;
-	  add_hash( ENDGAME_MODE, score, best_move,
+	  end_best_move = sq;
+	  add_hash( ENDGAME_MODE, score, end_best_move,
 		    ENDGAME_SCORE | LOWER_BOUND, empties, 0 );
 	  return score;
 	}
@@ -1243,12 +1240,12 @@ solve_parity_hash_high( BitBoard my_bits,
     }
   }
 
-  best_move = best_sq;
+  end_best_move = best_sq;
   if ( score > in_alpha )
-    add_hash( ENDGAME_MODE, score, best_move,
+    add_hash( ENDGAME_MODE, score, end_best_move,
 	      ENDGAME_SCORE | EXACT_VALUE, empties, 0 );
   else
-    add_hash( ENDGAME_MODE, score, best_move,
+    add_hash( ENDGAME_MODE, score, end_best_move,
 	      ENDGAME_SCORE | UPPER_BOUND, empties, 0 );
 
   return score;
@@ -1564,11 +1561,11 @@ end_tree_search( int level,
 			empties, disk_diff, previous_move );
 
     pv_depth[level] = level + 1;
-    pv[level][level] = best_move;
+    pv[level][level] = end_best_move;
       
     if ( (level == 0) && !get_ponder_move() ) {
       send_sweep( "%-10s ", buffer );
-      send_sweep( "%c%c", TO_SQUARE( best_move ) );
+      send_sweep( "%c%c", TO_SQUARE( end_best_move ) );
       if ( result <= alpha )
 	send_sweep( "<%d", result + 1 );
       else if ( result >= beta )
@@ -1884,7 +1881,7 @@ end_tree_search( int level,
 			  &child_selective_cutoff, TRUE );
       update_pv = TRUE;
       if ( level == 0 )
-	best_end_root_move = move;
+	end_best_root_move = move;
     }
     else {
       curr_alpha = MAX( best, curr_alpha );
@@ -1918,14 +1915,14 @@ end_tree_search( int level,
 	  best = curr_val;
 	  update_pv = TRUE;
 	  if ( (level == 0) && !is_panic_abort() && !force_return )
-	    best_end_root_move = move;
+	    end_best_root_move = move;
 	}
       }
       else if ( curr_val > best ) {
 	best = curr_val;
 	update_pv = TRUE;
 	if ( (level == 0) && !is_panic_abort() && !force_return )
-	  best_end_root_move = move;
+	  end_best_root_move = move;
       }
     }
 
@@ -2377,7 +2374,7 @@ end_game( int side_to_move,
 	  send_solve_status( empties, side_to_move, eval_info );
 	}
       }
-      pv[0][0] = best_end_root_move;
+      pv[0][0] = end_best_root_move;
       pv_depth[0] = 1;
       root_eval = old_eval;
       clear_panic_abort();
@@ -2555,7 +2552,7 @@ end_game( int side_to_move,
       if ( echo || force_echo )
 	display_status( stdout, FALSE );
     }
-    pv[0][0] = best_end_root_move;
+    pv[0][0] = end_best_root_move;
     pv_depth[0] = 1;
     root_eval = old_eval;
     exact_score_failed = TRUE;

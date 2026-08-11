@@ -25,7 +25,6 @@
 #include "bitbtest.h"
 
 
-_Thread_local BitBoard bb_flips;
 
 
 /* The highest set bit of (b | 1) — bit 0 stands in for "none" and is
