@@ -15,9 +15,8 @@
    and every member is a constant offset away.  The names are kept as
    macros so that the rest of the engine reads exactly as before.
 
-   BOARD is deliberately left out: it is a parameter name in a dozen
-   functions that take a board to work on, and the one extra
-   resolution it costs is not worth renaming them all.
+   The functions that take a board to work on call their parameter
+   IN_BOARD, because BOARD is one of the names below.
 */
 
 
@@ -32,8 +31,16 @@
 
 
 
+/* The basic board type. One index for each position;
+   a1=11, h1=18, a8=81, h8=88. */
+typedef int Board[128];
+
+
 typedef struct {
-  /* The position as bitboards, indexed by colour. */
+  /* The position, one square per entry. */
+  Board board;
+
+  /* The same position as bitboards, indexed by colour. */
   BitBoard board_bits[3];
 
   /* The discs turned by the move made at each stage. */
@@ -59,6 +66,7 @@ typedef struct {
 extern _Thread_local ThreadState tls;
 
 
+#define board               (tls.board)
 #define board_bits          (tls.board_bits)
 #define flip_mask           (tls.flip_mask)
 #define piece_count         (tls.piece_count)

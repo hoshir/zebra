@@ -58,7 +58,7 @@ count_stable( int color, BitBoard col_bits, BitBoard opp_bits );
 */
 
 void
-get_stable( int *board,
+get_stable( int *in_board,
 	    int side_to_move,
 	    int *is_stable );
 

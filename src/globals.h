@@ -21,11 +21,6 @@
 
 
 
-/* The basic board type. One index for each position;
-   a1=11, h1=18, a8=81, h8=88. */
-typedef int Board[128];
-
-
 
 /* pv[n][n..<depth>] contains the principal variation from the
    node on recursion depth n on the current recursive call sequence.
@@ -45,10 +40,6 @@ extern _Thread_local int pv_depth[MAX_SEARCH_DEPTH];
 extern int score_sheet_row;
 extern int black_moves[60];
 extern int white_moves[60];
-
-/* Holds the current board position. Updated as the search progresses,
-   but all updates must be reversed when the search stops. */
-extern _Thread_local Board board;
 
 /* BOARD_BITS in tlstate.h holds the same position one bit per square.
    MAKE_MOVE and UNMAKE_MOVE keep the two in step; SET_BOARD_BITS

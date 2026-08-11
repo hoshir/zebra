@@ -89,7 +89,7 @@ bit_reverse_32( unsigned int val ) {
 */
 
 void
-set_bitboards( int *board, int side_to_move,
+set_bitboards( int *in_board, int side_to_move,
 	       BitBoard *my_out, BitBoard *opp_out ) {
   int i, j;
   int pos;
@@ -103,9 +103,9 @@ set_bitboards( int *board, int side_to_move,
   for ( i = 1; i <= 8; i++ )
     for ( j = 1; j <= 8; j++, mask <<= 1 ) {
       pos = 10 * i + j;
-      if ( board[pos] == side_to_move )
+      if ( in_board[pos] == side_to_move )
 	my_bits |= mask;
-      else if ( board[pos] == OPP( side_to_move ) )
+      else if ( in_board[pos] == OPP( side_to_move ) )
 	opp_bits |= mask;
     }
 

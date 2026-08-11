@@ -46,11 +46,11 @@ AnyDrctnlFlips( int *sq, int inc, int color, int oppcol ) {
 
 
 int
-AnyFlips_compact( int *board, int sqnum, int color, int oppcol ) {
+AnyFlips_compact( int *in_board, int sqnum, int color, int oppcol ) {
   int *sq;
   int *inc;
 
-  sq = &board[sqnum];
+  sq = &in_board[sqnum];
   inc = first_flip_direction[sqnum];
   do {
     if ( AnyDrctnlFlips( sq, *inc, color, oppcol ) )

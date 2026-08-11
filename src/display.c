@@ -122,7 +122,7 @@ set_move_list( int *black, int *white, int row ) {
 */
 
 void
-display_board( FILE *stream, int *board, int side_to_move,
+display_board( FILE *stream, int *in_board, int side_to_move,
 	       int give_game_score, int give_time, int give_evals ) {
   char buffer[16];
   int i, j;
@@ -149,7 +149,7 @@ display_board( FILE *stream, int *board, int side_to_move,
     for ( j = 0; j < 15; j++ )
       buffer[j] = ' ';
     for ( j = 1; j <= 8; j++ ) {
-      switch ( board[10 * i + j] ) {
+      switch ( in_board[10 * i + j] ) {
       case BLACKSQ:
 	buffer[2 * (j - 1)] = '*';
 	break;

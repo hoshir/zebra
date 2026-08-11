@@ -264,7 +264,7 @@ free_hash( void ) {
 
 void
 determine_hash_values( int side_to_move,
-		       const int *board ) {
+		       const int *in_board ) {
   int i, j;
 
   hash1 = 0;
@@ -272,7 +272,7 @@ determine_hash_values( int side_to_move,
   for ( i = 1; i <= 8; i++ )
     for ( j = 1; j <= 8; j++ ) {
       int pos = 10 * i + j;
-      switch ( board[pos] ) {
+      switch ( in_board[pos] ) {
       case BLACKSQ:
         hash1 ^= hash_value1[BLACKSQ][pos];
         hash2 ^= hash_value2[BLACKSQ][pos];

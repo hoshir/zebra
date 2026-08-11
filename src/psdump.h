@@ -1,6 +1,6 @@
 
 extern int
-ps_dump_position( int *board, const char *file_name,
+ps_dump_position( int *in_board, const char *file_name,
 		  double image_size );
 
 extern int
