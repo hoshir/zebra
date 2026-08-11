@@ -53,6 +53,14 @@ static int worker_count;   /* threads in worker[], i.e. thread_count - 1 */
 static int pool_created;
 static _Thread_local int is_worker;
 
+/* Where the workers leave the nodes they searched.  Each thread counts
+   into its own NODES, so a worker's share used to be dropped on the
+   floor when its batch ended and the reported totals were the calling
+   thread's alone -- which made the node count at one thread and the
+   node count at eight incomparable, and hid how much extra work the
+   parallel search was doing.  Written under the pool lock. */
+static CounterType pooled_nodes;
+
 
 
 /*
@@ -99,6 +107,10 @@ worker_main( void *arg ) {
     last_generation = pool.generation;
 
     claim_jobs( last_generation );
+
+    /* Hand this batch's nodes over and start the next one at zero. */
+    add_counter( &pooled_nodes, &nodes );
+    reset_counter( &nodes );
 
     if ( --pool.busy_count == 0 )
       pthread_cond_signal( &pool.work_done );
@@ -217,5 +229,11 @@ threads_run( void (*job)( int index, void *context ), void *context,
   if ( --pool.busy_count > 0 )
     while ( pool.busy_count > 0 )
       pthread_cond_wait( &pool.work_done, &pool.lock );
+
+  /* Fold what the workers did into the caller's count, so that every
+     place that already reports NODES reports the whole batch. */
+  add_counter( &nodes, &pooled_nodes );
+  reset_counter( &pooled_nodes );
+
   pthread_mutex_unlock( &pool.lock );
 }
