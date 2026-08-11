@@ -18,6 +18,7 @@
 
 #include "constant.h"
 #include "macros.h"
+#include "tlstate.h"
 
 
 
@@ -57,9 +58,6 @@ typedef struct {
 /* The number of entries in the hash table. Always a power of 2. */
 extern int hash_size;
 
-/* The 64-bit hash key. */
-extern _Thread_local unsigned int hash1;
-extern _Thread_local unsigned int hash2;
 
 /* The 64-bit hash masks for a piece of a certain color in a
    certain position. */
@@ -86,10 +84,6 @@ extern unsigned int hash_color2[3];
 extern unsigned int hash_flip_color1;
 extern unsigned int hash_flip_color2;
 
-/* Stored 64-bit hash mask which hold the hash codes at different nodes
-   in the search tree. */
-extern _Thread_local unsigned int hash_stored1[MAX_SEARCH_DEPTH];
-extern _Thread_local unsigned int hash_stored2[MAX_SEARCH_DEPTH];
 
 
 

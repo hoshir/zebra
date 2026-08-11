@@ -62,8 +62,8 @@ clear_stored_game( void ) {
 */
 
 void
-store_move( int disks_played, int move ) {
-  game_move[disks_played] = move;
+store_move( int stage, int move ) {
+  game_move[stage] = move;
 }
 
 

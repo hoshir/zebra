@@ -602,13 +602,14 @@ init_search_thread( void ) {
 
 void
 search_state_save( SearchState *state ) {
-  memcpy( state->board, board, sizeof( Board ) );
-  memcpy( state->piece_count, piece_count, sizeof( state->piece_count ) );
-  memcpy( state->sorted_move_order, sorted_move_order,
-	  sizeof( state->sorted_move_order ) );
-  state->hash1 = hash1;
-  state->hash2 = hash2;
-  state->disks_played = disks_played;
+  memcpy( state->saved_board, board, sizeof( Board ) );
+  memcpy( state->saved_piece_count, piece_count,
+	  sizeof( state->saved_piece_count ) );
+  memcpy( state->saved_sorted_move_order, sorted_move_order,
+	  sizeof( state->saved_sorted_move_order ) );
+  state->saved_hash1 = hash1;
+  state->saved_hash2 = hash2;
+  state->saved_disks_played = disks_played;
 }
 
 
@@ -618,13 +619,14 @@ search_state_save( SearchState *state ) {
 
 void
 search_state_load( const SearchState *state ) {
-  memcpy( board, state->board, sizeof( Board ) );
-  memcpy( piece_count, state->piece_count, sizeof( state->piece_count ) );
-  memcpy( sorted_move_order, state->sorted_move_order,
-	  sizeof( state->sorted_move_order ) );
-  hash1 = state->hash1;
-  hash2 = state->hash2;
-  disks_played = state->disks_played;
+  memcpy( board, state->saved_board, sizeof( Board ) );
+  memcpy( piece_count, state->saved_piece_count,
+	  sizeof( state->saved_piece_count ) );
+  memcpy( sorted_move_order, state->saved_sorted_move_order,
+	  sizeof( state->saved_sorted_move_order ) );
+  hash1 = state->saved_hash1;
+  hash2 = state->saved_hash2;
+  disks_played = state->saved_disks_played;
   determine_pattern_indices();
   set_board_bits();
 }

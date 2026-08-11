@@ -427,7 +427,6 @@ compute_line_patterns( int *in_board ) {
 #define EVAL_PATTERN_COUNT   46
 #define EVAL_PATTERN_SLOTS   48
 
-_Thread_local unsigned short eval_pattern_index[EVAL_PATTERN_SLOTS];
 
 static const struct {
   short len;

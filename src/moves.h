@@ -16,6 +16,7 @@
 
 
 #include "constant.h"
+#include "tlstate.h"
 
 
 
@@ -25,9 +26,6 @@ extern "C" {
 
 
 
-/* The number of disks played from the initial position.
-   Must match the current status of the BOARD variable. */
-extern _Thread_local int disks_played;
 
 /* Holds the last move made on the board for each different
    game stage. */

@@ -25,7 +25,7 @@ void
 clear_stored_game( void );
 
 void
-store_move( int disks_played, int move );
+store_move( int stage, int move );
 
 void
 set_learning_parameters( int depth, int cutoff );
