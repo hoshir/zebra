@@ -315,7 +315,6 @@ wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
   int eval = entry->eval;
   unsigned int xor_key2 = entry->key2 ^ (unsigned int) eval ^ moves ^ k1_packed;
 
-  __atomic_store_n( &compact_entry->key2, 0, __ATOMIC_RELEASE );
   __atomic_store_n( &compact_entry->eval, eval, __ATOMIC_RELAXED );
   __atomic_store_n( &compact_entry->moves, moves, __ATOMIC_RELAXED );
   __atomic_store_n( &compact_entry->key1_selectivity_flags_draft, k1_packed, __ATOMIC_RELAXED );
