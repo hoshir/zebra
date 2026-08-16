@@ -41,7 +41,7 @@
 
 
 
-#define DEFAULT_HASH_BITS         24
+#define DEFAULT_HASH_BITS         22
 #define DEFAULT_RANDOM            TRUE
 #define DEFAULT_USE_THOR          FALSE
 #define DEFAULT_SLACK             0.25
