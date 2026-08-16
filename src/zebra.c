@@ -41,7 +41,7 @@
 
 
 
-#define DEFAULT_HASH_BITS         18
+#define DEFAULT_HASH_BITS         22
 #define DEFAULT_RANDOM            TRUE
 #define DEFAULT_USE_THOR          FALSE
 #define DEFAULT_SLACK             0.25
@@ -624,8 +624,8 @@ main( int argc, char *argv[] ) {
     puts( "" );
     exit( EXIT_FAILURE );
   }
-  if ( hash_bits < 1 ) {
-    printf( "Hash table key must contain at least 1 bit\n" );
+  if ( hash_bits < 1 || hash_bits > 28 ) {
+    printf( "Hash table key must contain between 1 and 28 bits\n" );
     exit( EXIT_FAILURE );
   }
 

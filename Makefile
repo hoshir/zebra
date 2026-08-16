@@ -76,6 +76,7 @@ ENDDEV_EXE   = $(BINDIR)/enddev
 TUNE8DBS_EXE = $(BINDIR)/tune8dbs
 FLIPTEST_EXE = $(BINDIR)/fliptest
 THREADTEST_EXE = $(BINDIR)/threadtest
+HASHTEST_EXE = $(BINDIR)/hashtest
 
 LIB          = $(BUILDDIR)/libzebra.a
 
@@ -137,17 +138,19 @@ libzebra.a	: $(LIB)
 # Override the search threads with e.g. "make test FFO_THREADS=4"; see
 # where that is set above.
 
-test		: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
+test		: $(FLIPTEST_EXE) $(THREADTEST_EXE) $(HASHTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	$(THREADTEST_EXE)
+	$(HASHTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh quick "$(FFO_THREADS)"
 
 # Solves ALL positions in tests/ffotest.scr and verifies the results.
 # Takes several minutes -- about 8.5 on an 8-core machine, half of
 # which is FFO #55 on its own.
-test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) scrzebra
+test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) $(HASHTEST_EXE) scrzebra
 	$(FLIPTEST_EXE)
 	$(THREADTEST_EXE)
+	$(HASHTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh full "$(FFO_THREADS)"
 
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
@@ -155,6 +158,9 @@ $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 
 $(THREADTEST_EXE)	: $(TESTDIR)/threadtest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/threadtest.c $(LIB) $(LDFLAGS)
+
+$(HASHTEST_EXE)	: $(TESTDIR)/hashtest.c $(LIB) | $(BINDIR)
+	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/hashtest.c $(LIB) $(LDFLAGS)
 
 .PHONY		: all clean test test-full zebra scrzebra booktool practice enddev tune8dbs libzebra.a
 

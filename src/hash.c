@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "error.h"
 #include "hash.h"
@@ -89,7 +90,7 @@ init_hash( int in_hash_bits ) {
   hash_size = 1 << hash_bits;
   hash_mask = hash_size - 1;
   hash_table =
-    (CompactHashEntry *) safe_malloc( hash_size * sizeof( CompactHashEntry ) );
+    (CompactHashEntry *) safe_calloc( hash_size, sizeof( CompactHashEntry ) );
   rehash_count = 0;
 }
 
@@ -159,10 +160,7 @@ setup_hash( int clear ) {
   unsigned int random_pair[130][2];
 
   if ( clear )
-    for ( i = 0; i < hash_size; i++ ) {
-      hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
-      hash_table[i].key2 = 0;
-    }
+    memset( hash_table, 0, (size_t) hash_size * sizeof( CompactHashEntry ) );
 
   rand_index = 0;
   while ( rand_index < 130 ) {
@@ -242,7 +240,7 @@ clear_hash_drafts( void ) {
   int i;
 
   for ( i = 0; i < hash_size; i++ )  /* Set the draft to 0 */
-    hash_table[i].key1_selectivity_flags_draft &= ~0x0FF;
+    hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
 }
 
 
@@ -293,44 +291,59 @@ determine_hash_values( int side_to_move,
 
 
 /*
-   WIDE_TO_COMPACT
-   Convert the easily readable representation to the more
-   compact one actually stored in the hash table.
-*/   
+   Concurrent / Lockless Safety in Transposition Table:
+   Integrity is guaranteed by the XOR checksum:
+     key2_stored = key2 ^ eval ^ moves ^ key1_selectivity_flags_draft
+   If a reader observes an entry mid-write (where some fields are from an old
+   entry and others from a new entry), the equation:
+     (raw_key2 ^ eval ^ moves ^ key1_packed) == code2
+   fails with probability 1 - 2^-32, rejecting torn reads without lock overhead.
 
-static INLINE void
-wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
-  compact_entry->key2 = entry->key2;
-  compact_entry->eval = entry->eval;
-  compact_entry->moves = entry->move[0] + (entry->move[1] << 8) +
-    (entry->move[2] << 16) + (entry->move[3] << 24);
-  compact_entry->key1_selectivity_flags_draft =
-    (entry->key1 & KEY1_MASK) + (entry->selectivity << 16) +
-    (entry->flags << 8) + entry->draft;
+   Note on memory ordering: The atomic builtins (__ATOMIC_ACQUIRE / __ATOMIC_RELEASE)
+   ensure clean compiler optimization barriers and avoid C data races. However,
+   because a reader may interleave with a writer mid-entry, the fundamental
+   basis for torn-read safety across multiple fields is the XOR checksum itself,
+   not happens-before synchronization.
+*/
+
+static INLINE unsigned int
+entry_xor_key2( const CompactHashEntry *e ) {
+  unsigned int k2 = __atomic_load_n( &e->key2, __ATOMIC_RELAXED );
+  int ev = __atomic_load_n( &e->eval, __ATOMIC_RELAXED );
+  unsigned int mv = __atomic_load_n( &e->moves, __ATOMIC_RELAXED );
+  unsigned int k1_p = __atomic_load_n( &e->key1_selectivity_flags_draft, __ATOMIC_RELAXED );
+  return k2 ^ (unsigned int) ev ^ mv ^ k1_p;
 }
 
 
-/*
-   COMPACT_TO_WIDE
-   Expand the compact internal representation of entries
-   in the hash table to something more usable.
-*/   
+static INLINE void
+wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
+  unsigned int k1_packed = (entry->key1 & KEY1_MASK) + (entry->selectivity << 16) +
+    (entry->flags << 8) + entry->draft;
+  unsigned int moves = entry->move[0] + (entry->move[1] << 8) +
+    (entry->move[2] << 16) + (entry->move[3] << 24);
+  int eval = entry->eval;
+  unsigned int xor_key2 = entry->key2 ^ (unsigned int) eval ^ moves ^ k1_packed;
+
+  __atomic_store_n( &compact_entry->eval, eval, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->moves, moves, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->key1_selectivity_flags_draft, k1_packed, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->key2, xor_key2, __ATOMIC_RELEASE );
+}
+
 
 static INLINE void
-compact_to_wide( const CompactHashEntry *compact_entry, HashEntry *entry ) {
-  entry->key2 = compact_entry->key2;
-  entry->eval = compact_entry->eval;
-  entry->move[0] = compact_entry->moves & 255;
-  entry->move[1] = (compact_entry->moves >> 8) & 255;
-  entry->move[2] = (compact_entry->moves >> 16) & 255;
-  entry->move[3] = (compact_entry->moves >> 24) & 255;
-  entry->key1 = compact_entry->key1_selectivity_flags_draft & KEY1_MASK;
-  entry->selectivity =
-    (compact_entry->key1_selectivity_flags_draft & 0x00ffffff) >> 16;
-  entry->flags =
-    (compact_entry->key1_selectivity_flags_draft & 0x0000ffff) >> 8;
-  entry->draft =
-    (compact_entry->key1_selectivity_flags_draft & 0x000000ff);
+compact_to_wide( HashEntry *entry, unsigned int code2, int ev, unsigned int mv, unsigned int k1_p ) {
+  entry->key2 = code2;
+  entry->eval = ev;
+  entry->move[0] = mv & 255;
+  entry->move[1] = (mv >> 8) & 255;
+  entry->move[2] = (mv >> 16) & 255;
+  entry->move[3] = (mv >> 24) & 255;
+  entry->key1 = k1_p & KEY1_MASK;
+  entry->selectivity = (k1_p & 0x00ffffff) >> 16;
+  entry->flags = (k1_p & 0x0000ffff) >> 8;
+  entry->draft = (k1_p & 0x000000ff);
 }
 
 
@@ -361,6 +374,7 @@ add_hash( int reverse_mode,
 	  int flags,
 	  int draft,
 	  int selectivity ) {
+  int hit = FALSE;
   int old_draft;
   int change_encouragment;
   unsigned int index, index1, index2;
@@ -380,27 +394,30 @@ add_hash( int reverse_mode,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 ) {
     index = index1;
+    hit = TRUE;
+  }
+  else if ( entry_xor_key2( &hash_table[index2] ) == code2 ) {
+    index = index2;
+    hit = TRUE;
+  }
   else {
-    if ( hash_table[index2].key2 == code2 )
+    unsigned int draft1 = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    unsigned int draft2 = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    if ( draft1 <= draft2 )
+      index = index1;
+    else
       index = index2;
-    else {
-      if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
-	   (hash_table[index2].key1_selectivity_flags_draft & DRAFT_MASK) )
-	index = index1;
-      else
-	index = index2;
-    }
   }
 
-  old_draft = hash_table[index].key1_selectivity_flags_draft & DRAFT_MASK;
+  old_draft = __atomic_load_n( &hash_table[index].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
 
   if ( flags & EXACT_VALUE )  /* Exact scores are potentially more useful */
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( hash_table[index].key2 == code2 ) {
+  if ( hit ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
@@ -431,6 +448,7 @@ void
 add_hash_extended( int reverse_mode, int score, int *best, int flags,
 		   int draft, int selectivity ) {
   int i;
+  int hit = FALSE;
   int old_draft;
   int change_encouragment;
   unsigned int index, index1, index2;
@@ -448,27 +466,30 @@ add_hash_extended( int reverse_mode, int score, int *best, int flags,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 ) {
     index = index1;
+    hit = TRUE;
+  }
+  else if ( entry_xor_key2( &hash_table[index2] ) == code2 ) {
+    index = index2;
+    hit = TRUE;
+  }
   else {
-    if ( hash_table[index2].key2 == code2 )
+    unsigned int draft1 = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    unsigned int draft2 = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    if ( draft1 <= draft2 )
+      index = index1;
+    else
       index = index2;
-    else {
-      if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
-	   (hash_table[index2].key1_selectivity_flags_draft & DRAFT_MASK) )
-	index = index1;
-      else
-	index = index2;
-    }
   }
 
-  old_draft = hash_table[index].key1_selectivity_flags_draft & DRAFT_MASK;
+  old_draft = __atomic_load_n( &hash_table[index].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
 
   if ( flags & EXACT_VALUE )  /* Exact scores are potentially more useful */
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( hash_table[index].key2 == code2 ) {
+  if ( hit ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
@@ -497,6 +518,8 @@ void REGPARM(2)
 find_hash( HashEntry *entry, int reverse_mode ) {
   int index1, index2;
   unsigned int code1, code2;
+  unsigned int k2_raw, k1_p, mv;
+  int ev;
 
   if ( reverse_mode ) {
     code1 = hash2 ^ hash_trans2;
@@ -509,16 +532,29 @@ find_hash( HashEntry *entry, int reverse_mode ) {
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 ) {
-    if ( ((hash_table[index1].key1_selectivity_flags_draft ^ code1) & KEY1_MASK) == 0 ) {
-      compact_to_wide( &hash_table[index1], entry );
+
+  k2_raw = __atomic_load_n( &hash_table[index1].key2, __ATOMIC_ACQUIRE );
+  ev = __atomic_load_n( &hash_table[index1].eval, __ATOMIC_RELAXED );
+  mv = __atomic_load_n( &hash_table[index1].moves, __ATOMIC_RELAXED );
+  k1_p = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED );
+
+  if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
+    if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( entry, code2, ev, mv, k1_p );
       return;
     }
   }
-  else if ( (hash_table[index2].key2 == code2) &&
-	    (((hash_table[index2].key1_selectivity_flags_draft ^ code1) & KEY1_MASK) == 0) ) {
-    compact_to_wide( &hash_table[index2], entry );
-    return;
+
+  k2_raw = __atomic_load_n( &hash_table[index2].key2, __ATOMIC_ACQUIRE );
+  ev = __atomic_load_n( &hash_table[index2].eval, __ATOMIC_RELAXED );
+  mv = __atomic_load_n( &hash_table[index2].moves, __ATOMIC_RELAXED );
+  k1_p = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED );
+
+  if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
+    if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( entry, code2, ev, mv, k1_p );
+      return;
+    }
   }
 
   entry->draft = NO_HASH_MOVE;

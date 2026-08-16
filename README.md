@@ -42,13 +42,18 @@ Run the test suite with:
 make test
 ```
 
-It takes about 5-10 seconds and runs two tests:
+It takes about 5-10 seconds and runs four tests:
 
 * `tests/fliptest.c` — differential test verifying that the two
   independent disc-flipping implementations (bitboard `TestFlips_bitboard`
   and board-array `DoFlips`) agree on 50,000 random positions. The endgame
   search relies on their agreement; a divergence corrupts the flip stack
   and crashes.
+* `tests/threadtest.c` — verifies the fork-join pool synchronization, job
+  distribution, and single- vs multi-threaded execution.
+* `tests/hashtest.c` — concurrent stress test verifying that simultaneous
+  reads and writes across multiple threads in the transposition table do not
+  produce torn reads (mixed keys and payloads).
 * `tests/check_ffo.sh` — solves a fast subset of the FFO endgame test
   suite (`tests/ffo-quick.scr`: positions #40-#44, #46, #47 and #59) with
   `scrzebra` and checks the exact scores and best moves against the
