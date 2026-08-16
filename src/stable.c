@@ -73,12 +73,6 @@ static short base_conversion[256];
 /* The base-3 indices for the edges */
 static _Thread_local int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
 
-/* The fifteen diagonals in each direction, indexed by row + column
-   for the SW ones (bit step 7) and row - column for the SE ones
-   (bit step 9).  Built by INIT_STABLE. */
-static BitBoard diag7_mask[15], diag9_mask[15];
-
-
 /* Position list used in the complete stability search */
 
 _Thread_local MoveLink stab_move_list[100];
@@ -93,6 +87,38 @@ and_line_shift_64( BitBoard *target,
   dir_ss |= (base << shift) | (base >> shift);
   *target &= dir_ss;
 }
+
+/*
+  FILLED_LINES
+  The squares whose whole line in direction DIR is occupied, DIR being
+  the distance in bit positions between neighbours along it: 1 for a
+  row, 8 for a column, 7 and 9 for the two diagonals.
+
+  A square survives each round only if both its neighbours along the
+  line do; the edge squares survive on their own, which is what
+  terminates a line rather than letting it run off the board.  Five
+  rounds reach across the longest line from both ends.
+
+  Squares with no disc on them come out set when their neighbours are,
+  so the result is only good where a disc actually is -- which is all
+  the caller wants, since every use of it is masked by the mover's own
+  discs.
+*/
+
+INLINE static BitBoard
+filled_lines( BitBoard occupied, int dir ) {
+  const BitBoard edge = occupied & BORDER_MASK;
+  BitBoard full;
+
+  full  = occupied & (((occupied >> dir) & (occupied << dir)) | edge);
+  full &= (((full >> dir) & (full << dir)) | edge);
+  full &= (((full >> dir) & (full << dir)) | edge);
+  full &= (((full >> dir) & (full << dir)) | edge);
+  full &= (((full >> dir) & (full << dir)) | edge);
+
+  return (full >> dir) & (full << dir);
+}
+
 
 /*
   EDGE_ZARDOZ_STABLE
@@ -111,7 +137,6 @@ edge_zardoz_stable( BitBoard *ss,
   BitBoard ost, fb, lrf, udf, daf, dbf;
   BitBoard expand_ss;
   BitBoard t;
-  int i;
 
 /* ost is a simple test to see if numbers of
    stable disks have stopped increasing.
@@ -151,14 +176,8 @@ edge_zardoz_stable( BitBoard *ss,
   /* Filled diagonals.  The border squares need no diagonal
      protection, which also covers the short diagonals. */
 
-  daf = BORDER_MASK;
-  dbf = BORDER_MASK;
-  for ( i = 0; i < 15; i++ ) {
-    if ( (fb & diag7_mask[i]) == diag7_mask[i] )
-      daf |= diag7_mask[i];
-    if ( (fb & diag9_mask[i]) == diag9_mask[i] )
-      dbf |= diag9_mask[i];
-  }
+  daf = BORDER_MASK | filled_lines( fb, 7 );
+  dbf = BORDER_MASK | filled_lines( fb, 9 );
 
   *ss |= lrf & udf & daf & dbf & dd;
 
@@ -678,16 +697,6 @@ count_color_stable( void ) {
 void
 init_stable( void ) {
   int i, j;
-
-  for ( i = 0; i < 15; i++ ) {
-    diag7_mask[i] = 0;
-    diag9_mask[i] = 0;
-  }
-  for ( i = 0; i < 8; i++ )
-    for ( j = 0; j < 8; j++ ) {
-      diag7_mask[i + j] |= 1ull << (8 * i + j);
-      diag9_mask[i - j + 7] |= 1ull << (8 * i + j);
-    }
 
   for ( i = 0; i < 256; i++ ) {
     base_conversion[i] = 0;
