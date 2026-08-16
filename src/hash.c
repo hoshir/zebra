@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "error.h"
 #include "hash.h"
@@ -89,7 +90,8 @@ init_hash( int in_hash_bits ) {
   hash_size = 1 << hash_bits;
   hash_mask = hash_size - 1;
   hash_table =
-    (CompactHashEntry *) safe_malloc( hash_size * sizeof( CompactHashEntry ) );
+    (CompactHashEntry *) safe_malloc( (size_t) hash_size * sizeof( CompactHashEntry ) );
+  memset( hash_table, 0, (size_t) hash_size * sizeof( CompactHashEntry ) );
   rehash_count = 0;
 }
 
@@ -159,10 +161,7 @@ setup_hash( int clear ) {
   unsigned int random_pair[130][2];
 
   if ( clear )
-    for ( i = 0; i < hash_size; i++ ) {
-      hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
-      hash_table[i].key2 = 0;
-    }
+    memset( hash_table, 0, (size_t) hash_size * sizeof( CompactHashEntry ) );
 
   rand_index = 0;
   while ( rand_index < 130 ) {
@@ -242,7 +241,7 @@ clear_hash_drafts( void ) {
   int i;
 
   for ( i = 0; i < hash_size; i++ )  /* Set the draft to 0 */
-    hash_table[i].key1_selectivity_flags_draft &= ~0x0FF;
+    hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
 }
 
 
@@ -300,13 +299,14 @@ determine_hash_values( int side_to_move,
 
 static INLINE void
 wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
-  compact_entry->key2 = entry->key2;
   compact_entry->eval = entry->eval;
   compact_entry->moves = entry->move[0] + (entry->move[1] << 8) +
     (entry->move[2] << 16) + (entry->move[3] << 24);
   compact_entry->key1_selectivity_flags_draft =
     (entry->key1 & KEY1_MASK) + (entry->selectivity << 16) +
     (entry->flags << 8) + entry->draft;
+  __atomic_thread_fence( __ATOMIC_RELEASE );
+  compact_entry->key2 = entry->key2;
 }
 
 
@@ -497,6 +497,7 @@ void REGPARM(2)
 find_hash( HashEntry *entry, int reverse_mode ) {
   int index1, index2;
   unsigned int code1, code2;
+  unsigned int k2, k1_packed;
 
   if ( reverse_mode ) {
     code1 = hash2 ^ hash_trans2;
@@ -509,16 +510,27 @@ find_hash( HashEntry *entry, int reverse_mode ) {
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 ) {
-    if ( ((hash_table[index1].key1_selectivity_flags_draft ^ code1) & KEY1_MASK) == 0 ) {
+
+  k2 = hash_table[index1].key2;
+  if ( k2 == code2 ) {
+    k1_packed = hash_table[index1].key1_selectivity_flags_draft;
+    if ( ((k1_packed ^ code1) & KEY1_MASK) == 0 ) {
       compact_to_wide( &hash_table[index1], entry );
-      return;
+      __atomic_thread_fence( __ATOMIC_ACQUIRE );
+      if ( hash_table[index1].key2 == code2 )
+        return;
     }
   }
-  else if ( (hash_table[index2].key2 == code2) &&
-	    (((hash_table[index2].key1_selectivity_flags_draft ^ code1) & KEY1_MASK) == 0) ) {
-    compact_to_wide( &hash_table[index2], entry );
-    return;
+
+  k2 = hash_table[index2].key2;
+  if ( k2 == code2 ) {
+    k1_packed = hash_table[index2].key1_selectivity_flags_draft;
+    if ( ((k1_packed ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( &hash_table[index2], entry );
+      __atomic_thread_fence( __ATOMIC_ACQUIRE );
+      if ( hash_table[index2].key2 == code2 )
+        return;
+    }
   }
 
   entry->draft = NO_HASH_MOVE;
