@@ -297,42 +297,42 @@ determine_hash_values( int side_to_move,
    compact one actually stored in the hash table.
 */   
 
-static INLINE void
-wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
-  compact_entry->key2 = 0;
-  __atomic_thread_fence( __ATOMIC_RELEASE );
-  compact_entry->eval = entry->eval;
-  compact_entry->moves = entry->move[0] + (entry->move[1] << 8) +
-    (entry->move[2] << 16) + (entry->move[3] << 24);
-  compact_entry->key1_selectivity_flags_draft =
-    (entry->key1 & KEY1_MASK) + (entry->selectivity << 16) +
-    (entry->flags << 8) + entry->draft;
-  __atomic_thread_fence( __ATOMIC_RELEASE );
-  compact_entry->key2 = entry->key2;
+static INLINE unsigned int
+entry_xor_key2( const CompactHashEntry *e ) {
+  return e->key2 ^ (unsigned int) e->eval ^ e->moves ^ e->key1_selectivity_flags_draft;
 }
 
 
-/*
-   COMPACT_TO_WIDE
-   Expand the compact internal representation of entries
-   in the hash table to something more usable.
-*/   
+static INLINE void
+wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
+  unsigned int k1_packed = (entry->key1 & KEY1_MASK) + (entry->selectivity << 16) +
+    (entry->flags << 8) + entry->draft;
+  unsigned int moves = entry->move[0] + (entry->move[1] << 8) +
+    (entry->move[2] << 16) + (entry->move[3] << 24);
+  int eval = entry->eval;
+
+  compact_entry->key2 = 0;
+  __atomic_thread_fence( __ATOMIC_RELEASE );
+  compact_entry->eval = eval;
+  compact_entry->moves = moves;
+  compact_entry->key1_selectivity_flags_draft = k1_packed;
+  __atomic_thread_fence( __ATOMIC_RELEASE );
+  compact_entry->key2 = entry->key2 ^ (unsigned int) eval ^ moves ^ k1_packed;
+}
+
 
 static INLINE void
-compact_to_wide( const CompactHashEntry *compact_entry, HashEntry *entry ) {
-  entry->key2 = compact_entry->key2;
-  entry->eval = compact_entry->eval;
-  entry->move[0] = compact_entry->moves & 255;
-  entry->move[1] = (compact_entry->moves >> 8) & 255;
-  entry->move[2] = (compact_entry->moves >> 16) & 255;
-  entry->move[3] = (compact_entry->moves >> 24) & 255;
-  entry->key1 = compact_entry->key1_selectivity_flags_draft & KEY1_MASK;
-  entry->selectivity =
-    (compact_entry->key1_selectivity_flags_draft & 0x00ffffff) >> 16;
-  entry->flags =
-    (compact_entry->key1_selectivity_flags_draft & 0x0000ffff) >> 8;
-  entry->draft =
-    (compact_entry->key1_selectivity_flags_draft & 0x000000ff);
+compact_to_wide( HashEntry *entry, unsigned int code2, int ev, unsigned int mv, unsigned int k1_p ) {
+  entry->key2 = code2;
+  entry->eval = ev;
+  entry->move[0] = mv & 255;
+  entry->move[1] = (mv >> 8) & 255;
+  entry->move[2] = (mv >> 16) & 255;
+  entry->move[3] = (mv >> 24) & 255;
+  entry->key1 = k1_p & KEY1_MASK;
+  entry->selectivity = (k1_p & 0x00ffffff) >> 16;
+  entry->flags = (k1_p & 0x0000ffff) >> 8;
+  entry->draft = (k1_p & 0x000000ff);
 }
 
 
@@ -382,10 +382,10 @@ add_hash( int reverse_mode,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 )
     index = index1;
   else {
-    if ( hash_table[index2].key2 == code2 )
+    if ( entry_xor_key2( &hash_table[index2] ) == code2 )
       index = index2;
     else {
       if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
@@ -402,7 +402,7 @@ add_hash( int reverse_mode,
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( hash_table[index].key2 == code2 ) {
+  if ( entry_xor_key2( &hash_table[index] ) == code2 ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
@@ -450,10 +450,10 @@ add_hash_extended( int reverse_mode, int score, int *best, int flags,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( hash_table[index1].key2 == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 )
     index = index1;
   else {
-    if ( hash_table[index2].key2 == code2 )
+    if ( entry_xor_key2( &hash_table[index2] ) == code2 )
       index = index2;
     else {
       if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
@@ -470,7 +470,7 @@ add_hash_extended( int reverse_mode, int score, int *best, int flags,
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( hash_table[index].key2 == code2 ) {
+  if ( entry_xor_key2( &hash_table[index] ) == code2 ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
@@ -499,7 +499,8 @@ void REGPARM(2)
 find_hash( HashEntry *entry, int reverse_mode ) {
   int index1, index2;
   unsigned int code1, code2;
-  unsigned int k2, k1_packed;
+  unsigned int k2_raw, k1_p, mv;
+  int ev;
 
   if ( reverse_mode ) {
     code1 = hash2 ^ hash_trans2;
@@ -513,25 +514,29 @@ find_hash( HashEntry *entry, int reverse_mode ) {
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
 
-  k2 = hash_table[index1].key2;
-  if ( k2 == code2 ) {
-    k1_packed = hash_table[index1].key1_selectivity_flags_draft;
-    if ( ((k1_packed ^ code1) & KEY1_MASK) == 0 ) {
-      compact_to_wide( &hash_table[index1], entry );
-      __atomic_thread_fence( __ATOMIC_ACQUIRE );
-      if ( hash_table[index1].key2 == code2 )
-        return;
+  k2_raw = hash_table[index1].key2;
+  ev = hash_table[index1].eval;
+  mv = hash_table[index1].moves;
+  k1_p = hash_table[index1].key1_selectivity_flags_draft;
+  __atomic_thread_fence( __ATOMIC_ACQUIRE );
+
+  if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
+    if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( entry, code2, ev, mv, k1_p );
+      return;
     }
   }
 
-  k2 = hash_table[index2].key2;
-  if ( k2 == code2 ) {
-    k1_packed = hash_table[index2].key1_selectivity_flags_draft;
-    if ( ((k1_packed ^ code1) & KEY1_MASK) == 0 ) {
-      compact_to_wide( &hash_table[index2], entry );
-      __atomic_thread_fence( __ATOMIC_ACQUIRE );
-      if ( hash_table[index2].key2 == code2 )
-        return;
+  k2_raw = hash_table[index2].key2;
+  ev = hash_table[index2].eval;
+  mv = hash_table[index2].moves;
+  k1_p = hash_table[index2].key1_selectivity_flags_draft;
+  __atomic_thread_fence( __ATOMIC_ACQUIRE );
+
+  if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
+    if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( entry, code2, ev, mv, k1_p );
+      return;
     }
   }
 
