@@ -365,6 +365,7 @@ add_hash( int reverse_mode,
 	  int flags,
 	  int draft,
 	  int selectivity ) {
+  int hit = FALSE;
   int old_draft;
   int change_encouragment;
   unsigned int index, index1, index2;
@@ -384,27 +385,30 @@ add_hash( int reverse_mode,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( entry_xor_key2( &hash_table[index1] ) == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 ) {
     index = index1;
+    hit = TRUE;
+  }
+  else if ( entry_xor_key2( &hash_table[index2] ) == code2 ) {
+    index = index2;
+    hit = TRUE;
+  }
   else {
-    if ( entry_xor_key2( &hash_table[index2] ) == code2 )
+    unsigned int draft1 = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    unsigned int draft2 = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    if ( draft1 <= draft2 )
+      index = index1;
+    else
       index = index2;
-    else {
-      if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
-	   (hash_table[index2].key1_selectivity_flags_draft & DRAFT_MASK) )
-	index = index1;
-      else
-	index = index2;
-    }
   }
 
-  old_draft = hash_table[index].key1_selectivity_flags_draft & DRAFT_MASK;
+  old_draft = __atomic_load_n( &hash_table[index].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
 
   if ( flags & EXACT_VALUE )  /* Exact scores are potentially more useful */
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( entry_xor_key2( &hash_table[index] ) == code2 ) {
+  if ( hit ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
@@ -435,6 +439,7 @@ void
 add_hash_extended( int reverse_mode, int score, int *best, int flags,
 		   int draft, int selectivity ) {
   int i;
+  int hit = FALSE;
   int old_draft;
   int change_encouragment;
   unsigned int index, index1, index2;
@@ -452,27 +457,30 @@ add_hash_extended( int reverse_mode, int score, int *best, int flags,
 
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
-  if ( entry_xor_key2( &hash_table[index1] ) == code2 )
+  if ( entry_xor_key2( &hash_table[index1] ) == code2 ) {
     index = index1;
+    hit = TRUE;
+  }
+  else if ( entry_xor_key2( &hash_table[index2] ) == code2 ) {
+    index = index2;
+    hit = TRUE;
+  }
   else {
-    if ( entry_xor_key2( &hash_table[index2] ) == code2 )
+    unsigned int draft1 = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    unsigned int draft2 = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
+    if ( draft1 <= draft2 )
+      index = index1;
+    else
       index = index2;
-    else {
-      if ( (hash_table[index1].key1_selectivity_flags_draft & DRAFT_MASK) <=
-	   (hash_table[index2].key1_selectivity_flags_draft & DRAFT_MASK) )
-	index = index1;
-      else
-	index = index2;
-    }
   }
 
-  old_draft = hash_table[index].key1_selectivity_flags_draft & DRAFT_MASK;
+  old_draft = __atomic_load_n( &hash_table[index].key1_selectivity_flags_draft, __ATOMIC_RELAXED ) & DRAFT_MASK;
 
   if ( flags & EXACT_VALUE )  /* Exact scores are potentially more useful */
     change_encouragment = 2;
   else
     change_encouragment = 0;
-  if ( entry_xor_key2( &hash_table[index] ) == code2 ) {
+  if ( hit ) {
     if ( old_draft > draft + change_encouragment + 2 )
       return;
   }
