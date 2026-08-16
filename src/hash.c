@@ -291,10 +291,20 @@ determine_hash_values( int side_to_move,
 
 
 /*
-   WIDE_TO_COMPACT
-   Convert the easily readable representation to the more
-   compact one actually stored in the hash table.
-*/   
+   Concurrent / Lockless Safety in Transposition Table:
+   Integrity is guaranteed by the XOR checksum:
+     key2_stored = key2 ^ eval ^ moves ^ key1_selectivity_flags_draft
+   If a reader observes an entry mid-write (where some fields are from an old
+   entry and others from a new entry), the equation:
+     (raw_key2 ^ eval ^ moves ^ key1_packed) == code2
+   fails with probability 1 - 2^-32, rejecting torn reads without lock overhead.
+
+   Note on memory ordering: The atomic builtins (__ATOMIC_ACQUIRE / __ATOMIC_RELEASE)
+   ensure clean compiler optimization barriers and avoid C data races. However,
+   because a reader may interleave with a writer mid-entry, the fundamental
+   basis for torn-read safety across multiple fields is the XOR checksum itself,
+   not happens-before synchronization.
+*/
 
 static INLINE unsigned int
 entry_xor_key2( const CompactHashEntry *e ) {
