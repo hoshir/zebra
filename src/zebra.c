@@ -624,8 +624,8 @@ main( int argc, char *argv[] ) {
     puts( "" );
     exit( EXIT_FAILURE );
   }
-  if ( hash_bits < 1 || hash_bits > 30 ) {
-    printf( "Hash table key must contain between 1 and 30 bits\n" );
+  if ( hash_bits < 1 || hash_bits > 28 ) {
+    printf( "Hash table key must contain between 1 and 28 bits\n" );
     exit( EXIT_FAILURE );
   }
 

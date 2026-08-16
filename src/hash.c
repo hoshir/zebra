@@ -90,8 +90,7 @@ init_hash( int in_hash_bits ) {
   hash_size = 1 << hash_bits;
   hash_mask = hash_size - 1;
   hash_table =
-    (CompactHashEntry *) safe_malloc( (size_t) hash_size * sizeof( CompactHashEntry ) );
-  memset( hash_table, 0, (size_t) hash_size * sizeof( CompactHashEntry ) );
+    (CompactHashEntry *) safe_calloc( hash_size, sizeof( CompactHashEntry ) );
   rehash_count = 0;
 }
 
@@ -299,7 +298,11 @@ determine_hash_values( int side_to_move,
 
 static INLINE unsigned int
 entry_xor_key2( const CompactHashEntry *e ) {
-  return e->key2 ^ (unsigned int) e->eval ^ e->moves ^ e->key1_selectivity_flags_draft;
+  unsigned int k2 = __atomic_load_n( &e->key2, __ATOMIC_RELAXED );
+  int ev = __atomic_load_n( &e->eval, __ATOMIC_RELAXED );
+  unsigned int mv = __atomic_load_n( &e->moves, __ATOMIC_RELAXED );
+  unsigned int k1_p = __atomic_load_n( &e->key1_selectivity_flags_draft, __ATOMIC_RELAXED );
+  return k2 ^ (unsigned int) ev ^ mv ^ k1_p;
 }
 
 
@@ -310,14 +313,13 @@ wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
   unsigned int moves = entry->move[0] + (entry->move[1] << 8) +
     (entry->move[2] << 16) + (entry->move[3] << 24);
   int eval = entry->eval;
+  unsigned int xor_key2 = entry->key2 ^ (unsigned int) eval ^ moves ^ k1_packed;
 
-  compact_entry->key2 = 0;
-  __atomic_thread_fence( __ATOMIC_RELEASE );
-  compact_entry->eval = eval;
-  compact_entry->moves = moves;
-  compact_entry->key1_selectivity_flags_draft = k1_packed;
-  __atomic_thread_fence( __ATOMIC_RELEASE );
-  compact_entry->key2 = entry->key2 ^ (unsigned int) eval ^ moves ^ k1_packed;
+  __atomic_store_n( &compact_entry->key2, 0, __ATOMIC_RELEASE );
+  __atomic_store_n( &compact_entry->eval, eval, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->moves, moves, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->key1_selectivity_flags_draft, k1_packed, __ATOMIC_RELAXED );
+  __atomic_store_n( &compact_entry->key2, xor_key2, __ATOMIC_RELEASE );
 }
 
 
@@ -514,11 +516,10 @@ find_hash( HashEntry *entry, int reverse_mode ) {
   index1 = code1 & hash_mask;
   index2 = SECONDARY_HASH( index1 );
 
-  k2_raw = hash_table[index1].key2;
-  ev = hash_table[index1].eval;
-  mv = hash_table[index1].moves;
-  k1_p = hash_table[index1].key1_selectivity_flags_draft;
-  __atomic_thread_fence( __ATOMIC_ACQUIRE );
+  k2_raw = __atomic_load_n( &hash_table[index1].key2, __ATOMIC_ACQUIRE );
+  ev = __atomic_load_n( &hash_table[index1].eval, __ATOMIC_RELAXED );
+  mv = __atomic_load_n( &hash_table[index1].moves, __ATOMIC_RELAXED );
+  k1_p = __atomic_load_n( &hash_table[index1].key1_selectivity_flags_draft, __ATOMIC_RELAXED );
 
   if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
     if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
@@ -527,11 +528,10 @@ find_hash( HashEntry *entry, int reverse_mode ) {
     }
   }
 
-  k2_raw = hash_table[index2].key2;
-  ev = hash_table[index2].eval;
-  mv = hash_table[index2].moves;
-  k1_p = hash_table[index2].key1_selectivity_flags_draft;
-  __atomic_thread_fence( __ATOMIC_ACQUIRE );
+  k2_raw = __atomic_load_n( &hash_table[index2].key2, __ATOMIC_ACQUIRE );
+  ev = __atomic_load_n( &hash_table[index2].eval, __ATOMIC_RELAXED );
+  mv = __atomic_load_n( &hash_table[index2].moves, __ATOMIC_RELAXED );
+  k1_p = __atomic_load_n( &hash_table[index2].key1_selectivity_flags_draft, __ATOMIC_RELAXED );
 
   if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
     if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {

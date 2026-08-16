@@ -30,6 +30,17 @@ safe_malloc( size_t size ) {
 }
 
 void *
+safe_calloc( size_t count, size_t size ) {
+  void * block;
+
+  block = calloc( count, size );
+  if ( block == NULL )
+    fatal_error( "%s %d\n", SAFEMEM_FAILURE, count * size );
+
+  return block;
+}
+
+void *
 safe_realloc( void *ptr, size_t size ) {
   void * block;
 
