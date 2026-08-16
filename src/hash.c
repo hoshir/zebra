@@ -299,6 +299,8 @@ determine_hash_values( int side_to_move,
 
 static INLINE void
 wide_to_compact( const HashEntry *entry, CompactHashEntry *compact_entry ) {
+  compact_entry->key2 = 0;
+  __atomic_thread_fence( __ATOMIC_RELEASE );
   compact_entry->eval = entry->eval;
   compact_entry->moves = entry->move[0] + (entry->move[1] << 8) +
     (entry->move[2] << 16) + (entry->move[3] << 24);
