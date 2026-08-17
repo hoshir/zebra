@@ -77,6 +77,58 @@ static unsigned int hash_trans1 = 0;
 static unsigned int hash_trans2 = 0;
 static CompactHashEntry *hash_table;
 
+static int shallow_hash_bits = 0;
+static int shallow_hash_size = 0;
+static int shallow_hash_mask = 0;
+static CompactHashEntry *shallow_hash_table = NULL;
+
+
+
+/*
+   INIT_SHALLOW_HASH
+   Allocate memory for the shallow hash table.
+*/
+
+void
+init_shallow_hash( int in_bits ) {
+  if ( shallow_hash_table != NULL )
+    free_shallow_hash();
+  shallow_hash_bits = in_bits;
+  shallow_hash_size = 1 << shallow_hash_bits;
+  shallow_hash_mask = shallow_hash_size - 1;
+  shallow_hash_table =
+    (CompactHashEntry *) safe_calloc( shallow_hash_size, sizeof( CompactHashEntry ) );
+}
+
+
+/*
+   FREE_SHALLOW_HASH
+*/
+
+void
+free_shallow_hash( void ) {
+  if ( shallow_hash_table != NULL ) {
+    free( shallow_hash_table );
+    shallow_hash_table = NULL;
+    shallow_hash_size = 0;
+    shallow_hash_mask = 0;
+  }
+}
+
+
+/*
+   CLEAR_SHALLOW_HASH
+*/
+
+void
+clear_shallow_hash( void ) {
+  if ( shallow_hash_table != NULL ) {
+    int i;
+    for ( i = 0; i < shallow_hash_size; i++ )
+      shallow_hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
+  }
+}
+
 
 
 /*
@@ -92,6 +144,7 @@ init_hash( int in_hash_bits ) {
   hash_table =
     (CompactHashEntry *) safe_calloc( hash_size, sizeof( CompactHashEntry ) );
   rehash_count = 0;
+  init_shallow_hash( DEFAULT_SHALLOW_HASH_BITS );
 }
 
 
@@ -241,6 +294,7 @@ clear_hash_drafts( void ) {
 
   for ( i = 0; i < hash_size; i++ )  /* Set the draft to 0 */
     hash_table[i].key1_selectivity_flags_draft &= ~DRAFT_MASK;
+  clear_shallow_hash();
 }
 
 
@@ -252,6 +306,7 @@ clear_hash_drafts( void ) {
 void
 free_hash( void ) {
   free( hash_table );
+  free_shallow_hash();
 }
 
 
@@ -564,4 +619,87 @@ find_hash( HashEntry *entry, int reverse_mode ) {
   entry->move[1] = 0;
   entry->move[2] = 0;
   entry->move[3] = 0;
+}
+
+
+/*
+   FIND_SHALLOW_HASH
+   Direct-mapped probe into the shallow hash table for low-depth endgame nodes.
+*/
+
+void REGPARM(1)
+find_shallow_hash( HashEntry *entry ) {
+  int index;
+  unsigned int code1, code2;
+  unsigned int k2_raw, k1_p, mv;
+  int ev;
+
+  if ( shallow_hash_table == NULL ) {
+    entry->draft = NO_HASH_MOVE;
+    entry->flags = UPPER_BOUND;
+    entry->eval = INFINITE_EVAL;
+    entry->move[0] = 0;
+    return;
+  }
+
+  code1 = hash2 ^ hash_trans2;
+  code2 = hash1 ^ hash_trans1;
+
+  index = code1 & shallow_hash_mask;
+
+  k2_raw = __atomic_load_n( &shallow_hash_table[index].key2, __ATOMIC_ACQUIRE );
+  ev = __atomic_load_n( &shallow_hash_table[index].eval, __ATOMIC_RELAXED );
+  mv = __atomic_load_n( &shallow_hash_table[index].moves, __ATOMIC_RELAXED );
+  k1_p = __atomic_load_n( &shallow_hash_table[index].key1_selectivity_flags_draft, __ATOMIC_RELAXED );
+
+  if ( (k2_raw ^ (unsigned int) ev ^ mv ^ k1_p) == code2 ) {
+    if ( ((k1_p ^ code1) & KEY1_MASK) == 0 ) {
+      compact_to_wide( entry, code2, ev, mv, k1_p );
+      return;
+    }
+  }
+
+  entry->draft = NO_HASH_MOVE;
+  entry->flags = UPPER_BOUND;
+  entry->eval = INFINITE_EVAL;
+  entry->move[0] = 0;
+  entry->move[1] = 0;
+  entry->move[2] = 0;
+  entry->move[3] = 0;
+}
+
+
+/*
+   ADD_SHALLOW_HASH
+   Direct-mapped store into the shallow hash table.
+*/
+
+void
+add_shallow_hash( int score,
+		  int best,
+		  int flags,
+		  int draft ) {
+  unsigned int index;
+  unsigned int code1, code2;
+  HashEntry entry;
+
+  if ( shallow_hash_table == NULL )
+    return;
+
+  code1 = hash2 ^ hash_trans2;
+  code2 = hash1 ^ hash_trans1;
+
+  index = code1 & shallow_hash_mask;
+
+  entry.key1 = code1;
+  entry.key2 = code2;
+  entry.eval = score;
+  entry.move[0] = best;
+  entry.move[1] = 0;
+  entry.move[2] = 0;
+  entry.move[3] = 0;
+  entry.flags = (short) flags;
+  entry.draft = (short) draft;
+  entry.selectivity = 0;
+  wide_to_compact( &entry, &shallow_hash_table[index] );
 }
