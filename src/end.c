@@ -719,10 +719,11 @@ solve_parity( BitBoard my_bits,
 #if USE_STABILITY
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
-    stability_bound = 64 - 2 * count_edge_stable( oppcol, opp_bits, my_bits );
+    EdgeIndices edges;
+    stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable( oppcol, opp_bits, my_bits );
+    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound < beta )
       beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -917,11 +918,12 @@ solve_parity_hash( BitBoard my_bits,
 #if USE_STABILITY
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
+    EdgeIndices edges;
 
-    stability_bound = 64 - 2 * count_edge_stable( oppcol, opp_bits, my_bits );
+    stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable( oppcol, opp_bits, my_bits );
+    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound < beta )
        beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -1128,11 +1130,12 @@ solve_parity_hash_high( BitBoard my_bits,
 #if USE_STABILITY
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
+    EdgeIndices edges;
 
-    stability_bound = 64 - 2 * count_edge_stable( oppcol, opp_bits, my_bits );
+    stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable( oppcol, opp_bits, my_bits );
+    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
     if ( stability_bound < beta )
       beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -1683,14 +1686,15 @@ end_tree_search( int level,
 
 #if USE_STABILITY
   if ( alpha >= HIGH_STABILITY_THRESHOLD ) {
+    EdgeIndices edges;
     stability_bound = 64 -
-      2 * count_edge_stable( OPP( side_to_move ), opp_bits, my_bits );
+      2 * count_edge_stable_indexed( OPP( side_to_move ), opp_bits, my_bits, &edges );
     if ( stability_bound <= alpha ) {
       pv_depth[level] = level;
       return alpha;
     }
     stability_bound = 64 -
-      2 * count_stable( OPP( side_to_move ), opp_bits, my_bits );
+      2 * count_stable_indexed( OPP( side_to_move ), opp_bits, my_bits, &edges );
     if ( stability_bound < beta )
       beta = stability_bound + 1;
     if ( stability_bound <= alpha ) {

@@ -21,12 +21,19 @@
 
 #include <stdio.h>
 
+#if defined( __ARM_NEON )
+#include <arm_neon.h>
+#elif defined( __AVX2__ )
+#include <immintrin.h>
+#endif
+
 #include "bitboard.h"
 #include "bitbtest.h"
 #include "constant.h"
 #include "end.h"
 #include "macros.h"
 #include "patterns.h"
+#include "stable.h"
 
 
 
@@ -79,32 +86,68 @@ _Thread_local MoveLink stab_move_list[100];
 
 
 
-INLINE static void
-and_line_shift_64( BitBoard *target,
-	           BitBoard base,
-	           int shift,
-	           BitBoard dir_ss ) {
-  dir_ss |= (base << shift) | (base >> shift);
-  *target &= dir_ss;
-}
-
 /*
-  FILLED_LINES
-  The squares whose whole line in direction DIR is occupied, DIR being
-  the distance in bit positions between neighbours along it: 1 for a
-  row, 8 for a column, 7 and 9 for the two diagonals.
-
-  A square survives each round only if both its neighbours along the
-  line do; the edge squares survive on their own, which is what
-  terminates a line rather than letting it run off the board.  Five
-  rounds reach across the longest line from both ends.
-
-  Squares with no disc on them come out set when their neighbours are,
-  so the result is only good where a disc actually is -- which is all
-  the caller wants, since every use of it is masked by the mover's own
-  discs.
+  FILLED_DIAGONALS
+  Computes full lines along the two diagonal directions:
+  NE-SW (step 7) into *daf_out and NW-SE (step 9) into *dbf_out.
 */
 
+#if defined( __ARM_NEON )
+INLINE static void
+filled_diagonals( BitBoard occupied, BitBoard *daf_out, BitBoard *dbf_out ) {
+  const uint64x2_t edge = vdupq_n_u64( occupied & BORDER_MASK );
+  const int64x2_t shift_r = vcombine_s64( vcreate_s64( -7 ), vcreate_s64( -9 ) );
+  const int64x2_t shift_l = vcombine_s64( vcreate_s64(  7 ), vcreate_s64(  9 ) );
+  uint64x2_t full = vdupq_n_u64( occupied );
+
+  uint64x2_t nb;
+  #define NEON_ROUND() do { \
+    nb = vandq_u64( vshlq_u64( full, shift_r ), vshlq_u64( full, shift_l ) ); \
+    full = vandq_u64( full, vorrq_u64( nb, edge ) ); \
+  } while (0)
+
+  NEON_ROUND();
+  NEON_ROUND();
+  NEON_ROUND();
+  NEON_ROUND();
+  NEON_ROUND();
+  #undef NEON_ROUND
+
+  nb = vandq_u64( vshlq_u64( full, shift_r ), vshlq_u64( full, shift_l ) );
+  uint64x2_t res = vorrq_u64( vdupq_n_u64( BORDER_MASK ), nb );
+  *daf_out = vgetq_lane_u64( res, 0 );
+  *dbf_out = vgetq_lane_u64( res, 1 );
+}
+#elif defined( __AVX2__ )
+INLINE static void
+filled_diagonals( BitBoard occupied, BitBoard *daf_out, BitBoard *dbf_out ) {
+  const __m128i edge = _mm_set_epi64x( occupied & BORDER_MASK, occupied & BORDER_MASK );
+  const __m128i shift_r_counts = _mm_set_epi64x( 9, 7 );
+  const __m128i shift_l_counts = _mm_set_epi64x( 9, 7 );
+  __m128i full = _mm_set_epi64x( occupied, occupied );
+
+  #define AVX2_ROUND() do { \
+    __m128i sr = _mm_srlv_epi64( full, shift_r_counts ); \
+    __m128i sl = _mm_sllv_epi64( full, shift_l_counts ); \
+    __m128i nb = _mm_and_si128( sr, sl ); \
+    full = _mm_and_si128( full, _mm_or_si128( nb, edge ) ); \
+  } while (0)
+
+  AVX2_ROUND();
+  AVX2_ROUND();
+  AVX2_ROUND();
+  AVX2_ROUND();
+  AVX2_ROUND();
+  #undef AVX2_ROUND
+
+  __m128i sr = _mm_srlv_epi64( full, shift_r_counts );
+  __m128i sl = _mm_sllv_epi64( full, shift_l_counts );
+  __m128i res = _mm_or_si128( _mm_set_epi64x( BORDER_MASK, BORDER_MASK ), _mm_and_si128( sr, sl ) );
+
+  *daf_out = (BitBoard)_mm_cvtsi128_si64( res );
+  *dbf_out = (BitBoard)_mm_extract_epi64( res, 1 );
+}
+#else
 INLINE static BitBoard
 filled_lines( BitBoard occupied, int dir ) {
   const BitBoard edge = occupied & BORDER_MASK;
@@ -119,6 +162,13 @@ filled_lines( BitBoard occupied, int dir ) {
   return (full >> dir) & (full << dir);
 }
 
+INLINE static void
+filled_diagonals( BitBoard occupied, BitBoard *daf_out, BitBoard *dbf_out ) {
+  *daf_out = BORDER_MASK | filled_lines( occupied, 7 );
+  *dbf_out = BORDER_MASK | filled_lines( occupied, 9 );
+}
+#endif
+
 
 /*
   EDGE_ZARDOZ_STABLE
@@ -130,28 +180,9 @@ INLINE static void
 edge_zardoz_stable( BitBoard *ss,
 		    BitBoard dd,
 		    BitBoard od ) {
-/* dd is the disks of the side we are looking for stable disks for
-   od is the opponent
-   ss are the stable disks */
-
   BitBoard ost, fb, lrf, udf, daf, dbf;
   BitBoard expand_ss;
   BitBoard t;
-
-/* ost is a simple test to see if numbers of
-   stable disks have stopped increasing.
-
-   fb is the squares which have been played
-   ie either by white or black
-
-   udf are the up-down columns that are filled, and so no vertical flips
-   lrf are the left-right
-   daf are the NE-SW diags filled
-   dbf are the NW-SE diags filled */
-
-/* a stable disk is a disk that has a stable disk on one
-   side in each of the 4 directions
-   N.B. beyond the edges is of course stable */
 
   fb = dd | od;
 
@@ -176,8 +207,7 @@ edge_zardoz_stable( BitBoard *ss,
   /* Filled diagonals.  The border squares need no diagonal
      protection, which also covers the short diagonals. */
 
-  daf = BORDER_MASK | filled_lines( fb, 7 );
-  dbf = BORDER_MASK | filled_lines( fb, 9 );
+  filled_diagonals( fb, &daf, &dbf );
 
   *ss |= lrf & udf & daf & dbf & dd;
 
@@ -187,11 +217,12 @@ edge_zardoz_stable( BitBoard *ss,
   do {
     ost = *ss;
 
-    expand_ss = lrf | (ost << 1) | (ost >> 1);
-    and_line_shift_64( &expand_ss, ost, 8, udf );
-    and_line_shift_64( &expand_ss, ost, 7, daf );
-    and_line_shift_64( &expand_ss, ost, 9, dbf );
+    BitBoard d1 = lrf | (ost << 1) | (ost >> 1);
+    BitBoard d8 = udf | (ost << 8) | (ost >> 8);
+    BitBoard d7 = daf | (ost << 7) | (ost >> 7);
+    BitBoard d9 = dbf | (ost << 9) | (ost >> 9);
 
+    expand_ss = d1 & d8 & d7 & d9;
     *ss = ost | (expand_ss & dd);
   } while ( ost != *ss );	/* changing */
 }
@@ -199,16 +230,16 @@ edge_zardoz_stable( BitBoard *ss,
 
 
 /*
-  COUNT_EDGE_STABLE
-  Returns the number of stable edge discs for COLOR.
-  Side effect: The edge indices are calculated. They are needed
-  by COUNT_STABLE below.
+  COUNT_EDGE_STABLE_INDEXED
+  Returns the number of stable edge discs for COLOR and writes the 4 edge
+  indices into *edges.
 */
 
 int
-count_edge_stable( int color,
-		   BitBoard col_bits,
-		   BitBoard opp_bits ) {
+count_edge_stable_indexed( int color,
+			   BitBoard col_bits,
+			   BitBoard opp_bits,
+			   EdgeIndices *edges ) {
   unsigned int col_mask, opp_mask, ix_a1a8, ix_h1h8, ix_a1h1, ix_a8h8;
 
   col_mask = ((col_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
@@ -220,58 +251,75 @@ count_edge_stable( int color,
   ix_h1h8 = base_conversion[col_mask] - base_conversion[opp_mask];
 
   ix_a1h1 = base_conversion[col_bits & 255] - base_conversion[opp_bits & 255];
-
   ix_a8h8 = base_conversion[col_bits >> 56] - base_conversion[opp_bits >> 56];
 
   if ( color == BLACKSQ ) {
-    edge_a1h1 = 3280 * EMPTY - ix_a1h1;
-    edge_a8h8 = 3280 * EMPTY - ix_a8h8;
-    edge_a1a8 = 3280 * EMPTY - ix_a1a8;
-    edge_h1h8 = 3280 * EMPTY - ix_h1h8;
+    edges->a1h1 = 3280 * EMPTY - ix_a1h1;
+    edges->a8h8 = 3280 * EMPTY - ix_a8h8;
+    edges->a1a8 = 3280 * EMPTY - ix_a1a8;
+    edges->h1h8 = 3280 * EMPTY - ix_h1h8;
 
-    return (unsigned char)(black_stable[edge_a1h1] + black_stable[edge_a1a8]
-      + black_stable[edge_a8h8] + black_stable[edge_h1h8]) / 2;
+    return (unsigned char)(black_stable[edges->a1h1] + black_stable[edges->a1a8]
+      + black_stable[edges->a8h8] + black_stable[edges->h1h8]) / 2;
 
   } else {
-    edge_a1h1 = 3280 * EMPTY + ix_a1h1;
-    edge_a8h8 = 3280 * EMPTY + ix_a8h8;
-    edge_a1a8 = 3280 * EMPTY + ix_a1a8;
-    edge_h1h8 = 3280 * EMPTY + ix_h1h8;
+    edges->a1h1 = 3280 * EMPTY + ix_a1h1;
+    edges->a8h8 = 3280 * EMPTY + ix_a8h8;
+    edges->a1a8 = 3280 * EMPTY + ix_a1a8;
+    edges->h1h8 = 3280 * EMPTY + ix_h1h8;
 
-    return (unsigned char)(white_stable[edge_a1h1] + white_stable[edge_a1a8]
-      + white_stable[edge_a8h8] + white_stable[edge_h1h8]) / 2;
+    return (unsigned char)(white_stable[edges->a1h1] + white_stable[edges->a1a8]
+      + white_stable[edges->a8h8] + white_stable[edges->h1h8]) / 2;
   }
 }
 
 
 
 /*
-  COUNT_STABLE
-  Returns the number of stable discs for COLOR.
-  Side effect: last_black_stable or last_white_stable is modified.
-  Note: COUNT_EDGE_STABLE must have been called immediately
-        before this function is called *or you lose big*.
+  COUNT_EDGE_STABLE
+  Legacy entry point storing indices into TLS variables.
 */
 
 int
-count_stable( int color,
-	      BitBoard col_bits,
-	      BitBoard opp_bits ) {
+count_edge_stable( int color,
+		   BitBoard col_bits,
+		   BitBoard opp_bits ) {
+  EdgeIndices e;
+  int res = count_edge_stable_indexed( color, col_bits, opp_bits, &e );
+  edge_a1h1 = e.a1h1;
+  edge_a8h8 = e.a8h8;
+  edge_a1a8 = e.a1a8;
+  edge_h1h8 = e.h1h8;
+  return res;
+}
+
+
+
+/*
+  COUNT_STABLE_INDEXED
+  Returns the number of stable discs for COLOR given the calculated EDGES.
+*/
+
+int
+count_stable_indexed( int color,
+		      BitBoard col_bits,
+		      BitBoard opp_bits,
+		      const EdgeIndices *edges ) {
   unsigned int t;
   BitBoard col_stable;
   BitBoard common_stable;
 
   /* Stable edge discs */
 
-  common_stable = edge_stable[edge_a1h1];
+  common_stable = edge_stable[edges->a1h1];
 
-  common_stable |= ((BitBoard) edge_stable[edge_a8h8]) << 56;
+  common_stable |= ((BitBoard) edge_stable[edges->a8h8]) << 56;
 
-  t = edge_stable[edge_a1a8];
+  t = edge_stable[edges->a1a8];
   common_stable |= (BitBoard) (((t & 0x0F) * 0x00204081u) & 0x01010101u);
   common_stable |= ((BitBoard) (((t >> 4) * 0x00204081u) & 0x01010101u)) << 32;
 
-  t = edge_stable[edge_h1h8];
+  t = edge_stable[edges->h1h8];
   common_stable |= (BitBoard) (((t & 0x0F) * 0x10204080u) & 0x80808080u);
   common_stable |= ((BitBoard) (((t >> 4) * 0x10204080u) & 0x80808080u)) << 32;
 
@@ -288,6 +336,25 @@ count_stable( int color,
     return non_iterative_popcount( col_stable );
   else
     return 0;
+}
+
+
+
+/*
+  COUNT_STABLE
+  Legacy entry point reading indices from TLS variables.
+*/
+
+int
+count_stable( int color,
+	      BitBoard col_bits,
+	      BitBoard opp_bits ) {
+  EdgeIndices e;
+  e.a1h1 = edge_a1h1;
+  e.a8h8 = edge_a8h8;
+  e.a1a8 = edge_a1a8;
+  e.h1h8 = edge_h1h8;
+  return count_stable_indexed( color, col_bits, opp_bits, &e );
 }
 
 
