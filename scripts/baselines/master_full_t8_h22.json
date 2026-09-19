@@ -1,0 +1,270 @@
+{
+  "mode": "full",
+  "threads": 8,
+  "hash_bits": 22,
+  "created_at": "2026-09-19T13:35:54Z",
+  "results": {
+    "FFO #40": {
+      "correct": true,
+      "score": "51-13",
+      "expected_score": "51-13",
+      "move": "a2",
+      "expected_moves": [
+        "a2"
+      ],
+      "nodes": 16085155,
+      "time_sec": 0.2,
+      "nps": 104529831,
+      "error": null
+    },
+    "FFO #41": {
+      "correct": true,
+      "score": "32-32",
+      "expected_score": "32-32",
+      "move": "h4",
+      "expected_moves": [
+        "h4"
+      ],
+      "nodes": 19375191,
+      "time_sec": 0.3,
+      "nps": 77363676,
+      "error": null
+    },
+    "FFO #42": {
+      "correct": true,
+      "score": "35-29",
+      "expected_score": "35-29",
+      "move": "g2",
+      "expected_moves": [
+        "g2"
+      ],
+      "nodes": 24690371,
+      "time_sec": 0.4,
+      "nps": 60240840,
+      "error": null
+    },
+    "FFO #43": {
+      "correct": true,
+      "score": "38-26",
+      "expected_score": "38-26",
+      "move": "c7",
+      "expected_moves": [
+        "c7"
+      ],
+      "nodes": 22987696,
+      "time_sec": 0.4,
+      "nps": 57690483,
+      "error": null
+    },
+    "FFO #44": {
+      "correct": true,
+      "score": "39-25",
+      "expected_score": "39-25",
+      "move": "d2",
+      "expected_moves": [
+        "d2"
+      ],
+      "nodes": 19671100,
+      "time_sec": 0.3,
+      "nps": 68432167,
+      "error": null
+    },
+    "FFO #45": {
+      "correct": true,
+      "score": "35-29",
+      "expected_score": "35-29",
+      "move": "b2",
+      "expected_moves": [
+        "b2"
+      ],
+      "nodes": 409390907,
+      "time_sec": 3.0,
+      "nps": 137068244,
+      "error": null
+    },
+    "FFO #46": {
+      "correct": true,
+      "score": "28-36",
+      "expected_score": "28-36",
+      "move": "b3",
+      "expected_moves": [
+        "b3"
+      ],
+      "nodes": 63907081,
+      "time_sec": 0.9,
+      "nps": 69744333,
+      "error": null
+    },
+    "FFO #47": {
+      "correct": true,
+      "score": "30-34",
+      "expected_score": "30-34",
+      "move": "g2",
+      "expected_moves": [
+        "g2"
+      ],
+      "nodes": 21601988,
+      "time_sec": 0.4,
+      "nps": 54769553,
+      "error": null
+    },
+    "FFO #48": {
+      "correct": true,
+      "score": "18-46",
+      "expected_score": "18-46",
+      "move": "f6",
+      "expected_moves": [
+        "f6"
+      ],
+      "nodes": 172418589,
+      "time_sec": 2.1,
+      "nps": 82931390,
+      "error": null
+    },
+    "FFO #49": {
+      "correct": true,
+      "score": "40-24",
+      "expected_score": "40-24",
+      "move": "e1",
+      "expected_moves": [
+        "e1"
+      ],
+      "nodes": 275939223,
+      "time_sec": 2.6,
+      "nps": 106619238,
+      "error": null
+    },
+    "FFO #50": {
+      "correct": true,
+      "score": "37-27",
+      "expected_score": "37-27",
+      "move": "d8",
+      "expected_moves": [
+        "d8"
+      ],
+      "nodes": 1464529053,
+      "time_sec": 10.2,
+      "nps": 143209665,
+      "error": null
+    },
+    "FFO #51": {
+      "correct": true,
+      "score": "29-35",
+      "expected_score": "29-35",
+      "move": "e2",
+      "expected_moves": [
+        "e2"
+      ],
+      "nodes": 325022304,
+      "time_sec": 3.1,
+      "nps": 105577694,
+      "error": null
+    },
+    "FFO #52": {
+      "correct": true,
+      "score": "32-32",
+      "expected_score": "32-32",
+      "move": "a3",
+      "expected_moves": [
+        "a3"
+      ],
+      "nodes": 385912720,
+      "time_sec": 4.1,
+      "nps": 94768788,
+      "error": null
+    },
+    "FFO #53": {
+      "correct": true,
+      "score": "31-33",
+      "expected_score": "31-33",
+      "move": "d8",
+      "expected_moves": [
+        "d8"
+      ],
+      "nodes": 3061420968,
+      "time_sec": 25.0,
+      "nps": 122440848,
+      "error": null
+    },
+    "FFO #54": {
+      "correct": true,
+      "score": "31-33",
+      "expected_score": "31-33",
+      "move": "c7",
+      "expected_moves": [
+        "c7"
+      ],
+      "nodes": 4886857100,
+      "time_sec": 36.6,
+      "nps": 133656921,
+      "error": null
+    },
+    "FFO #55": {
+      "correct": true,
+      "score": "32-32",
+      "expected_score": "32-32",
+      "move": "g6",
+      "expected_moves": [
+        "g6"
+      ],
+      "nodes": 15190554675,
+      "time_sec": 117.6,
+      "nps": 129152439,
+      "error": null
+    },
+    "FFO #56": {
+      "correct": true,
+      "score": "31-33",
+      "expected_score": "31-33",
+      "move": "h5",
+      "expected_moves": [
+        "h5"
+      ],
+      "nodes": 1431855865,
+      "time_sec": 16.1,
+      "nps": 88930689,
+      "error": null
+    },
+    "FFO #57": {
+      "correct": true,
+      "score": "27-37",
+      "expected_score": "27-37",
+      "move": "a6",
+      "expected_moves": [
+        "a6"
+      ],
+      "nodes": 5641603016,
+      "time_sec": 63.7,
+      "nps": 88503351,
+      "error": null
+    },
+    "FFO #58": {
+      "correct": true,
+      "score": "34-30",
+      "expected_score": "34-30",
+      "move": "g1",
+      "expected_moves": [
+        "g1"
+      ],
+      "nodes": 2620662104,
+      "time_sec": 26.0,
+      "nps": 100802788,
+      "error": null
+    },
+    "FFO #59": {
+      "correct": true,
+      "score": "64-0",
+      "expected_score": "64-0",
+      "move": "g8",
+      "expected_moves": [
+        "g8",
+        "h4",
+        "e8"
+      ],
+      "nodes": 1394868,
+      "time_sec": 0.1,
+      "nps": 10689545,
+      "error": null
+    }
+  }
+}

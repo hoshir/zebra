@@ -1,4 +1,6 @@
-.claude/
+.agent/
+.agents/
+AGENTS.md
 build/
 current.gam
 current.mov
