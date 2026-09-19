@@ -158,20 +158,31 @@ def solve_position(repo_root, pos_str, threads, hash_bits):
         return {"success": False, "error": str(e)}
 
 
-def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False):
-    """Evaluate a set of positions and verify correctness."""
+def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, quiet=False):
+    """Evaluate a set of positions and verify correctness with real-time progress."""
     results = {}
     all_correct = True
+    total_positions = len(positions)
+    suite_start = time.time()
 
-    for name, board, exp_b, exp_w, valid_moves in positions:
-        if verbose:
-            sys.stderr.write(f"  Solving {name} (threads={threads}, -h {hash_bits})...\n")
+    for idx, (name, board, exp_b, exp_w, valid_moves) in enumerate(positions, 1):
+        base_info = ""
+        if baseline_results and name in baseline_results:
+            b_sec = baseline_results[name].get("time_sec")
+            if b_sec is not None:
+                base_info = f" [baseline ~{b_sec:.1f}s]"
+
+        if not quiet:
+            sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: solving (threads={threads}, -h {hash_bits}){base_info}...\n")
             sys.stderr.flush()
 
         res = solve_position(repo_root, board, threads, hash_bits)
         if not res["success"]:
             all_correct = False
             results[name] = {"correct": False, "error": res["error"]}
+            if not quiet:
+                sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: FAILED ({res['error']})\n")
+                sys.stderr.flush()
             continue
 
         score_ok = (res["score_black"] == exp_b) and (res["score_white"] == exp_w)
@@ -179,6 +190,29 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False):
         is_correct = score_ok and move_ok
         if not is_correct:
             all_correct = False
+
+        status_str = "PASS" if is_correct else "MISMATCH"
+        delta_str = ""
+        if baseline_results and name in baseline_results and is_correct:
+            b_nodes = baseline_results[name].get("nodes", 0)
+            b_time = baseline_results[name].get("time_sec", 0.0)
+            if b_nodes > 0:
+                n_delta = ((res["nodes"] - b_nodes) / b_nodes) * 100.0
+                t_delta = ((res["time_sec"] - b_time) / b_time) * 100.0 if b_time > 0 else 0.0
+                n_sign = "+" if n_delta > 0 else ""
+                t_sign = "+" if t_delta > 0 else ""
+                delta_str = f" | vs base: {n_sign}{n_delta:.2f}% nodes, {t_sign}{t_delta:.1f}% time"
+
+        nodes_m = res["nodes"] / 1e6
+        nps_m = res["nps"] / 1e6
+        elapsed = int(time.time() - suite_start)
+
+        if not quiet:
+            sys.stderr.write(
+                f"[{idx:2d}/{total_positions:2d}] {name}: {status_str} {res['score_black']}-{res['score_white']} {res['first_move']} "
+                f"({res['time_sec']:.2f}s, {nodes_m:.1f}M nodes, {nps_m:.1f}M nps{delta_str}) [elapsed: {elapsed}s]\n"
+            )
+            sys.stderr.flush()
 
         results[name] = {
             "correct": is_correct,
@@ -369,7 +403,12 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print progress to stderr during evaluation."
+        help="Print extra debug output during evaluation."
+    )
+    parser.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+        help="Suppress real-time per-position progress output."
     )
 
     args = parser.parse_args()
@@ -384,11 +423,13 @@ def main():
     test_passed = True
     test_output = ""
     if not args.skip_tests:
-        if args.verbose:
+        if not args.quiet:
             sys.stderr.write("Running unit test suite ('make test')...\n")
+            sys.stderr.flush()
         test_passed, test_output = run_test_suite(repo_root)
-        if not test_passed and args.verbose:
+        if not test_passed:
             sys.stderr.write(f"Unit tests failed:\n{test_output[-500:]}\n")
+            sys.stderr.flush()
 
     # 2. Select positions
     if args.mode == "screen":
@@ -396,16 +437,10 @@ def main():
     else:
         target_positions = FFO_POSITIONS
 
-    # 3. Evaluate target positions
-    candidate_results, all_correct = evaluate_suite(
-        repo_root, target_positions, threads, args.hash_bits, verbose=args.verbose
-    )
-
-    # 4. Handle baseline comparison
+    # 3. Handle baseline loading before evaluation so live deltas can be shown
     baseline_data = None
     baseline_path = args.baseline
     if baseline_path is None:
-        # Check standard baseline path if available
         std_path = os.path.join(script_dir, "baselines", f"master_{args.mode}_t{threads}_h{args.hash_bits}.json")
         if os.path.exists(std_path):
             baseline_path = std_path
@@ -417,6 +452,14 @@ def main():
         except Exception as e:
             if args.verbose:
                 sys.stderr.write(f"Warning: Failed to load baseline from {baseline_path}: {e}\n")
+
+    baseline_results = baseline_data.get("results") if (baseline_data and "results" in baseline_data) else None
+
+    # 4. Evaluate target positions with live progress
+    candidate_results, all_correct = evaluate_suite(
+        repo_root, target_positions, threads, args.hash_bits,
+        verbose=args.verbose, baseline_results=baseline_results, quiet=args.quiet
+    )
 
     comparison = None
     summary = None
