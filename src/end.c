@@ -84,6 +84,10 @@
 /* Use stability pruning? */
 #define USE_STABILITY                TRUE
 
+/* Use shallow transposition table for low-depth endgame nodes? */
+#define USE_SHALLOW_TT               TRUE
+#define SHALLOW_TT_MIN_DEPTH         5
+
 
 
 #if 0
@@ -249,6 +253,7 @@ end_hash_diff( const BitBoard new_my_bits, const BitBoard my_bits,
 
 static int
 bb_valid_move( int move, BitBoard my_bits, BitBoard opp_bits ) {
+  BitBoard dummy;
   int row = move / 10;
   int col = move % 10;
 
@@ -258,7 +263,7 @@ bb_valid_move( int move, BitBoard my_bits, BitBoard opp_bits ) {
   if ( (my_bits | opp_bits) & square_mask[move] )
     return FALSE;
 
-  return TestFlips_wrapper( move, my_bits, opp_bits ) > 0;
+  return TestFlips_bitboard_to( move, my_bits, opp_bits, &dummy ) > 0;
 }
 
 
@@ -684,6 +689,7 @@ solve_parity( BitBoard my_bits,
 	      int pass_legal ) {
   BitBoard new_opp_bits;
   int score = -INFINITE_EVAL;
+  int in_alpha = alpha;
   int oppcol = OPP( color );
   int ev;
   int flipped;
@@ -692,6 +698,21 @@ solve_parity( BitBoard my_bits,
   unsigned int parity_mask;
 
   INCREMENT_COUNTER( nodes );
+
+#if USE_SHALLOW_TT
+  if ( empties >= SHALLOW_TT_MIN_DEPTH ) {
+    HashEntry entry;
+    find_shallow_hash( &entry );
+    if ( (entry.draft == empties) && (entry.flags & ENDGAME_SCORE) ) {
+      if ( (entry.flags & EXACT_VALUE) ||
+	   ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
+	   ((entry.flags & UPPER_BOUND) && entry.eval <= alpha) ) {
+	end_best_move = entry.move[0];
+	return entry.eval;
+      }
+    }
+  }
+#endif
 
   /* Check for stability cutoff */
 
@@ -721,8 +742,13 @@ solve_parity( BitBoard my_bits,
       if ( holepar & parity_mask ) {
 	flipped = TestFlips_wrapper( sq, my_bits, opp_bits );
 	if ( flipped != 0 ) {
+	  unsigned int diff1, diff2;
 	  FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
+	  end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
+	  hash1 ^= diff1;
+	  hash2 ^= diff2;
+	  region_parity ^= holepar;
 	  end_move_list[old_sq].succ = end_move_list[sq].succ;
 	  new_disc_diff = -disc_diff - 2 * flipped - 1;
 	  if ( empties == 5 ) {
@@ -734,22 +760,27 @@ solve_parity( BitBoard my_bits,
 				     -beta, -alpha, new_disc_diff, TRUE );
 	  }
 	  else {
-	    region_parity ^= holepar;
 	    ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha,
 				oppcol, empties - 1, new_disc_diff, TRUE );
-	    region_parity ^= holepar;
 	  }
 	  end_move_list[old_sq].succ = sq;
+	  region_parity ^= holepar;
+	  hash1 ^= diff1;
+	  hash2 ^= diff2;
 
 	  if ( ev > score ) {
+	    score = ev;
 	    if ( ev > alpha ) {
 	      if ( ev >= beta ) {
 		end_best_move = sq;
+#if USE_SHALLOW_TT
+		if ( empties >= SHALLOW_TT_MIN_DEPTH )
+		  add_shallow_hash( ev, sq, ENDGAME_SCORE | LOWER_BOUND, empties );
+#endif
 		return ev;
 	      }
 	      alpha = ev;
 	    }
-	    score = ev;
 	    best_sq = sq;
 	  }
 	}
@@ -766,8 +797,13 @@ solve_parity( BitBoard my_bits,
     if ( holepar & parity_mask ) {
       flipped = TestFlips_wrapper( sq, my_bits, opp_bits );
       if ( flipped != 0 ) {
+	unsigned int diff1, diff2;
 	FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
+	end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
+	hash1 ^= diff1;
+	hash2 ^= diff2;
+	region_parity ^= holepar;
 	end_move_list[old_sq].succ = end_move_list[sq].succ;
 	new_disc_diff = -disc_diff - 2 * flipped - 1;
 	if ( empties == 5 ) {
@@ -779,22 +815,27 @@ solve_parity( BitBoard my_bits,
 				  -beta, -alpha, new_disc_diff, TRUE );
 	}
 	else {
-	  region_parity ^= holepar;
 	  ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha,
 			      oppcol, empties - 1, new_disc_diff, TRUE );
-	  region_parity ^= holepar;
 	}
 	end_move_list[old_sq].succ = sq;
+	region_parity ^= holepar;
+	hash1 ^= diff1;
+	hash2 ^= diff2;
 
 	if ( ev > score ) {
+	  score = ev;
 	  if ( ev > alpha ) {
 	    if ( ev >= beta ) {
 	      end_best_move = sq;
+#if USE_SHALLOW_TT
+	      if ( empties >= SHALLOW_TT_MIN_DEPTH )
+		add_shallow_hash( ev, sq, ENDGAME_SCORE | LOWER_BOUND, empties );
+#endif
 	      return ev;
 	    }
 	    alpha = ev;
 	  }
-	  score = ev;
 	  best_sq = sq;
 	}
       }
@@ -809,11 +850,28 @@ solve_parity( BitBoard my_bits,
 	return disc_diff - empties;
       return 0;
     }
-    else
-      return -solve_parity( opp_bits, my_bits, -beta, -alpha, oppcol,
-			    empties, -disc_diff, FALSE );
+    else {
+      hash1 ^= hash_flip_color1;
+      hash2 ^= hash_flip_color2;
+      ev = -solve_parity( opp_bits, my_bits, -beta, -alpha, oppcol,
+			  empties, -disc_diff, FALSE );
+      hash1 ^= hash_flip_color1;
+      hash2 ^= hash_flip_color2;
+      return ev;
+    }
   }
   end_best_move = best_sq;
+
+#if USE_SHALLOW_TT
+  if ( empties >= SHALLOW_TT_MIN_DEPTH ) {
+    int flags = ENDGAME_SCORE;
+    if ( score > in_alpha )
+      flags |= EXACT_VALUE;
+    else
+      flags |= UPPER_BOUND;
+    add_shallow_hash( score, best_sq, flags, empties );
+  }
+#endif
 
   return score;
 }
@@ -883,15 +941,21 @@ solve_parity_hash( BitBoard my_bits,
       if ( holepar & parity_mask ) {
 	flipped = TestFlips_wrapper( sq, my_bits, opp_bits );
 	if ( flipped != 0 ) {
+	  unsigned int diff1, diff2;
 	  FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
+	  end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
+	  hash1 ^= diff1;
+	  hash2 ^= diff2;
 	  region_parity ^= holepar;
 	  end_move_list[old_sq].succ = end_move_list[sq].succ;
 	  new_disc_diff = -disc_diff - 2 * flipped - 1;
 	  ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha, oppcol,
 			      empties - 1, new_disc_diff, TRUE );
-	  region_parity ^= holepar;
 	  end_move_list[old_sq].succ = sq;
+	  region_parity ^= holepar;
+	  hash1 ^= diff1;
+	  hash2 ^= diff2;
 	      
 	  if ( ev > score ) {
 	    score = ev;
@@ -921,15 +985,21 @@ solve_parity_hash( BitBoard my_bits,
     if ( holepar & parity_mask ) {
       flipped = TestFlips_wrapper( sq, my_bits, opp_bits );
       if ( flipped != 0 ) {
+	unsigned int diff1, diff2;
 	FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
+	end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
+	hash1 ^= diff1;
+	hash2 ^= diff2;
 	region_parity ^= holepar;
 	end_move_list[old_sq].succ = end_move_list[sq].succ;
 	new_disc_diff = -disc_diff - 2 * flipped - 1;
 	ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha, oppcol,
 			    empties - 1, new_disc_diff, TRUE );
-	region_parity ^= holepar;
 	end_move_list[old_sq].succ = sq;
+	region_parity ^= holepar;
+	hash1 ^= diff1;
+	hash2 ^= diff2;
 	      
 	if ( ev > score ) {
 	  score = ev;

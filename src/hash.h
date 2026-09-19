@@ -129,6 +129,26 @@ add_hash_extended( int reverse_mode,
 void REGPARM(2)
 find_hash( HashEntry *entry, int reverse_mode );
 
+#define DEFAULT_SHALLOW_HASH_BITS    19
+
+void
+init_shallow_hash( int in_bits );
+
+void
+free_shallow_hash( void );
+
+void
+clear_shallow_hash( void );
+
+void REGPARM(1)
+find_shallow_hash( HashEntry *entry );
+
+void
+add_shallow_hash( int score,
+		  int best,
+		  int flags,
+		  int draft );
+
 
 
 #ifdef __cplusplus
