@@ -102,7 +102,7 @@ progress reporting:
 
 ## Web sites
 
-* Gunner's website: http://radagast.se/othello/
+* Gunnar's website: http://radagast.se/othello/
 * Original source code: http://radagast.se/othello/zebra.tar.gz
 
 
