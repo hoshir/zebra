@@ -30,6 +30,10 @@ extern _Thread_local BitBoard last_black_stable, last_white_stable;
 
 
 
+typedef struct {
+  int a1h1, a8h8, a1a8, h1h8;
+} EdgeIndices;
+
 /*
   COUNT_EDGE_STABLE
   Returns the number of stable edge discs for COLOR.
@@ -37,6 +41,9 @@ extern _Thread_local BitBoard last_black_stable, last_white_stable;
 
 int
 count_edge_stable( int color, BitBoard col_bits, BitBoard opp_bits );
+
+int
+count_edge_stable_indexed( int color, BitBoard col_bits, BitBoard opp_bits, EdgeIndices *edges );
 
 
 /*
@@ -48,6 +55,9 @@ count_edge_stable( int color, BitBoard col_bits, BitBoard opp_bits );
 
 int
 count_stable( int color, BitBoard col_bits, BitBoard opp_bits );
+
+int
+count_stable_indexed( int color, BitBoard col_bits, BitBoard opp_bits, const EdgeIndices *edges );
 
 
 /*
