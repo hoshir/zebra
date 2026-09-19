@@ -33,6 +33,7 @@
 #include "end.h"
 #include "macros.h"
 #include "patterns.h"
+#include "safemem.h"
 #include "stable.h"
 
 
@@ -64,21 +65,8 @@ _Thread_local BitBoard last_black_stable, last_white_stable;
 
 /* Local variables */
 
-/* For each of the 3^8 edges, edge_stable[] holds an 8-bit mask
-   where a bit is set if the corresponding disc can't be changed EVER. */
-static short edge_stable[6561];
-
-/* For each edge, *_stable[] holds the number of safe discs counted
-   as follows: 1 for a stable corner and 2 for a stable non-corner.
-   This to avoid counting corners twice. */
-static unsigned char black_stable[6561], white_stable[6561];
-
-/* A conversion table from the 2^8 edge values for one player to
-   the corresponding base-3 value. */
-static short base_conversion[256];
-
-/* The base-3 indices for the edges */
-static _Thread_local int edge_a1h1, edge_a8h8, edge_a1a8, edge_h1h8;
+/* Direct 64 KB lookup table mapping player & opponent 8-bit edge patterns to player's stable discs */
+static uint8_t edge_stable_table[256 * 256];
 
 /* Position list used in the complete stability search */
 
@@ -229,10 +217,26 @@ edge_zardoz_stable( BitBoard *ss,
 
 
 
+INLINE static BitBoard
+unpack_fileA( unsigned int t ) {
+  BitBoard b = (((t & 0x0Fu) * 0x00204081u) & 0x01010101u);
+  b |= ((BitBoard)(((t >> 4) * 0x00204081u) & 0x01010101u)) << 32;
+  return b;
+}
+
+INLINE static BitBoard
+unpack_fileH( unsigned int t ) {
+  BitBoard b = (((t & 0x0Fu) * 0x10204080u) & 0x80808080u);
+  b |= ((BitBoard)(((t >> 4) * 0x10204080u) & 0x80808080u)) << 32;
+  return b;
+}
+
+
+
 /*
   COUNT_EDGE_STABLE_INDEXED
-  Returns the number of stable edge discs for COLOR and writes the 4 edge
-  indices into *edges.
+  Returns the number of stable edge discs for COLOR and writes the 64-bit
+  stable edge bitboard into edges->bits.
 */
 
 int
@@ -240,44 +244,32 @@ count_edge_stable_indexed( int color,
 			   BitBoard col_bits,
 			   BitBoard opp_bits,
 			   EdgeIndices *edges ) {
-  unsigned int col_mask, opp_mask, ix_a1a8, ix_h1h8, ix_a1h1, ix_a8h8;
+  (void) color;
+  unsigned int p_r1 = (unsigned int)(col_bits & 0xFF);
+  unsigned int o_r1 = (unsigned int)(opp_bits & 0xFF);
+  unsigned int p_r8 = (unsigned int)((col_bits >> 56) & 0xFF);
+  unsigned int o_r8 = (unsigned int)((opp_bits >> 56) & 0xFF);
 
-  col_mask = ((col_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
-  opp_mask = ((opp_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
-  ix_a1a8 = base_conversion[col_mask] - base_conversion[opp_mask];
+  unsigned int p_fA = (unsigned int)(((col_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56);
+  unsigned int o_fA = (unsigned int)(((opp_bits & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56);
 
-  col_mask = (((col_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
-  opp_mask = (((opp_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56;
-  ix_h1h8 = base_conversion[col_mask] - base_conversion[opp_mask];
+  unsigned int p_fH = (unsigned int)((((col_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56);
+  unsigned int o_fH = (unsigned int)((((opp_bits >> 7) & 0x0101010101010101ull) * 0x0102040810204080ull) >> 56);
 
-  ix_a1h1 = base_conversion[col_bits & 255] - base_conversion[opp_bits & 255];
-  ix_a8h8 = base_conversion[col_bits >> 56] - base_conversion[opp_bits >> 56];
+  BitBoard st = (BitBoard) edge_stable_table[p_r1 | (o_r1 << 8)]
+              | ((BitBoard) edge_stable_table[p_r8 | (o_r8 << 8)] << 56)
+              | unpack_fileA( edge_stable_table[p_fA | (o_fA << 8)] )
+              | unpack_fileH( edge_stable_table[p_fH | (o_fH << 8)] );
 
-  if ( color == BLACKSQ ) {
-    edges->a1h1 = 3280 * EMPTY - ix_a1h1;
-    edges->a8h8 = 3280 * EMPTY - ix_a8h8;
-    edges->a1a8 = 3280 * EMPTY - ix_a1a8;
-    edges->h1h8 = 3280 * EMPTY - ix_h1h8;
-
-    return (unsigned char)(black_stable[edges->a1h1] + black_stable[edges->a1a8]
-      + black_stable[edges->a8h8] + black_stable[edges->h1h8]) / 2;
-
-  } else {
-    edges->a1h1 = 3280 * EMPTY + ix_a1h1;
-    edges->a8h8 = 3280 * EMPTY + ix_a8h8;
-    edges->a1a8 = 3280 * EMPTY + ix_a1a8;
-    edges->h1h8 = 3280 * EMPTY + ix_h1h8;
-
-    return (unsigned char)(white_stable[edges->a1h1] + white_stable[edges->a1a8]
-      + white_stable[edges->a8h8] + white_stable[edges->h1h8]) / 2;
-  }
+  edges->bits = st;
+  return non_iterative_popcount( st );
 }
 
 
 
 /*
   COUNT_EDGE_STABLE
-  Legacy entry point storing indices into TLS variables.
+  Computes the number of stable edge discs for COLOR.
 */
 
 int
@@ -285,12 +277,7 @@ count_edge_stable( int color,
 		   BitBoard col_bits,
 		   BitBoard opp_bits ) {
   EdgeIndices e;
-  int res = count_edge_stable_indexed( color, col_bits, opp_bits, &e );
-  edge_a1h1 = e.a1h1;
-  edge_a8h8 = e.a8h8;
-  edge_a1a8 = e.a1a8;
-  edge_h1h8 = e.h1h8;
-  return res;
+  return count_edge_stable_indexed( color, col_bits, opp_bits, &e );
 }
 
 
@@ -305,27 +292,9 @@ count_stable_indexed( int color,
 		      BitBoard col_bits,
 		      BitBoard opp_bits,
 		      const EdgeIndices *edges ) {
-  unsigned int t;
-  BitBoard col_stable;
-  BitBoard common_stable;
-
-  /* Stable edge discs */
-
-  common_stable = edge_stable[edges->a1h1];
-
-  common_stable |= ((BitBoard) edge_stable[edges->a8h8]) << 56;
-
-  t = edge_stable[edges->a1a8];
-  common_stable |= (BitBoard) (((t & 0x0F) * 0x00204081u) & 0x01010101u);
-  common_stable |= ((BitBoard) (((t >> 4) * 0x00204081u) & 0x01010101u)) << 32;
-
-  t = edge_stable[edges->h1h8];
-  common_stable |= (BitBoard) (((t & 0x0F) * 0x10204080u) & 0x80808080u);
-  common_stable |= ((BitBoard) (((t >> 4) * 0x10204080u) & 0x80808080u)) << 32;
+  BitBoard col_stable = edges->bits;
 
   /* Expand the stable edge discs into a full set of stable discs */
-
-  col_stable = col_bits & common_stable;
   edge_zardoz_stable( &col_stable, col_bits, opp_bits );
   if ( color == BLACKSQ )
     last_black_stable = col_stable;
@@ -342,7 +311,7 @@ count_stable_indexed( int color,
 
 /*
   COUNT_STABLE
-  Legacy entry point reading indices from TLS variables.
+  Legacy entry point computing edge discs and expanding full stability.
 */
 
 int
@@ -350,10 +319,7 @@ count_stable( int color,
 	      BitBoard col_bits,
 	      BitBoard opp_bits ) {
   EdgeIndices e;
-  e.a1h1 = edge_a1h1;
-  e.a8h8 = edge_a8h8;
-  e.a1a8 = edge_a1a8;
-  e.h1h8 = edge_h1h8;
+  (void) count_edge_stable_indexed( color, col_bits, opp_bits, &e );
   return count_stable_indexed( color, col_bits, opp_bits, &e );
 }
 
@@ -553,63 +519,27 @@ get_stable( int *in_board,
 
 
 
-#if DEBUG
-/*
-  DISPLAY_ROW
-  Display an edge configuration and highlight the stable discs.
-*/
 
-static void
-display_row( int pattern ) {
-  int i;
-  int mask = edge_stable[pattern];
-  int temp = pattern;
-
-  for ( i = 0; i < 8; i++ ) {
-    switch ( temp % 3) {
-    case EMPTY:
-      putchar( '-' );
-      break;
-    case BLACKSQ:
-      if ( mask & (1 << i) )
-	putchar( 'X' );
-      else
-	putchar( 'x' );
-      break;
-    case WHITESQ:
-      if ( mask & (1 << i) )
-	putchar( 'O' );
-      else
-	putchar( 'o' );
-    }
-    temp /= 3;
-  }
-#ifdef TEXT_BASED
-  printf( "     pattern %4d   black %2d   white %2d\n", pattern,
-	  black_stable[pattern], white_stable[pattern] );
-#endif
-}
-#endif
 
 
 
 /*
   RECURSIVE_FIND_STABLE
   Returns a bit mask describing the set of stable discs in the
-  edge PATTERN. When a bit mask is calculated, it's stored in
-  a table so that any particular bit mask only is generated once.
+  edge PATTERN. Used only during engine initialization to populate
+  the direct 64 KB edge_stable_table.
 */
 
 static int
-recursive_find_stable( int pattern ) {
+recursive_find_stable( int pattern, short *temp_edge_stable ) {
   int i, j;
   int new_pattern;
   int stable;
   int temp;
   int row[8], stored_row[8];
 
-  if ( edge_stable[pattern] != UNDETERMINED )
-    return edge_stable[pattern];
+  if ( temp_edge_stable[pattern] != UNDETERMINED )
+    return temp_edge_stable[pattern];
 
   temp = pattern;
   for ( i = 0; i < 8; i++, temp /= 3 )
@@ -663,7 +593,7 @@ recursive_find_stable( int pattern ) {
       new_pattern = 0;
       for ( j = 0; j < 8; j++ )
 	new_pattern += pow3[j] * row[j];
-      stable &= recursive_find_stable( new_pattern );
+      stable &= recursive_find_stable( new_pattern, temp_edge_stable );
 
       /* Restore position */
 
@@ -696,13 +626,13 @@ recursive_find_stable( int pattern ) {
       new_pattern = 0;
       for ( j = 0; j < 8; j++ )
 	new_pattern += pow3[j] * row[j];
-      stable &= recursive_find_stable( new_pattern );
+      stable &= recursive_find_stable( new_pattern, temp_edge_stable );
     }
   }
 
   /* Store and return */
 
-  edge_stable[pattern] = stable;
+  temp_edge_stable[pattern] = stable;
 
   return stable;
 }
@@ -710,77 +640,44 @@ recursive_find_stable( int pattern ) {
 
 
 /*
-  COUNT_COLOR_STABLE
-  Determines the number of stable discs for each of the edge configurations
-  for the two colors. This is done using the following convention:
-  - a stable corner disc gives stability of 1
-  - a stable non-corner disc gives stability of 2
-  This way the stability values for the four edges can be added together
-  without any risk for double-counting.
-*/
-
-static void
-count_color_stable( void ) {
-  int i, j;
-  int pattern;
-  int row[8];
-  static const int stable_incr[8] = { 1, 2, 2, 2, 2, 2, 2, 1};
-
-  for ( i = 0; i < 8; i++ )
-    row[i] = 0;
-
-  for ( pattern = 0; pattern < 6561; pattern++ ) {
-    black_stable[pattern] = 0;
-    white_stable[pattern] = 0;
-    for ( j = 0; j < 8; j++ )
-      if ( edge_stable[pattern] & (1 << j) ) {
-	if ( row[j] == BLACKSQ ) {
-	  black_stable[pattern] += stable_incr[j];
-	}
-	else if ( row[j] == WHITESQ ) {
-	  white_stable[pattern] += stable_incr[j];
-	}
-      }
-
-    /* Next configuration */
-    i = 0;
-    do {  /* The odometer principle */
-      row[i]++;
-      if (row[i] == 3)
-	row[i] = 0;
-      i++;
-    } while ( (row[i - 1] == 0) && (i < 8) );
-  }
-}
-
-
-
-/*
   INIT_STABLE
-  Build the table containing the stability masks for all edge
-  configurations. This is done using dynamic programming.
+  Builds the direct 64 KB lookup table mapping player & opponent
+  8-bit edge patterns to player's stable discs.
+  Done once at engine launch; temporary base-3 DP tables are discarded.
 */
 
 void
 init_stable( void ) {
-  int i, j;
+  short *temp_edge_stable;
+  short base_conv[256];
+  int i, j, p, o;
 
   for ( i = 0; i < 256; i++ ) {
-    base_conversion[i] = 0;
+    base_conv[i] = 0;
     for ( j = 0; j < 8; j++ )
       if ( i & (1 << j) )
-	base_conversion[i] += pow3[j];
+	base_conv[i] += pow3[j];
   }
 
+  temp_edge_stable = (short *) safe_malloc( 6561 * sizeof( short ) );
+
   for ( i = 0; i < 6561; i++ )
-    edge_stable[i] = UNDETERMINED;
+    temp_edge_stable[i] = UNDETERMINED;
   for ( i = 0; i < 6561; i++ )
-    if ( edge_stable[i] == UNDETERMINED )
-      (void) recursive_find_stable( i );
-  count_color_stable();
-#if DEBUG
-  for ( i = 0; i < 6561; i++ )
-    display_row( i );
-  exit( 1 );
-#endif
+    if ( temp_edge_stable[i] == UNDETERMINED )
+      (void) recursive_find_stable( i, temp_edge_stable );
+
+  for ( p = 0; p < 256; p++ ) {
+    for ( o = 0; o < 256; o++ ) {
+      int idx = p | (o << 8);
+      if ( (p & o) != 0 ) {
+	edge_stable_table[idx] = 0;
+      } else {
+	int pattern = 3280 - base_conv[p] + base_conv[o];
+	edge_stable_table[idx] = (uint8_t)(temp_edge_stable[pattern] & p);
+      }
+    }
+  }
+
+  free( temp_edge_stable );
 }
