@@ -31,7 +31,7 @@ extern _Thread_local BitBoard last_black_stable, last_white_stable;
 
 
 typedef struct {
-  int a1h1, a8h8, a1a8, h1h8;
+  BitBoard bits;
 } EdgeIndices;
 
 /*
