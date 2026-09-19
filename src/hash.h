@@ -55,8 +55,48 @@ typedef struct {
 } HashEntry;
 
 
+typedef struct {
+  unsigned int key2;
+  int eval;
+  unsigned int moves;
+  unsigned int key1_selectivity_flags_draft;
+} CompactHashEntry;
+
+
 /* The number of entries in the hash table. Always a power of 2. */
 extern int hash_size;
+extern int hash_mask;
+extern unsigned int hash_trans1;
+extern unsigned int hash_trans2;
+extern CompactHashEntry *hash_table;
+
+extern int shallow_hash_mask;
+extern CompactHashEntry *shallow_hash_table;
+
+
+static INLINE void
+prefetch_hash_endgame_key( unsigned int h2 ) {
+  if ( hash_table != NULL ) {
+    unsigned int code1 = h2 ^ hash_trans2;
+    __builtin_prefetch( &hash_table[code1 & hash_mask], 0, 3 );
+  }
+}
+
+static INLINE void
+prefetch_hash_midgame_key( unsigned int h1 ) {
+  if ( hash_table != NULL ) {
+    unsigned int code1 = h1 ^ hash_trans1;
+    __builtin_prefetch( &hash_table[code1 & hash_mask], 0, 3 );
+  }
+}
+
+static INLINE void
+prefetch_shallow_hash_key( unsigned int h2 ) {
+  if ( shallow_hash_table != NULL ) {
+    unsigned int code1 = h2 ^ hash_trans2;
+    __builtin_prefetch( &shallow_hash_table[code1 & shallow_hash_mask], 0, 3 );
+  }
+}
 
 
 /* The 64-bit hash masks for a piece of a certain color in a

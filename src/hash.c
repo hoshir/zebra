@@ -41,18 +41,17 @@
 
 
 
-typedef struct {
-  unsigned int key2;
-  int eval;
-  unsigned int moves;
-  unsigned int key1_selectivity_flags_draft;
-} CompactHashEntry;
-
-
-
 /* Global variables */
 
 int hash_size;
+int hash_mask;
+unsigned int hash_trans1 = 0;
+unsigned int hash_trans2 = 0;
+CompactHashEntry *hash_table;
+
+int shallow_hash_mask = 0;
+CompactHashEntry *shallow_hash_table = NULL;
+
 unsigned int hash_value1[3][128];
 unsigned int hash_value2[3][128];
 unsigned int hash_put_value1[3][128];
@@ -71,16 +70,10 @@ unsigned int hash_diff2[MAX_SEARCH_DEPTH];
 /* Local variables */
 
 static int hash_bits;
-static int hash_mask;
 static int rehash_count;
-static unsigned int hash_trans1 = 0;
-static unsigned int hash_trans2 = 0;
-static CompactHashEntry *hash_table;
 
 static int shallow_hash_bits = 0;
 static int shallow_hash_size = 0;
-static int shallow_hash_mask = 0;
-static CompactHashEntry *shallow_hash_table = NULL;
 
 
 

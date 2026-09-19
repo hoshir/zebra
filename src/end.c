@@ -826,7 +826,7 @@ solve_parity( BitBoard my_bits,
 	if ( ev > score ) {
 	  score = ev;
 	  if ( ev > alpha ) {
-	    if ( ev >= beta ) {
+	    if ( ev >= beta ) { 
 	      end_best_move = sq;
 #if USE_SHALLOW_TT
 	      if ( empties >= SHALLOW_TT_MIN_DEPTH )
@@ -1029,6 +1029,7 @@ solve_parity_hash( BitBoard my_bits,
     else {
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
+      prefetch_hash_endgame_key( hash2 );
       score = -solve_parity_hash( opp_bits, my_bits, -beta, -alpha, oppcol,
 				  empties, -disc_diff, FALSE );
       hash1 ^= hash_flip_color1;
@@ -1193,6 +1194,7 @@ solve_parity_hash_high( BitBoard my_bits,
     else {  /* Opponent gets the chance to play */
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
+      prefetch_hash_endgame_key( hash2 );
       score = -solve_parity_hash_high( opp_bits, my_bits, -beta, -alpha,
 				       oppcol, empties, -disc_diff, FALSE );
       hash1 ^= hash_flip_color1;
@@ -1208,6 +1210,7 @@ solve_parity_hash_high( BitBoard my_bits,
   end_hash_diff( best_new_my_bits, my_bits, color, sq, &diff1, &diff2 );
   hash1 ^= diff1;
   hash2 ^= diff2;
+  prefetch_hash_endgame_key( hash2 );
 
   region_parity ^= quadrant_mask[sq];
 
@@ -1270,6 +1273,7 @@ solve_parity_hash_high( BitBoard my_bits,
     end_hash_diff( bb_flips, my_bits, color, sq, &diff1, &diff2 );
     hash1 ^= diff1;
     hash2 ^= diff2;
+    prefetch_hash_endgame_key( hash2 );
 
     region_parity ^= quadrant_mask[sq];
 
@@ -1885,6 +1889,7 @@ end_tree_search( int level,
 	     (make_move( side_to_move, entry.move[i], TRUE ) != 0) ) {
 	  HashEntry etc_entry;
 
+	  prefetch_hash_endgame_key( hash2 );
           find_hash( &etc_entry, ENDGAME_MODE );
 	  if ( (etc_entry.flags & ENDGAME_SCORE) &&
 	       (etc_entry.draft == empties - 1) &&
@@ -1947,6 +1952,7 @@ end_tree_search( int level,
 	    if ( use_hash ) {
 	      HashEntry etc_entry;
 
+	      prefetch_hash_endgame_key( hash2 );
               find_hash( &etc_entry, ENDGAME_MODE );
 	      if ( (etc_entry.flags & ENDGAME_SCORE) &&
 		   (etc_entry.draft == empties - 1) ) {
@@ -2026,6 +2032,8 @@ end_tree_search( int level,
     }
 
     (void) make_move( side_to_move, move, use_hash );
+    if ( use_hash )
+      prefetch_hash_endgame_key( hash2 );
     (void) TestFlips_wrapper( move, my_bits, opp_bits );
     new_my_bits = bb_flips;
     FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
