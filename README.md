@@ -29,10 +29,18 @@ Measured on an 8-core machine:
 
 | Position | 1 thread | 8 threads |
 |----------|---------:|----------:|
-| FFO #45  |   11.9 s |     3.3 s |
-| FFO #48  |    7.0 s |     2.3 s |
-| FFO #49  |    9.6 s |     3.6 s |
-| FFO #51  |   10.7 s |     4.0 s |
+| FFO #45  |   13.2 s |     2.7 s |
+| FFO #48  |    8.1 s |     2.0 s |
+| FFO #49  |    9.9 s |     2.5 s |
+| FFO #51  |   10.6 s |     3.0 s |
+
+## Transposition table
+
+The transposition table defaults to 256 MB (`-h 24`, $2^{24}$ = 16,777,216 entries
+of 16 bytes each). Software prefetching (`__builtin_prefetch`) is used on hash
+table lookups to hide main memory latency. Thread-safe lockless reads and writes
+are verified with mathematical XOR checksums across key and payload fields.
+Override the size with `-h <bits>`.
 
 ## Testing
 
@@ -42,7 +50,7 @@ Run the test suite with:
 make test
 ```
 
-It takes about 5-10 seconds and runs four tests:
+It takes about 3-5 seconds and runs four tests:
 
 * `tests/fliptest.c` — differential test verifying that the two
   independent disc-flipping implementations (bitboard `TestFlips_bitboard`
@@ -69,10 +77,10 @@ and verified with:
 make test-full
 ```
 
-**Caveat: this takes several minutes** — about 8.5 on an 8-core arm64
+**Caveat: this takes several minutes** — about 4.8 on an 8-core arm64
 Mac. Most positions solve in under 10 seconds; the tail is #55 at
-roughly 3.5 minutes on its own, then #57 at 1.5 minutes and #54 at just
-over 1. For scale, the reference result on the author's page is 2h06m
+roughly 1.8 minutes on its own, then #57 at under 50 seconds and #54 at just
+under 35 seconds. For scale, the reference result on the author's page is 2h06m
 for the whole suite on a 1.33 GHz Athlon.
 
 Each position's result and elapsed time is printed as soon as it is
