@@ -104,15 +104,15 @@ def ensure_binary_built(repo_root):
     return (res.returncode == 0), res.stdout + res.stderr
 
 
-def solve_position(repo_root, pos_str, threads, hash_bits):
+def solve_position(repo_root, pos_str, threads, hash_bits, timeout=None):
     """
     Solve a single position using build/bin/scrzebra.
-    Returns: dict with (success, score_black, score_white, first_move, nodes, time_sec, nps, error_msg)
+    Returns: dict with (success, score_black, score_white, first_move, nodes, time_sec, nps, error_msg, timed_out)
     """
     bin_dir = os.path.join(repo_root, "build", "bin")
     scrzebra = os.path.join(bin_dir, "scrzebra")
     if not os.path.exists(scrzebra):
-        return {"success": False, "error": f"Binary {scrzebra} does not exist. Run 'make' first."}
+        return {"success": False, "error": f"Binary {scrzebra} does not exist. Run 'make' first.", "timed_out": False}
 
     out_file = f"eval_tmp_{os.getpid()}_{time.time_ns()}.out"
     out_path = os.path.join(bin_dir, out_file)
@@ -136,7 +136,24 @@ def solve_position(repo_root, pos_str, threads, hash_bits):
             stderr=subprocess.PIPE,
             text=True
         )
-        stdout, stderr = p.communicate(input=pos_str + "\n")
+        try:
+            stdout, stderr = p.communicate(input=pos_str + "\n", timeout=timeout)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            try:
+                p.communicate(timeout=2.0)
+            except Exception:
+                pass
+            if os.path.exists(out_path):
+                try:
+                    os.remove(out_path)
+                except OSError:
+                    pass
+            return {
+                "success": False,
+                "error": f"TIMEOUT: Exceeded runtime limit ({timeout:.1f}s)",
+                "timed_out": True
+            }
 
         # Parse stdout metrics
         time_match = re.search(r"Total time:\s+([0-9.]+)\s+s", stdout)
@@ -196,13 +213,14 @@ def solve_position(repo_root, pos_str, threads, hash_bits):
         return {"success": False, "error": str(e)}
 
 
-def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None):
-    """Evaluate a set of positions and verify correctness with real-time progress."""
+def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None, timeout_factor=2.5, timeout_floor=30.0, timeout_ceiling=180.0):
+    """Evaluate a set of positions and verify correctness with real-time progress and timeout guards."""
     if quiet is True:
         progress = "none"
 
     results = {}
     all_correct = True
+    timed_out_positions = []
     total_positions = len(positions)
     suite_start = time.time()
 
@@ -212,10 +230,14 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
 
     for idx, (name, board, exp_b, exp_w, valid_moves) in enumerate(positions, 1):
         base_info = ""
+        pos_timeout = None
         if baseline_results and name in baseline_results:
             b_sec = baseline_results[name].get("time_sec")
             if b_sec is not None:
                 base_info = f" [baseline ~{b_sec:.1f}s]"
+                pos_timeout = max(timeout_floor, b_sec * timeout_factor)
+        if pos_timeout is None:
+            pos_timeout = timeout_ceiling
 
         monitor = None
         if progress == "compact":
@@ -226,21 +248,33 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
             monitor.start()
 
         try:
-            res = solve_position(repo_root, board, threads, hash_bits)
+            res = solve_position(repo_root, board, threads, hash_bits, timeout=pos_timeout)
         finally:
             if monitor:
                 monitor.stop()
 
         if not res["success"]:
             all_correct = False
-            results[name] = {"correct": False, "error": res["error"]}
-            if progress == "compact":
-                sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: FAILED ({res['error']})\n")
-                sys.stderr.flush()
-            elif progress == "dots":
-                sys.stderr.write("F")
-                sys.stderr.flush()
-            continue
+            is_to = res.get("timed_out", False)
+            results[name] = {"correct": False, "error": res["error"], "timed_out": is_to}
+            if is_to:
+                timed_out_positions.append(name)
+                if progress == "compact":
+                    sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: TIMEOUT ({res['error']}{base_info})\n")
+                    sys.stderr.write(f"     ... ABORT: {name} exceeded runtime limit ({pos_timeout:.1f}s). Halting suite immediately to prevent hangs.\n")
+                    sys.stderr.flush()
+                elif progress == "dots":
+                    sys.stderr.write("T\n")
+                    sys.stderr.flush()
+                break
+            else:
+                if progress == "compact":
+                    sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: FAILED ({res['error']})\n")
+                    sys.stderr.flush()
+                elif progress == "dots":
+                    sys.stderr.write("F")
+                    sys.stderr.flush()
+                continue
 
         score_ok = (res["score_black"] == exp_b) and (res["score_white"] == exp_w)
         move_ok = res["first_move"] in valid_moves
@@ -290,7 +324,7 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
         sys.stderr.write(f" done ({total_time}s)\n")
         sys.stderr.flush()
 
-    return results, all_correct
+    return results, all_correct, timed_out_positions
 
 
 def compare_with_baseline(candidate_results, baseline_results):
@@ -413,15 +447,22 @@ def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
     return "\n".join(md)
 
 
-def determine_verdict(mode, test_passed, all_correct, summary):
+def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positions=None):
     """
     Automated decision engine for agents:
+    - REJECT_TIMEOUT: search process exceeded runtime ceiling (e.g. 2.5x baseline) and was forcibly killed.
     - REJECT_CORRECTNESS: make test failed or any FFO score/move mismatch.
     - REJECT_REGRESSION: deterministic node counts grew by more than +0.5%.
     - NEEDS_FULL: screen mode passed with notable node reduction (< -0.5%); needs full 19-position verification.
     - ACCEPT: full mode passed with notable node reduction (< -0.5%) and no correctness issues.
     - NEUTRAL: node counts within [-0.5%, +0.5%].
     """
+    if timed_out_positions:
+        return (
+            "REJECT_TIMEOUT",
+            f"Execution timed out on {len(timed_out_positions)} position(s): {', '.join(timed_out_positions)}. Candidate search tree expanded excessively."
+        )
+
     if not test_passed or not all_correct:
         return "REJECT_CORRECTNESS", "Correctness check failed (test suite or FFO score mismatch)."
 
@@ -520,6 +561,24 @@ def main():
         action="store_true",
         help="Suppress real-time progress output (equivalent to --progress none)."
     )
+    parser.add_argument(
+        "--timeout-factor",
+        type=float,
+        default=2.5,
+        help="Dynamic timeout multiplier relative to baseline time (default: 2.5x baseline time)."
+    )
+    parser.add_argument(
+        "--timeout-floor",
+        type=float,
+        default=30.0,
+        help="Minimum timeout floor in seconds for any position (default: 30.0s)."
+    )
+    parser.add_argument(
+        "--timeout-ceiling",
+        type=float,
+        default=180.0,
+        help="Maximum fallback timeout ceiling in seconds when no baseline exists (default: 180.0s)."
+    )
 
     args = parser.parse_args()
 
@@ -603,10 +662,11 @@ def main():
 
     baseline_results = baseline_data.get("results") if (baseline_data and "results" in baseline_data) else None
 
-    # 4. Evaluate target positions with live progress
-    candidate_results, all_correct = evaluate_suite(
+    # 4. Evaluate target positions with live progress and dynamic timeout
+    candidate_results, all_correct, timed_out_positions = evaluate_suite(
         repo_root, target_positions, threads, args.hash_bits,
-        verbose=args.verbose, baseline_results=baseline_results, progress=progress
+        verbose=args.verbose, baseline_results=baseline_results, progress=progress,
+        timeout_factor=args.timeout_factor, timeout_floor=args.timeout_floor, timeout_ceiling=args.timeout_ceiling
     )
 
     comparison = None
@@ -615,7 +675,7 @@ def main():
         comparison, summary = compare_with_baseline(candidate_results, baseline_data["results"])
 
     # 5. Determine automated verdict
-    verdict, reason = determine_verdict(args.mode, test_passed, all_correct, summary)
+    verdict, reason = determine_verdict(args.mode, test_passed, all_correct, summary, timed_out_positions=timed_out_positions)
 
     # 6. Compute raw totals across evaluated positions
     tot_nodes = sum(r.get("nodes", 0) for r in candidate_results.values() if isinstance(r, dict) and "nodes" in r)
