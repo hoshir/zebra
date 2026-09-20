@@ -1833,7 +1833,7 @@ end_tree_search( int level,
   int update_pv, first, use_hash;
   int my_discs, opp_discs;
   int curr_alpha;
-  int pre_search_done;
+  int pre_search_done, etc_tried;
   int mobility;
   int threshold;
   int best_list_index, best_list_length;
@@ -2069,6 +2069,7 @@ end_tree_search( int level,
       proven[i] = FALSE;
   best = -INFINITE_EVAL;
   pre_search_done = FALSE;
+  etc_tried = 0;
   curr_alpha = alpha;
 
   /* Initialize the move list and check the hash table move list */
@@ -2101,6 +2102,8 @@ end_tree_search( int level,
 	    for ( j = best_list_length - 1; j >= 1; j-- )
 	      best_list[j] = best_list[j - 1];
 	    best_list[0] = entry.move[i];
+	    unmake_move( side_to_move, entry.move[i] );
+	    break;
 	  }
 	  unmake_move( side_to_move, entry.move[i] );
 	}
@@ -2121,90 +2124,143 @@ end_tree_search( int level,
     else {
       if ( !pre_search_done ) {
 	int shallow_index;
+	int etc_move = 0;
 
-	pre_search_done = TRUE;
+	/* Pass 1: Lightweight 1-ply ETC scan for candidate moves before shallow tree_search */
+	if ( use_hash ) {
+	  for ( shallow_index = 0; shallow_index < MOVE_ORDER_SIZE;
+		shallow_index++ ) {
+	    int already_checked;
 
-	threshold =
-	  MIN( WIPEOUT_THRESHOLD * 128,
-	       128 * alpha + fast_first_threshold[disks_played][pre_depth] );
-
-	for ( shallow_index = 0; shallow_index < MOVE_ORDER_SIZE;
-	      shallow_index++ ) {
-	  int already_checked;
-
-	  move = sorted_move_order[disks_played][shallow_index];
-	  already_checked = FALSE;
-	  for ( j = 0; j < best_list_length; j++ )
-	    if ( move == best_list[j] )
-	      already_checked = TRUE;
-
-	  if ( !already_checked && (board[move] == EMPTY) &&
-	       (TestFlips_wrapper( move, my_bits, opp_bits ) > 0) ) {
-	    if ( can_split && proven[move] && (proven_score[move] <= curr_alpha) ) {
-	      evals[disks_played][move] = -INFINITE_EVAL;
-	      move_list[disks_played][move_count[disks_played]] = move;
-	      move_count[disks_played]++;
+	    move = sorted_move_order[disks_played][shallow_index];
+	    if ( move == etc_tried )
 	      continue;
-	    }
-	    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+	    already_checked = FALSE;
+	    for ( j = 0; j < best_list_length; j++ )
+	      if ( move == best_list[j] )
+		already_checked = TRUE;
 
-	    (void) make_move( side_to_move, move, TRUE );
-	    curr_val = 0;
+	    if ( !already_checked && (board[move] == EMPTY) &&
+		 (TestFlips_wrapper( move, my_bits, opp_bits ) > 0) ) {
+	      if ( can_split && proven[move] && (proven_score[move] <= curr_alpha) )
+		continue;
 
-	    /* Enhanced Transposition Cutoff: It's a good idea to
-	       transpose back into a position in the hash table. */
+	      if ( make_move( side_to_move, move, TRUE ) != 0 ) {
+		HashEntry etc_entry;
+		prefetch_hash_endgame_key( hash2 );
+		find_hash( &etc_entry, ENDGAME_MODE );
+		unmake_move( side_to_move, move );
 
-	    if ( use_hash ) {
-	      HashEntry etc_entry;
-
-	      prefetch_hash_endgame_key( hash2 );
-              find_hash( &etc_entry, ENDGAME_MODE );
-	      if ( (etc_entry.flags & ENDGAME_SCORE) &&
-		   (etc_entry.draft == empties - 1) ) {
-		curr_val += 384;
-		if ( etc_entry.selectivity <= selectivity ) {
-		  if ( (etc_entry.flags & (UPPER_BOUND | EXACT_VALUE)) &&
-		       (etc_entry.eval <= -beta) )
-		    curr_val = GOOD_TRANSPOSITION_EVAL;
-		  if ( (etc_entry.flags & LOWER_BOUND) &&
-		       (etc_entry.eval >= -alpha) )
-		    curr_val -= 640;
+		if ( (etc_entry.flags & ENDGAME_SCORE) &&
+		     (etc_entry.draft == empties - 1) &&
+		     (etc_entry.selectivity <= selectivity) &&
+		     (etc_entry.flags & (UPPER_BOUND | EXACT_VALUE)) &&
+		     (etc_entry.eval <= -beta) ) {
+		  etc_move = move;
+		  break;
 		}
 	      }
 	    }
+	  }
+	}
 
-	    /* Determine the midgame score. If it is worse than
-	       alpha-8, a fail-high is likely so precision in that
-	       range is not worth the extra nodes required. */
+	if ( etc_move != 0 ) {
+	  etc_tried = etc_move;
+	  evals[disks_played][etc_move] = GOOD_TRANSPOSITION_EVAL;
+	  move_list[disks_played][move_count[disks_played]] = etc_move;
+	  move_count[disks_played]++;
+	}
+	else {
+	  pre_search_done = TRUE;
 
-	    if ( curr_val != GOOD_TRANSPOSITION_EVAL )
-	      curr_val -=
-		tree_search( level + 1, level + pre_depth,
-			     OPP( side_to_move ), -INFINITE_EVAL,
-			     (-alpha + 8) * 128, TRUE, TRUE, TRUE );
+	  threshold =
+	    MIN( WIPEOUT_THRESHOLD * 128,
+		 128 * alpha + fast_first_threshold[disks_played][pre_depth] );
 
-	    /* Make the moves which are highly likely to result in
-	       fail-high in decreasing order of mobility for the
-	       opponent. */
+	  for ( shallow_index = 0; shallow_index < MOVE_ORDER_SIZE;
+		shallow_index++ ) {
+	    int already_checked;
 
-	    if ( (curr_val > threshold) || (move == mid_entry.move[0]) ) {
-	      if ( curr_val > WIPEOUT_THRESHOLD * 128 )
-		curr_val += 2 * VERY_HIGH_EVAL;
-	      else
-		curr_val += VERY_HIGH_EVAL;
-	      if ( curr_val < GOOD_TRANSPOSITION_EVAL ) {
-		mobility = bitboard_mobility( new_opp_bits, bb_flips );
-		if ( curr_val > 2 * VERY_HIGH_EVAL )
-		  curr_val -= 2 * ff_mob_factor[disks_played - 1] * mobility;
-		else
-		  curr_val -= ff_mob_factor[disks_played - 1] * mobility;
+	    move = sorted_move_order[disks_played][shallow_index];
+	    if ( move == etc_tried )
+	      continue;
+	    already_checked = FALSE;
+	    for ( j = 0; j < best_list_length; j++ )
+	      if ( move == best_list[j] )
+		already_checked = TRUE;
+
+	    if ( !already_checked && (board[move] == EMPTY) &&
+		 (TestFlips_wrapper( move, my_bits, opp_bits ) > 0) ) {
+	      if ( can_split && proven[move] && (proven_score[move] <= curr_alpha) ) {
+		evals[disks_played][move] = -INFINITE_EVAL;
+		move_list[disks_played][move_count[disks_played]] = move;
+		move_count[disks_played]++;
+		continue;
 	      }
-	    }
+	      FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
-	    unmake_move( side_to_move, move );
-	    evals[disks_played][move] = curr_val;
-	    move_list[disks_played][move_count[disks_played]] = move;
-	    move_count[disks_played]++;
+	      (void) make_move( side_to_move, move, TRUE );
+	      curr_val = 0;
+
+	      /* Enhanced Transposition Cutoff: It's a good idea to
+		 transpose back into a position in the hash table. */
+
+	      if ( use_hash ) {
+		HashEntry etc_entry;
+
+		prefetch_hash_endgame_key( hash2 );
+		find_hash( &etc_entry, ENDGAME_MODE );
+		if ( (etc_entry.flags & ENDGAME_SCORE) &&
+		     (etc_entry.draft == empties - 1) ) {
+		  curr_val += 384;
+		  if ( etc_entry.selectivity <= selectivity ) {
+		    if ( (etc_entry.flags & (UPPER_BOUND | EXACT_VALUE)) &&
+			 (etc_entry.eval <= -beta) )
+		      curr_val = GOOD_TRANSPOSITION_EVAL;
+		    if ( (etc_entry.flags & LOWER_BOUND) &&
+			 (etc_entry.eval >= -alpha) )
+		      curr_val -= 640;
+		  }
+		}
+	      }
+
+	      /* Determine the midgame score. If it is worse than
+		 alpha-8, a fail-high is likely so precision in that
+		 range is not worth the extra nodes required. */
+
+	      if ( curr_val != GOOD_TRANSPOSITION_EVAL )
+		curr_val -=
+		  tree_search( level + 1, level + pre_depth,
+			       OPP( side_to_move ), -INFINITE_EVAL,
+			       (-alpha + 8) * 128, TRUE, TRUE, TRUE );
+
+	      /* Make the moves which are highly likely to result in
+		 fail-high in decreasing order of mobility for the
+		 opponent. */
+
+	      if ( (curr_val > threshold) || (move == mid_entry.move[0]) ) {
+		if ( curr_val > WIPEOUT_THRESHOLD * 128 )
+		  curr_val += 2 * VERY_HIGH_EVAL;
+		else
+		  curr_val += VERY_HIGH_EVAL;
+		if ( curr_val < GOOD_TRANSPOSITION_EVAL ) {
+		  mobility = bitboard_mobility( new_opp_bits, bb_flips );
+		  if ( curr_val > 2 * VERY_HIGH_EVAL )
+		    curr_val -= 2 * ff_mob_factor[disks_played - 1] * mobility;
+		  else
+		    curr_val -= ff_mob_factor[disks_played - 1] * mobility;
+		}
+	      }
+
+	      unmake_move( side_to_move, move );
+	      evals[disks_played][move] = curr_val;
+	      move_list[disks_played][move_count[disks_played]] = move;
+	      move_count[disks_played]++;
+
+	      /* If this move achieves an ETC beta-cutoff, no need to evaluate further candidate moves */
+	      if ( curr_val == GOOD_TRANSPOSITION_EVAL )
+		break;
+	    }
 	  }
 	}
       }
