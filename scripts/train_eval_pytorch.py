@@ -254,6 +254,12 @@ class StageEvalModel(nn.Module):
             loss = loss + torch.sum((self.tables[name].weight - self.base_weights[name]) ** 2)
         return loss
 
+    def anchor_l1_loss(self) -> torch.Tensor:
+        loss = 0.0
+        for name in self.tables:
+            loss = loss + torch.sum(torch.abs(self.tables[name].weight - self.base_weights[name]))
+        return loss
+
     def export_weights(self) -> dict:
         """Export weights scaled back to coeffs_tool format (scaled by 2048)."""
         d = {}
@@ -275,6 +281,7 @@ def train_stage(
     batch_size: int = 512,
     lr: float = 1e-3,
     anchor_lambda: float = 1e-4,
+    anchor_l1_lambda: float = 0.0,
     alpha: float = 0.15,
     beta: float = 0.15,
     stage_weight_boost: float = 0.0,
@@ -331,6 +338,8 @@ def train_stage(
 
             if anchor_lambda > 0:
                 loss = loss + anchor_lambda * model.anchor_loss()
+            if anchor_l1_lambda > 0:
+                loss = loss + anchor_l1_lambda * model.anchor_l1_loss()
 
             loss.backward()
             optimizer.step()
@@ -356,7 +365,8 @@ def main():
     parser.add_argument("--epochs", "-e", type=int, default=5, help="Epochs per stage")
     parser.add_argument("--batch-size", "-b", type=int, default=512, help="Batch size")
     parser.add_argument("--lr", type=float, default=2e-3, help="Learning rate")
-    parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight")
+    parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor L2 regularization weight against base weights")
+    parser.add_argument("--anchor-l1", type=float, default=0.0, help="Anchor L1 sparsity penalty weight against base weights (Elastic Net, default: 0.0)")
     parser.add_argument("--stage-weight-boost", type=float, default=0.0, help="Boost weight for late-game stages (default: 0.0)")
     parser.add_argument("--contested-weight", type=float, default=1.0, help="Boost weight for contested positions (|score| <= contested_sigma, default: 1.0)")
     parser.add_argument("--contested-sigma", type=float, default=8.0, help="Gaussian sigma for contested score weighting (default: 8.0)")
@@ -412,6 +422,7 @@ def main():
             batch_size=args.batch_size,
             lr=args.lr,
             anchor_lambda=args.anchor,
+            anchor_l1_lambda=args.anchor_l1,
             stage_weight_boost=args.stage_weight_boost,
             contested_weight=args.contested_weight,
             contested_sigma=args.contested_sigma,
