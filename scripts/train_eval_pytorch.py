@@ -139,6 +139,7 @@ class PositionDataset(Dataset):
         self.indices_list = []
         self.scores = []
         self.parities = []
+        self.stages = []
 
         print(f"Loading positions from {data_file} for stage {target_stage} (window ±{stage_window})...")
         with open(data_file, "r") as f:
@@ -179,6 +180,7 @@ class PositionDataset(Dataset):
                 self.indices_list.append(feat_indices)
                 self.scores.append(float(target_score))
                 self.parities.append(1.0 if (stg % 2 == 1) else 0.0)
+                self.stages.append(float(stg))
 
         print(f"Loaded {len(self.scores)} matching positions.")
 
@@ -190,6 +192,7 @@ class PositionDataset(Dataset):
             torch.tensor(self.indices_list[idx], dtype=torch.long),
             torch.tensor(self.parities[idx], dtype=torch.float32),
             torch.tensor(self.scores[idx], dtype=torch.float32),
+            torch.tensor(self.stages[idx], dtype=torch.float32),
         )
 
 
@@ -266,7 +269,7 @@ def train_stage(
     stage_idx: int,
     stage_val: int,
     model: StageEvalModel,
-    dataset: PositionDataset,
+    dataset: Dataset,
     device: torch.device,
     epochs: int = 10,
     batch_size: int = 512,
@@ -274,6 +277,9 @@ def train_stage(
     anchor_lambda: float = 1e-4,
     alpha: float = 0.15,
     beta: float = 0.15,
+    stage_weight_boost: float = 0.0,
+    contested_weight: float = 1.0,
+    contested_sigma: float = 8.0,
 ) -> StageEvalModel:
     if len(dataset) == 0:
         print(f"Skipping stage {stage_val}: no training positions.")
@@ -293,10 +299,11 @@ def train_stage(
         total_loss = 0.0
         total_batches = 0
 
-        for batch_indices, batch_parity, batch_scores in loader:
+        for batch_indices, batch_parity, batch_scores, batch_stages in loader:
             batch_indices = batch_indices.to(device)
             batch_parity = batch_parity.to(device)
             batch_scores = batch_scores.to(device)
+            batch_stages = batch_stages.to(device)
 
             optimizer.zero_grad()
             preds = model(batch_indices, batch_parity)
@@ -305,7 +312,23 @@ def train_stage(
             pred_p = torch.sigmoid(alpha * preds)
             target_p = torch.sigmoid(beta * batch_scores)
 
-            loss = mse_loss(pred_p, target_p)
+            diff_sq = (pred_p - target_p) ** 2
+
+            # Compute sample weights if phase or contested weighting is enabled
+            if stage_weight_boost > 0.0 or contested_weight > 1.0:
+                w_stage = 1.0
+                if stage_weight_boost > 0.0:
+                    w_stage = 1.0 + stage_weight_boost * torch.clamp((batch_stages - 40.0) / 20.0, min=0.0)
+
+                w_score = 1.0
+                if contested_weight > 1.0:
+                    w_score = 1.0 + (contested_weight - 1.0) * torch.exp(-0.5 * (batch_scores / contested_sigma) ** 2)
+
+                weights = w_stage * w_score
+                loss = torch.sum(weights * diff_sq) / torch.clamp(torch.sum(weights), min=1e-7)
+            else:
+                loss = mse_loss(pred_p, target_p)
+
             if anchor_lambda > 0:
                 loss = loss + anchor_lambda * model.anchor_loss()
 
@@ -334,6 +357,9 @@ def main():
     parser.add_argument("--batch-size", "-b", type=int, default=512, help="Batch size")
     parser.add_argument("--lr", type=float, default=2e-3, help="Learning rate")
     parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight")
+    parser.add_argument("--stage-weight-boost", type=float, default=0.0, help="Boost weight for late-game stages (default: 0.0)")
+    parser.add_argument("--contested-weight", type=float, default=1.0, help="Boost weight for contested positions (|score| <= contested_sigma, default: 1.0)")
+    parser.add_argument("--contested-sigma", type=float, default=8.0, help="Gaussian sigma for contested score weighting (default: 8.0)")
     parser.add_argument("--device", type=str, default="auto", help="Device (cpu, mps, cuda, auto)")
     args = parser.parse_args()
 
@@ -386,6 +412,9 @@ def main():
             batch_size=args.batch_size,
             lr=args.lr,
             anchor_lambda=args.anchor,
+            stage_weight_boost=args.stage_weight_boost,
+            contested_weight=args.contested_weight,
+            contested_sigma=args.contested_sigma,
         )
         cf.stage_data[stg_val] = trained_model.export_weights()
 

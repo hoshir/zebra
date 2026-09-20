@@ -10,6 +10,7 @@ Orchestrates:
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -42,7 +43,10 @@ def main():
     parser.add_argument("--batch-size", "-b", type=int, default=256, help="Batch size for PyTorch training")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for PyTorch training")
     parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight for PyTorch")
-    parser.add_argument("--wthor", type=str, default=None, help="WTHOR dataset input (file path, dir path, or year like '2024')")
+    parser.add_argument("--stage-weight-boost", type=float, default=0.5, help="Boost weight for late-game stages in PyTorch loss (default: 0.5)")
+    parser.add_argument("--contested-weight", type=float, default=1.5, help="Boost weight for contested score positions (|score| <= sigma, default: 1.5)")
+    parser.add_argument("--contested-sigma", type=float, default=8.0, help="Gaussian sigma for contested score weighting (default: 8.0)")
+    parser.add_argument("--wthor", type=str, default=None, help="WTHOR dataset input (file path, dir path, or year(s) like '2024' or '2022,2023,2024')")
     parser.add_argument("--wthor-ratio", type=float, default=0.5, help="WTHOR mixing ratio in hybrid dataset (default: 0.5)")
     parser.add_argument("--wthor-positions", type=Path, default=None, help="Pre-extracted WTHOR positions file")
     parser.add_argument("--wthor-cache-dir", type=Path, default=Path("data/wthor"), help="Cache directory for WTHOR .wtb files and extracted positions (default: data/wthor)")
@@ -84,30 +88,31 @@ def main():
         parse_script = SCRIPT_DIR / "parse_wthor.py"
         wthor_arg = args.wthor.strip()
 
-        if wthor_arg.isdigit() and len(wthor_arg) == 4:
-            year = int(wthor_arg)
-            cached_wtb = cache_dir / f"WTH_{year}.wtb"
-            cached_positions = cache_dir / f"positions_{year}.txt"
+        year_tokens = [p for p in re.split(r'[,\\s]+', wthor_arg) if p.isdigit() and len(p) == 4]
+        if year_tokens and len(year_tokens) == len(re.split(r'[,\\s]+', wthor_arg)):
+            years = [int(y) for y in year_tokens]
+            year_tag = "_".join(str(y) for y in sorted(years)) if len(years) > 1 else str(years[0])
+            cached_positions = cache_dir / f"positions_{year_tag}.txt"
 
-            # 1. First check if parsed positions already exist in cache
             if cached_positions.exists() and cached_positions.stat().st_size > 0:
-                print(f"Found cached WTHOR positions for year {year} at {cached_positions}, using directly.")
+                print(f"Found cached WTHOR positions for {year_tag} at {cached_positions}, using directly.")
                 wthor_pos_file = cached_positions
             else:
                 wthor_pos_file = cached_positions
-                # 2. Check if .wtb binary exists in cache
-                if cached_wtb.exists() and cached_wtb.stat().st_size > 16:
-                    print(f"Found cached WTHOR binary at {cached_wtb}, parsing to {wthor_pos_file} ...")
+                all_wtb_cached = all((cache_dir / f"WTH_{y}.wtb").exists() and (cache_dir / f"WTH_{y}.wtb").stat().st_size > 16 for y in years)
+                if all_wtb_cached:
+                    print(f"Found all cached WTHOR binaries for {year_tag}, parsing to {wthor_pos_file} ...")
+                    wtb_paths = [str(cache_dir / f"WTH_{y}.wtb") for y in years]
                     run_cmd([
                         sys.executable, str(parse_script),
-                        "--input", str(cached_wtb),
+                        "--input", *wtb_paths,
                         "--out", str(wthor_pos_file),
                     ])
                 else:
-                    print(f"WTHOR binary not in cache. Downloading year {year} to {cache_dir} and parsing to {wthor_pos_file} ...")
+                    print(f"Downloading WTHOR year(s) {years} to {cache_dir} and parsing to {wthor_pos_file} ...")
                     run_cmd([
                         sys.executable, str(parse_script),
-                        "--download-year", str(year),
+                        "--download-year", *[str(y) for y in years],
                         "--cache-dir", str(cache_dir),
                         "--out", str(wthor_pos_file),
                     ])
@@ -149,6 +154,9 @@ def main():
             "--batch-size", str(args.batch_size),
             "--lr", str(args.lr),
             "--anchor", str(args.anchor),
+            "--stage-weight-boost", str(args.stage_weight_boost),
+            "--contested-weight", str(args.contested_weight),
+            "--contested-sigma", str(args.contested_sigma),
         ]
         if wthor_pos_file and wthor_pos_file.exists():
             cmd.extend([
