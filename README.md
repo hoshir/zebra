@@ -116,8 +116,8 @@ Tools for inspecting, verifying, and tuning Zebra's evaluation pattern coefficie
 # Generate clean-room training games via parallel self-play
 ./scripts/generate_eval_data.py -n 500 -o positions.txt
 
-# Run automated evaluation tuning pipeline using tune8dbs
-./scripts/tune_eval.py --generate-games 500 --stages 8 9 10 -o data/coeffs2_candidate.bin
+# Run automated evaluation tuning pipeline using PyTorch (Texel loss + AdamW)
+uv run ./scripts/tune_eval.py --method pytorch --generate-games 3000 --stages 7 8 9 10 -o data/coeffs2_candidate.bin
 ```
 
 ## Web sites
