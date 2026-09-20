@@ -79,6 +79,7 @@
    not seem to depend a lot on the precise values. */
 #define FAST_FIRST_FACTOR            0.45
 #define MOB_FACTOR                   460
+#define FRONTIER_MOB_FACTOR          48
 
 /* The disc difference when special wipeout move ordering is tried.
    This means more aggressive use of fastest first. */
@@ -2329,7 +2330,16 @@ end_tree_search( int level,
 			       OPP( side_to_move ), -INFINITE_EVAL,
 			       (-alpha + 8) * 128, TRUE, TRUE, TRUE );
 		mobility = bitboard_mobility( new_opp_bits, bb_flips );
+#if FRONTIER_MOB_FACTOR > 0
+		{
+		  BitBoard empty_bits = ~(bb_flips | new_opp_bits);
+		  int pot_mobility = bitboard_frontier( bb_flips, empty_bits );
+		  shallow_score = curr_val - ff_mob_factor[disks_played - 1] * mobility
+		                           - FRONTIER_MOB_FACTOR * pot_mobility;
+		}
+#else
 		shallow_score = curr_val - ff_mob_factor[disks_played - 1] * mobility;
+#endif
 
 		unmake_move( side_to_move, move );
 
