@@ -76,4 +76,22 @@ weighted_mobility( const BitBoard my_bits,
 		 non_iterative_popcount( moves & 0x8100000000000081ull ) );
 }
 
+/* Native 8-neighborhood expansion for 8x8 bitboard (clean-room implementation) */
+static INLINE BitBoard
+bitboard_neighbors( const BitBoard b ) {
+  const BitBoard not_file_a = 0xfefefefefefefefeull;
+  const BitBoard not_file_h = 0x7f7f7f7f7f7f7f7full;
+
+  BitBoard h_east = ((b << 1) | (b >> 7) | (b << 9)) & not_file_a;
+  BitBoard h_west = ((b >> 1) | (b << 7) | (b >> 9)) & not_file_h;
+  BitBoard v_span = (b << 8) | (b >> 8);
+
+  return h_east | h_west | v_span;
+}
+
+static INLINE int
+bitboard_frontier( const BitBoard discs, const BitBoard empty ) {
+  return non_iterative_popcount( bitboard_neighbors( discs ) & empty );
+}
+
 #endif  /* BITBMOB_H */
