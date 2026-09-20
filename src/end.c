@@ -1660,6 +1660,8 @@ dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
 		   int side_to_move, int level, int max_depth,
 		   int alpha, int beta,
 		   int selectivity, int searched_move,
+		   const int *best_list, int best_list_length,
+		   int pre_search_done,
 		   int *proven, int *proven_score, int *proven_cutoff ) {
   /* Splits nest, so several batches can be live on one thread at once
      and the batch cannot be a single static.  It carries a whole
@@ -1668,18 +1670,66 @@ dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
      does not show up. */
   SiblingBatch *batch;
   int move[MAX_ROOT_MOVES];
-  int i, j, sq, count = 0;
+  int count = 0;
+  int used[100];
+  int i, sq;
 
-  for ( i = 1; i <= 8; i++ )
-    for ( j = 1; j <= 8; j++ ) {
-      sq = 10 * i + j;
-      if ( (sq == searched_move) || (board[sq] != EMPTY) )
-	continue;
-      if ( TestFlips_wrapper( sq, my_bits, opp_bits ) == 0 )
-	continue;
+  for ( i = 0; i < 100; i++ )
+    used[i] = FALSE;
+  used[searched_move] = TRUE;
+
+  /* 1. First priority: remaining moves in best_list (hash moves) */
+  for ( i = 0; i < best_list_length; i++ ) {
+    sq = best_list[i];
+    if ( !used[sq] && (board[sq] == EMPTY) &&
+	 (TestFlips_wrapper( sq, my_bits, opp_bits ) > 0) ) {
+      used[sq] = TRUE;
       if ( count < MAX_ROOT_MOVES )
 	move[count++] = sq;
     }
+  }
+
+  /* 2. Second priority: remaining legal moves */
+  if ( pre_search_done ) {
+    int rem_moves[MAX_ROOT_MOVES];
+    int rem_count = 0;
+    for ( i = 0; i < move_count[disks_played]; i++ ) {
+      sq = move_list[disks_played][i];
+      if ( !used[sq] ) {
+	rem_moves[rem_count++] = sq;
+	used[sq] = TRUE;
+      }
+    }
+    for ( i = 0; i < rem_count; i++ ) {
+      int best_idx = i;
+      int best_ev = evals[disks_played][rem_moves[i]];
+      int j;
+      for ( j = i + 1; j < rem_count; j++ ) {
+	if ( evals[disks_played][rem_moves[j]] > best_ev ) {
+	  best_idx = j;
+	  best_ev = evals[disks_played][rem_moves[j]];
+	}
+      }
+      if ( best_idx != i ) {
+	int tmp = rem_moves[i];
+	rem_moves[i] = rem_moves[best_idx];
+	rem_moves[best_idx] = tmp;
+      }
+      if ( count < MAX_ROOT_MOVES )
+	move[count++] = rem_moves[i];
+    }
+  } else {
+    for ( i = 0; i < MOVE_ORDER_SIZE; i++ ) {
+      sq = sorted_move_order[disks_played][i];
+      if ( !used[sq] && (board[sq] == EMPTY) &&
+	   (TestFlips_wrapper( sq, my_bits, opp_bits ) > 0) ) {
+	used[sq] = TRUE;
+	if ( count < MAX_ROOT_MOVES )
+	  move[count++] = sq;
+      }
+    }
+  }
+
   if ( count == 0 )
     return;
 
@@ -2068,6 +2118,12 @@ end_tree_search( int level,
 
 	  if ( !already_checked && (board[move] == EMPTY) &&
 	       (TestFlips_wrapper( move, my_bits, opp_bits ) > 0) ) {
+	    if ( can_split && proven[move] && (proven_score[move] <= curr_alpha) ) {
+	      evals[disks_played][move] = -INFINITE_EVAL;
+	      move_list[disks_played][move_count[disks_played]] = move;
+	      move_count[disks_played]++;
+	      continue;
+	    }
 	    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
 	    (void) make_move( side_to_move, move, TRUE );
@@ -2285,6 +2341,7 @@ end_tree_search( int level,
       siblings_dispatched = TRUE;
       dispatch_siblings( my_bits, opp_bits, side_to_move, level,
 			 level + exp_depth, best, beta, selectivity, move,
+			 best_list, best_list_length, pre_search_done,
 			 proven, proven_score, proven_cutoff );
     }
 
