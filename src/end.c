@@ -137,16 +137,16 @@ static const double end_percentile[MAX_SELECTIVITY + 1] =
 { 100.0, 4.0, 3.0, 2.0, 1.7, 1.4, 1.1, 0.8, 0.5, 0.25 };
 
 #if USE_STABILITY
-#define  HIGH_STABILITY_THRESHOLD     24
+#define  HIGH_STABILITY_THRESHOLD     0
 /* Alpha above which a stability cutoff is attempted, indexed by the
    number of empty squares.  Proving a bound costs a stability count, so
    it only pays when alpha is already high enough that few discs need to
    be stable; the more empties remain, the higher that bar has to be.
    Below 5 empties the specialized solvers take over and never consult
    this table.  Tuned as 2 * empties on FFO #45/#48/#49/#51. */
-static const int stability_threshold[] = { 65, 65, 65, 65, 65, 10, 12, 14, 16,
-					   18, 20, 22, 24, 26, 28, 30, 32, 34,
-					   36 };
+static const int stability_threshold[] = { 65, 65, 65, 65, 65, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 0, 0,
+					   0 };
 #endif
 
 
@@ -727,7 +727,8 @@ solve_parity( BitBoard my_bits,
       beta = stability_bound + 1;
   }
 
-  if ( alpha >= stability_threshold[empties] ) {
+  int opp_cnt = non_iterative_popcount( opp_bits );
+  if ( alpha >= stability_threshold[empties] && (64 - 2 * opp_cnt <= alpha || 64 - 2 * opp_cnt < beta) ) {
     int stability_bound;
     EdgeIndices edges;
     stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
@@ -735,13 +736,15 @@ solve_parity( BitBoard my_bits,
       tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
-    if ( level <= MAX_SEARCH_DEPTH )
-      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
-    if ( stability_bound < beta )
-      beta = stability_bound + 1;
-    if ( stability_bound <= alpha )
-      return alpha;
+    if ( edges.bits != 0 ) {
+      stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( level <= MAX_SEARCH_DEPTH )
+        tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
+      if ( stability_bound < beta )
+        beta = stability_bound + 1;
+      if ( stability_bound <= alpha )
+        return alpha;
+    }
   }
 #endif
 
@@ -952,7 +955,8 @@ solve_parity_hash( BitBoard my_bits,
       beta = stability_bound + 1;
   }
 
-  if ( alpha >= stability_threshold[empties] ) {
+  int opp_cnt = non_iterative_popcount( opp_bits );
+  if ( alpha >= stability_threshold[empties] && (64 - 2 * opp_cnt <= alpha || 64 - 2 * opp_cnt < beta) ) {
     int stability_bound;
     EdgeIndices edges;
 
@@ -961,13 +965,15 @@ solve_parity_hash( BitBoard my_bits,
       tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
-    if ( level <= MAX_SEARCH_DEPTH )
-      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
-    if ( stability_bound < beta )
-       beta = stability_bound + 1;
-    if ( stability_bound <= alpha )
-      return alpha;
+    if ( edges.bits != 0 ) {
+      stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( level <= MAX_SEARCH_DEPTH )
+        tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
+      if ( stability_bound < beta )
+         beta = stability_bound + 1;
+      if ( stability_bound <= alpha )
+        return alpha;
+    }
   }
 #endif
 
@@ -1190,7 +1196,8 @@ solve_parity_hash_high( BitBoard my_bits,
       beta = stability_bound + 1;
   }
 
-  if ( alpha >= stability_threshold[empties] ) {
+  int opp_cnt = non_iterative_popcount( opp_bits );
+  if ( alpha >= stability_threshold[empties] && (64 - 2 * opp_cnt <= alpha || 64 - 2 * opp_cnt < beta) ) {
     int stability_bound;
     EdgeIndices edges;
 
@@ -1199,13 +1206,15 @@ solve_parity_hash_high( BitBoard my_bits,
       tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
-    stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
-    if ( level <= MAX_SEARCH_DEPTH )
-      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
-    if ( stability_bound < beta )
-      beta = stability_bound + 1;
-    if ( stability_bound <= alpha )
-      return alpha;
+    if ( edges.bits != 0 ) {
+      stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( level <= MAX_SEARCH_DEPTH )
+        tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
+      if ( stability_bound < beta )
+        beta = stability_bound + 1;
+      if ( stability_bound <= alpha )
+        return alpha;
+    }
   }
 #endif
 
@@ -1791,7 +1800,8 @@ end_tree_search( int level,
         beta = stability_bound + 1;
     }
 
-    if ( alpha >= HIGH_STABILITY_THRESHOLD ) {
+    int opp_cnt = non_iterative_popcount( opp_bits );
+    if ( alpha >= HIGH_STABILITY_THRESHOLD && (64 - 2 * opp_cnt <= alpha || 64 - 2 * opp_cnt < beta) ) {
       EdgeIndices edges;
       stability_bound = 64 -
         2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
@@ -1801,15 +1811,17 @@ end_tree_search( int level,
         pv_depth[level] = level;
         return alpha;
       }
-      stability_bound = 64 -
-        2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
-      if ( level <= MAX_SEARCH_DEPTH )
-        tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
-      if ( stability_bound < beta )
-        beta = stability_bound + 1;
-      if ( stability_bound <= alpha ) {
-        pv_depth[level] = level;
-        return alpha;
+      if ( edges.bits != 0 ) {
+        stability_bound = 64 -
+          2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+        if ( level <= MAX_SEARCH_DEPTH )
+          tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
+        if ( stability_bound < beta )
+          beta = stability_bound + 1;
+        if ( stability_bound <= alpha ) {
+          pv_depth[level] = level;
+          return alpha;
+        }
       }
     }
   }

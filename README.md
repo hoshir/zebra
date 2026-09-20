@@ -29,7 +29,7 @@ Measured on an 8-core machine:
 
 | Position | 1 thread | 8 threads |
 |----------|---------:|----------:|
-| FFO #45  |   13.2 s |     2.7 s |
+| FFO #45  |   12.0 s |     2.7 s |
 | FFO #48  |    8.1 s |     2.0 s |
 | FFO #49  |    9.9 s |     2.5 s |
 | FFO #51  |   10.6 s |     3.0 s |

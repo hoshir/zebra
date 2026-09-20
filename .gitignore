@@ -5,3 +5,5 @@ build/
 current.gam
 current.mov
 *.log
+__pycache__/
+*.pyc
