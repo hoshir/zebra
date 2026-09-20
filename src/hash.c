@@ -131,11 +131,15 @@ clear_shallow_hash( void ) {
 
 void
 init_hash( int in_hash_bits ) {
+  size_t bytes;
+
   hash_bits = in_hash_bits;
   hash_size = 1 << hash_bits;
   hash_mask = hash_size - 1;
+  bytes = (size_t) hash_size * sizeof( CompactHashEntry );
   hash_table =
-    (CompactHashEntry *) safe_calloc( hash_size, sizeof( CompactHashEntry ) );
+    (CompactHashEntry *) safe_memalign( 64, bytes );
+  memset( hash_table, 0, bytes );
   rehash_count = 0;
   init_shallow_hash( DEFAULT_SHALLOW_HASH_BITS );
 }
