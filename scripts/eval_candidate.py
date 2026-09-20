@@ -16,7 +16,33 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
+
+class HeartbeatMonitor:
+    """Emits periodic heartbeats on long-running tasks without terminal spam."""
+    def __init__(self, message_fn, interval=8.0):
+        self.message_fn = message_fn
+        self.interval = interval
+        self.stop_event = threading.Event()
+        self.thread = None
+
+    def start(self):
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        if self.thread:
+            self.stop_event.set()
+            self.thread.join(timeout=1.0)
+
+    def _run(self):
+        start_time = time.time()
+        while not self.stop_event.wait(self.interval):
+            elapsed = int(time.time() - start_time)
+            self.message_fn(elapsed)
+
 
 # Complete 19 FFO positions (FFO #40 - #59)
 # Format: (name, board_string, expected_black, expected_white, list_of_valid_first_moves)
@@ -158,12 +184,19 @@ def solve_position(repo_root, pos_str, threads, hash_bits):
         return {"success": False, "error": str(e)}
 
 
-def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, quiet=False):
+def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None):
     """Evaluate a set of positions and verify correctness with real-time progress."""
+    if quiet is True:
+        progress = "none"
+
     results = {}
     all_correct = True
     total_positions = len(positions)
     suite_start = time.time()
+
+    if progress == "dots":
+        sys.stderr.write(f"Solving {total_positions} positions (threads={threads}, -h {hash_bits}): ")
+        sys.stderr.flush()
 
     for idx, (name, board, exp_b, exp_w, valid_moves) in enumerate(positions, 1):
         base_info = ""
@@ -172,16 +205,28 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
             if b_sec is not None:
                 base_info = f" [baseline ~{b_sec:.1f}s]"
 
-        if not quiet:
-            sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: solving (threads={threads}, -h {hash_bits}){base_info}...\n")
-            sys.stderr.flush()
+        monitor = None
+        if progress == "compact":
+            def on_heartbeat(elapsed_pos):
+                sys.stderr.write(f"     ... {name} still running ({elapsed_pos}s elapsed){base_info}\n")
+                sys.stderr.flush()
+            monitor = HeartbeatMonitor(on_heartbeat, interval=8.0)
+            monitor.start()
 
-        res = solve_position(repo_root, board, threads, hash_bits)
+        try:
+            res = solve_position(repo_root, board, threads, hash_bits)
+        finally:
+            if monitor:
+                monitor.stop()
+
         if not res["success"]:
             all_correct = False
             results[name] = {"correct": False, "error": res["error"]}
-            if not quiet:
+            if progress == "compact":
                 sys.stderr.write(f"[{idx:2d}/{total_positions:2d}] {name}: FAILED ({res['error']})\n")
+                sys.stderr.flush()
+            elif progress == "dots":
+                sys.stderr.write("F")
                 sys.stderr.flush()
             continue
 
@@ -204,14 +249,16 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
                 delta_str = f" | vs base: {n_sign}{n_delta:.2f}% nodes, {t_sign}{t_delta:.1f}% time"
 
         nodes_m = res["nodes"] / 1e6
-        nps_m = res["nps"] / 1e6
         elapsed = int(time.time() - suite_start)
 
-        if not quiet:
+        if progress == "compact":
             sys.stderr.write(
                 f"[{idx:2d}/{total_positions:2d}] {name}: {status_str} {res['score_black']}-{res['score_white']} {res['first_move']} "
-                f"({res['time_sec']:.2f}s, {nodes_m:.1f}M nodes, {nps_m:.1f}M nps{delta_str}) [elapsed: {elapsed}s]\n"
+                f"({res['time_sec']:.2f}s, {nodes_m:.1f}M nodes{delta_str}) [elapsed: {elapsed}s]\n"
             )
+            sys.stderr.flush()
+        elif progress == "dots":
+            sys.stderr.write("." if is_correct else "X")
             sys.stderr.flush()
 
         results[name] = {
@@ -225,6 +272,11 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
             "nps": res["nps"],
             "error": None if is_correct else f"Mismatch: got {res['score_black']}-{res['score_white']} {res['first_move']}"
         }
+
+    if progress == "dots":
+        total_time = int(time.time() - suite_start)
+        sys.stderr.write(f" done ({total_time}s)\n")
+        sys.stderr.flush()
 
     return results, all_correct
 
@@ -287,30 +339,64 @@ def compare_with_baseline(candidate_results, baseline_results):
     return comparison, summary
 
 
+def generate_text_table(comparison, summary, mode, threads, hash_bits):
+    """Format clean, plain-text summary table optimized for terminal width (< 68 chars)."""
+    lines = []
+    lines.append(f"Benchmark ({mode.upper()}, threads={threads}, hash_bits={hash_bits}):")
+    header = f"  {'Pos':<7} {'Candidate':>14} {'Baseline':>14} {'Node Δ':>9}   {'Time':>14}"
+    sep = "  " + "-" * (len(header) - 2)
+    lines.append(header)
+    lines.append(sep)
+
+    for name, d in sorted(comparison.items()):
+        node_sign = "+" if d["node_delta_pct"] > 0 else ""
+        time_sign = "+" if d["time_delta_pct"] > 0 else ""
+        t_cand = f"{d['candidate_time']:.1f}s"
+        t_delta = f"({time_sign}{d['time_delta_pct']:.1f}%)"
+        time_str = f"{t_cand:>6} {t_delta:>7}"
+        lines.append(
+            f"  {name:<7} {d['candidate_nodes']:>14,} {d['baseline_nodes']:>14,} "
+            f"{node_sign}{d['node_delta_pct']:>7.2f}%   {time_str}"
+        )
+
+    lines.append(sep)
+    tot_node_sign = "+" if summary["total_node_delta_pct"] > 0 else ""
+    tot_time_sign = "+" if summary["total_time_delta_pct"] > 0 else ""
+    tot_t_cand = f"{summary['total_candidate_time']:.1f}s"
+    tot_t_delta = f"({tot_time_sign}{summary['total_time_delta_pct']:.1f}%)"
+    tot_time_str = f"{tot_t_cand:>6} {tot_t_delta:>7}"
+    lines.append(
+        f"  {'TOTAL':<7} {summary['total_candidate_nodes']:>14,} {summary['total_baseline_nodes']:>14,} "
+        f"{tot_node_sign}{summary['total_node_delta_pct']:>7.2f}%   {tot_time_str}"
+    )
+    return "\n".join(lines)
+
+
 def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
-    """Format human-readable markdown table for PR or logs."""
+    """Format human-readable markdown table for PR or logs (compact width for 80-col terminals)."""
     md = []
     md.append(f"### Evaluation Benchmark ({mode.upper()} mode, threads={threads}, hash_bits={hash_bits})\n")
-    md.append("| Position | Baseline Nodes | Candidate Nodes | Node Delta | Baseline Time | Candidate Time | Time Delta |")
-    md.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: |")
+    md.append("| Pos | Baseline | Candidate | Node Δ | Time (s) | Time Δ |")
+    md.append("| :--- | :---: | :---: | :---: | :---: | :---: |")
 
     for name, d in sorted(comparison.items()):
         node_sign = "+" if d["node_delta_pct"] > 0 else ""
         time_sign = "+" if d["time_delta_pct"] > 0 else ""
         md.append(
-            f"| **{name}** | {d['baseline_nodes']:,} | {d['candidate_nodes']:,} | "
-            f"**{node_sign}{d['node_delta_pct']:.2f}%** | {d['baseline_time']:.2f}s | "
-            f"{d['candidate_time']:.2f}s | {time_sign}{d['time_delta_pct']:.2f}% |"
+            f"| {name} | {d['baseline_nodes']:,} | {d['candidate_nodes']:,} | "
+            f"{node_sign}{d['node_delta_pct']:.2f}% | "
+            f"{d['baseline_time']:.1f} → {d['candidate_time']:.1f} | "
+            f"{time_sign}{d['time_delta_pct']:.2f}% |"
         )
 
     tot_node_sign = "+" if summary["total_node_delta_pct"] > 0 else ""
     tot_time_sign = "+" if summary["total_time_delta_pct"] > 0 else ""
-    md.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: |")
+    md.append("| :--- | :---: | :---: | :---: | :---: | :---: |")
     md.append(
-        f"| **TOTAL** | **{summary['total_baseline_nodes']:,}** | **{summary['total_candidate_nodes']:,}** | "
-        f"**{tot_node_sign}{summary['total_node_delta_pct']:.2f}%** | "
-        f"**{summary['total_baseline_time']:.2f}s** | **{summary['total_candidate_time']:.2f}s** | "
-        f"**{tot_time_sign}{summary['total_time_delta_pct']:.2f}%** |"
+        f"| TOTAL | {summary['total_baseline_nodes']:,} | {summary['total_candidate_nodes']:,} | "
+        f"{tot_node_sign}{summary['total_node_delta_pct']:.2f}% | "
+        f"{summary['total_baseline_time']:.1f} → {summary['total_candidate_time']:.1f} | "
+        f"{tot_time_sign}{summary['total_time_delta_pct']:.2f}% |"
     )
     return "\n".join(md)
 
@@ -396,9 +482,9 @@ def main():
     )
     parser.add_argument(
         "--format",
-        choices=["json", "markdown", "both"],
-        default="both",
-        help="Output format: 'json', 'markdown', or 'both' (default)."
+        choices=["text", "markdown", "json", "both"],
+        default="text",
+        help="Output format: 'text' (default, clean terminal table), 'markdown', 'json', or 'both'."
     )
     parser.add_argument(
         "--verbose",
@@ -406,9 +492,15 @@ def main():
         help="Print extra debug output during evaluation."
     )
     parser.add_argument(
+        "--progress",
+        choices=["compact", "dots", "none"],
+        default="compact",
+        help="Progress display mode: 'compact' (default, 1 line per position), 'dots', or 'none'."
+    )
+    parser.add_argument(
         "--quiet", "-q",
         action="store_true",
-        help="Suppress real-time per-position progress output."
+        help="Suppress real-time progress output (equivalent to --progress none)."
     )
 
     args = parser.parse_args()
@@ -418,17 +510,23 @@ def main():
     repo_root = os.path.dirname(script_dir)
 
     threads = get_default_threads() if args.threads == "auto" else int(args.threads)
+    progress = "none" if args.quiet else args.progress
 
     # 1. Verification of unit tests
     test_passed = True
     test_output = ""
     if not args.skip_tests:
-        if not args.quiet:
+        if progress != "none":
             sys.stderr.write("Running unit test suite ('make test')...\n")
             sys.stderr.flush()
+        test_start = time.time()
         test_passed, test_output = run_test_suite(repo_root)
+        test_elapsed = time.time() - test_start
         if not test_passed:
-            sys.stderr.write(f"Unit tests failed:\n{test_output[-500:]}\n")
+            sys.stderr.write(f"Unit tests failed ({test_elapsed:.1f}s):\n{test_output[-500:]}\n")
+            sys.stderr.flush()
+        elif progress != "none":
+            sys.stderr.write(f"Unit tests PASSED ({test_elapsed:.1f}s)\n")
             sys.stderr.flush()
 
     # 2. Select positions
@@ -458,7 +556,7 @@ def main():
     # 4. Evaluate target positions with live progress
     candidate_results, all_correct = evaluate_suite(
         repo_root, target_positions, threads, args.hash_bits,
-        verbose=args.verbose, baseline_results=baseline_results, quiet=args.quiet
+        verbose=args.verbose, baseline_results=baseline_results, progress=progress
     )
 
     comparison = None
@@ -498,15 +596,21 @@ def main():
         "results": candidate_results
     }
 
-    markdown_str = ""
     if comparison and summary:
-        markdown_str = generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits)
-
-    if args.format in ("markdown", "both"):
-        if markdown_str:
+        if args.format == "text":
+            print(generate_text_table(comparison, summary, args.mode, threads, args.hash_bits))
+            print()
+            print(f"Verdict: {verdict} — {reason}")
+        elif args.format in ("markdown", "both"):
+            markdown_str = generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits)
             print(markdown_str)
             print()
-        print(f"**Verdict:** `{verdict}` — {reason}")
+            print(f"**Verdict:** `{verdict}` — {reason}")
+    else:
+        if args.format in ("markdown", "both"):
+            print(f"**Verdict:** `{verdict}` — {reason}")
+        else:
+            print(f"Verdict: {verdict} — {reason}")
 
     if args.format in ("json", "both"):
         if args.format == "both":
