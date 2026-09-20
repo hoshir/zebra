@@ -686,7 +686,8 @@ solve_parity( BitBoard my_bits,
 	      int color,
 	      int empties,
 	      int disc_diff,
-	      int pass_legal ) {
+	      int pass_legal,
+	      int level ) {
   BitBoard new_opp_bits;
   int score = -INFINITE_EVAL;
   int in_alpha = alpha;
@@ -717,13 +718,26 @@ solve_parity( BitBoard my_bits,
   /* Check for stability cutoff */
 
 #if USE_STABILITY
+  if ( level <= MAX_SEARCH_DEPTH && tls.stable_discs[oppcol][level] != 0 ) {
+    int s = non_iterative_popcount( tls.stable_discs[oppcol][level] );
+    int stability_bound = 64 - 2 * s;
+    if ( stability_bound <= alpha )
+      return alpha;
+    if ( stability_bound < beta )
+      beta = stability_bound + 1;
+  }
+
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
     EdgeIndices edges;
     stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
     stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
     if ( stability_bound < beta )
       beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -761,8 +775,12 @@ solve_parity( BitBoard my_bits,
 				     -beta, -alpha, new_disc_diff, TRUE );
 	  }
 	  else {
+	    if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+	      tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+	      tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+	    }
 	    ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha,
-				oppcol, empties - 1, new_disc_diff, TRUE );
+				oppcol, empties - 1, new_disc_diff, TRUE, level + 1 );
 	  }
 	  end_move_list[old_sq].succ = sq;
 	  region_parity ^= holepar;
@@ -816,8 +834,12 @@ solve_parity( BitBoard my_bits,
 				  -beta, -alpha, new_disc_diff, TRUE );
 	}
 	else {
+	  if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+	    tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+	    tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+	  }
 	  ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha,
-			      oppcol, empties - 1, new_disc_diff, TRUE );
+			      oppcol, empties - 1, new_disc_diff, TRUE, level + 1 );
 	}
 	end_move_list[old_sq].succ = sq;
 	region_parity ^= holepar;
@@ -854,8 +876,12 @@ solve_parity( BitBoard my_bits,
     else {
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
+      if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+        tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+        tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+      }
       ev = -solve_parity( opp_bits, my_bits, -beta, -alpha, oppcol,
-			  empties, -disc_diff, FALSE );
+			  empties, -disc_diff, FALSE, level + 1 );
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
       return ev;
@@ -887,7 +913,8 @@ solve_parity_hash( BitBoard my_bits,
 		   int color,
 		   int empties,
 		   int disc_diff,
-		   int pass_legal ) {
+		   int pass_legal,
+		   int level ) {
   BitBoard new_opp_bits;
   int score = -INFINITE_EVAL;
   int oppcol = OPP( color );
@@ -916,14 +943,27 @@ solve_parity_hash( BitBoard my_bits,
   /* Check for stability cutoff */
 
 #if USE_STABILITY
+  if ( level <= MAX_SEARCH_DEPTH && tls.stable_discs[oppcol][level] != 0 ) {
+    int s = non_iterative_popcount( tls.stable_discs[oppcol][level] );
+    int stability_bound = 64 - 2 * s;
+    if ( stability_bound <= alpha )
+      return alpha;
+    if ( stability_bound < beta )
+      beta = stability_bound + 1;
+  }
+
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
     EdgeIndices edges;
 
     stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
     stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
     if ( stability_bound < beta )
        beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -952,8 +992,12 @@ solve_parity_hash( BitBoard my_bits,
 	  region_parity ^= holepar;
 	  end_move_list[old_sq].succ = end_move_list[sq].succ;
 	  new_disc_diff = -disc_diff - 2 * flipped - 1;
+	  if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+	    tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+	    tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+	  }
 	  ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha, oppcol,
-			      empties - 1, new_disc_diff, TRUE );
+			      empties - 1, new_disc_diff, TRUE, level + 1 );
 	  end_move_list[old_sq].succ = sq;
 	  region_parity ^= holepar;
 	  hash1 ^= diff1;
@@ -996,8 +1040,12 @@ solve_parity_hash( BitBoard my_bits,
 	region_parity ^= holepar;
 	end_move_list[old_sq].succ = end_move_list[sq].succ;
 	new_disc_diff = -disc_diff - 2 * flipped - 1;
+	if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+	  tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+	  tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+	}
 	ev = -solve_parity( new_opp_bits, bb_flips, -beta, -alpha, oppcol,
-			    empties - 1, new_disc_diff, TRUE );
+			    empties - 1, new_disc_diff, TRUE, level + 1 );
 	end_move_list[old_sq].succ = sq;
 	region_parity ^= holepar;
 	hash1 ^= diff1;
@@ -1032,8 +1080,12 @@ solve_parity_hash( BitBoard my_bits,
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
       prefetch_hash_endgame_key( hash2 );
+      if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+        tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+        tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+      }
       score = -solve_parity_hash( opp_bits, my_bits, -beta, -alpha, oppcol,
-				  empties, -disc_diff, FALSE );
+				  empties, -disc_diff, FALSE, level + 1 );
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
     }
@@ -1061,7 +1113,8 @@ solve_parity_hash_high( BitBoard my_bits,
 			int color,
 			int empties,
 			int disc_diff,
-			int pass_legal ) {
+			int pass_legal,
+			int level ) {
   /* Move bonuses without and with parity for the squares.
      These are only used when sorting moves in the 9-12 empties
      range and were automatically tuned by OPTIMIZE. */
@@ -1128,14 +1181,27 @@ solve_parity_hash_high( BitBoard my_bits,
   /* Check for stability cutoff */
 
 #if USE_STABILITY
+  if ( level <= MAX_SEARCH_DEPTH && tls.stable_discs[oppcol][level] != 0 ) {
+    int s = non_iterative_popcount( tls.stable_discs[oppcol][level] );
+    int stability_bound = 64 - 2 * s;
+    if ( stability_bound <= alpha )
+      return alpha;
+    if ( stability_bound < beta )
+      beta = stability_bound + 1;
+  }
+
   if ( alpha >= stability_threshold[empties] ) {
     int stability_bound;
     EdgeIndices edges;
 
     stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= edges.bits;
     if ( stability_bound <= alpha )
       return alpha;
     stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( level <= MAX_SEARCH_DEPTH )
+      tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
     if ( stability_bound < beta )
       beta = stability_bound + 1;
     if ( stability_bound <= alpha )
@@ -1198,8 +1264,12 @@ solve_parity_hash_high( BitBoard my_bits,
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
       prefetch_hash_endgame_key( hash2 );
+      if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+        tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+        tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+      }
       score = -solve_parity_hash_high( opp_bits, my_bits, -beta, -alpha,
-				       oppcol, empties, -disc_diff, FALSE );
+				       oppcol, empties, -disc_diff, FALSE, level + 1 );
       hash1 ^= hash_flip_color1;
       hash2 ^= hash_flip_color2;
       return score;
@@ -1223,14 +1293,18 @@ solve_parity_hash_high( BitBoard my_bits,
   end_move_list[succ].pred = pred;
 
   new_disc_diff = -disc_diff - 2 * best_flipped - 1;
+  if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+    tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+    tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+  }
   if ( empties <= LOW_LEVEL_DEPTH + 1 )
     score = -solve_parity_hash( best_new_opp_bits, best_new_my_bits,
 				-beta, -alpha, oppcol, empties - 1,
-				new_disc_diff, TRUE );
+				new_disc_diff, TRUE, level + 1 );
   else
     score = -solve_parity_hash_high( best_new_opp_bits, best_new_my_bits,
 				     -beta, -alpha, oppcol, empties - 1,
-				     new_disc_diff, TRUE );
+				     new_disc_diff, TRUE, level + 1 );
 
   hash1 ^= diff1;
   hash2 ^= diff2;
@@ -1287,12 +1361,17 @@ solve_parity_hash_high( BitBoard my_bits,
 
     new_disc_diff = -disc_diff - 2 * flipped - 1;
 
+    if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+      tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+      tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+    }
+
     if ( empties <= LOW_LEVEL_DEPTH )  /* Fail-high for opp is likely. */
       ev = -solve_parity_hash( new_opp_bits, bb_flips, -beta, -alpha,
-			       oppcol, empties - 1, new_disc_diff, TRUE );
+			       oppcol, empties - 1, new_disc_diff, TRUE, level + 1 );
     else
       ev = -solve_parity_hash_high( new_opp_bits, bb_flips, -beta, -alpha,
-				    oppcol, empties - 1, new_disc_diff, TRUE );
+				    oppcol, empties - 1, new_disc_diff, TRUE, level + 1 );
 
     region_parity ^= quadrant_mask[sq];
 
@@ -1345,15 +1424,16 @@ end_solve( BitBoard my_bits,
 	   int color,
 	   int empties,
 	   int discdiff,
-	   int prevmove ) {
+	   int prevmove,
+	   int level ) {
   int result;
 
   if ( empties <= LOW_LEVEL_DEPTH )
     result = solve_parity( my_bits, opp_bits, alpha, beta, color, empties,
-			   discdiff, prevmove );
+			   discdiff, prevmove, level );
   else
     result = solve_parity_hash_high( my_bits, opp_bits, alpha, beta, color,
-				     empties, discdiff, prevmove );
+				     empties, discdiff, prevmove, level );
 
   return result;
 }
@@ -1436,6 +1516,7 @@ end_tree_search( int level, int max_depth, BitBoard my_bits,
 
 typedef struct SiblingBatchTag {
   SearchState root;
+  BitBoard saved_stable[3];
   struct SiblingBatchTag *parent;   /* the batch this one was started from */
   int level;
   int max_depth;
@@ -1517,6 +1598,11 @@ search_sibling( int index, void *context ) {
   (void) TestFlips_wrapper( move, my_bits, opp_bits );
   new_my_bits = bb_flips;
   FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+
+  if ( batch->level + 1 <= MAX_SEARCH_DEPTH ) {
+    tls.stable_discs[BLACKSQ][batch->level + 1] = batch->saved_stable[BLACKSQ];
+    tls.stable_discs[WHITESQ][batch->level + 1] = batch->saved_stable[WHITESQ];
+  }
 
   score = -end_tree_search( batch->level + 1, batch->max_depth,
 			    new_opp_bits, new_my_bits,
@@ -1602,6 +1688,13 @@ dispatch_siblings( BitBoard my_bits, BitBoard opp_bits,
   batch->parent = current_batch;
   batch->abandon = FALSE;
   batch->level = level;
+  if ( level <= MAX_SEARCH_DEPTH ) {
+    batch->saved_stable[BLACKSQ] = tls.stable_discs[BLACKSQ][level];
+    batch->saved_stable[WHITESQ] = tls.stable_discs[WHITESQ][level];
+  } else {
+    batch->saved_stable[BLACKSQ] = 0;
+    batch->saved_stable[WHITESQ] = 0;
+  }
   batch->max_depth = max_depth;
   batch->side_to_move = side_to_move;
   batch->alpha = alpha;
@@ -1685,21 +1778,39 @@ end_tree_search( int level,
   /* Always (almost) check for stability cutoff in this region of search */
 
 #if USE_STABILITY
-  if ( alpha >= HIGH_STABILITY_THRESHOLD ) {
-    EdgeIndices edges;
-    stability_bound = 64 -
-      2 * count_edge_stable_indexed( OPP( side_to_move ), opp_bits, my_bits, &edges );
-    if ( stability_bound <= alpha ) {
-      pv_depth[level] = level;
-      return alpha;
+  {
+    int oppcol = OPP( side_to_move );
+    if ( level <= MAX_SEARCH_DEPTH && tls.stable_discs[oppcol][level] != 0 ) {
+      int s = non_iterative_popcount( tls.stable_discs[oppcol][level] );
+      stability_bound = 64 - 2 * s;
+      if ( stability_bound <= alpha ) {
+        pv_depth[level] = level;
+        return alpha;
+      }
+      if ( stability_bound < beta )
+        beta = stability_bound + 1;
     }
-    stability_bound = 64 -
-      2 * count_stable_indexed( OPP( side_to_move ), opp_bits, my_bits, &edges );
-    if ( stability_bound < beta )
-      beta = stability_bound + 1;
-    if ( stability_bound <= alpha ) {
-      pv_depth[level] = level;
-      return alpha;
+
+    if ( alpha >= HIGH_STABILITY_THRESHOLD ) {
+      EdgeIndices edges;
+      stability_bound = 64 -
+        2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( level <= MAX_SEARCH_DEPTH )
+        tls.stable_discs[oppcol][level] |= edges.bits;
+      if ( stability_bound <= alpha ) {
+        pv_depth[level] = level;
+        return alpha;
+      }
+      stability_bound = 64 -
+        2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( level <= MAX_SEARCH_DEPTH )
+        tls.stable_discs[oppcol][level] |= (oppcol == BLACKSQ ? last_black_stable : last_white_stable);
+      if ( stability_bound < beta )
+        beta = stability_bound + 1;
+      if ( stability_bound <= alpha ) {
+        pv_depth[level] = level;
+        return alpha;
+      }
     }
   }
 #endif
@@ -1718,7 +1829,7 @@ end_tree_search( int level,
 
     prepare_to_solve( board );
     result = end_solve( my_bits, opp_bits, alpha, beta, side_to_move,
-			empties, disk_diff, previous_move );
+			empties, disk_diff, previous_move, level );
 
     pv_depth[level] = level + 1;
     pv[level][level] = end_best_move;
@@ -2042,6 +2153,11 @@ end_tree_search( int level,
     new_my_bits = bb_flips;
     FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
 
+    if ( level + 1 <= MAX_SEARCH_DEPTH ) {
+      tls.stable_discs[BLACKSQ][level + 1] = tls.stable_discs[BLACKSQ][level];
+      tls.stable_discs[WHITESQ][level + 1] = tls.stable_discs[WHITESQ][level];
+    }
+
     update_pv = FALSE;
     if ( first ) {
       best = curr_val =
@@ -2231,6 +2347,24 @@ end_tree_wrapper( int level,
   BitBoard my_bits, opp_bits;
 
   set_bitboards( board, side_to_move, &my_bits, &opp_bits );
+
+  if ( level == 0 ) {
+    EdgeIndices eb, ew;
+    BitBoard b_bits = (side_to_move == BLACKSQ ? my_bits : opp_bits);
+    BitBoard w_bits = (side_to_move == BLACKSQ ? opp_bits : my_bits);
+
+    (void) count_edge_stable_indexed( BLACKSQ, b_bits, w_bits, &eb );
+    (void) count_stable_indexed( BLACKSQ, b_bits, w_bits, &eb );
+    tls.stable_discs[BLACKSQ][0] = last_black_stable;
+
+    (void) count_edge_stable_indexed( WHITESQ, w_bits, b_bits, &ew );
+    (void) count_stable_indexed( WHITESQ, w_bits, b_bits, &ew );
+    tls.stable_discs[WHITESQ][0] = last_white_stable;
+  }
+  else if ( level <= MAX_SEARCH_DEPTH ) {
+    tls.stable_discs[BLACKSQ][level] = 0;
+    tls.stable_discs[WHITESQ][level] = 0;
+  }
 
   return end_tree_search( level, max_depth,
 			  my_bits, opp_bits, side_to_move,

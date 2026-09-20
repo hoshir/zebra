@@ -85,6 +85,9 @@ typedef struct {
   unsigned int region_parity;
   int end_best_move, end_best_root_move;
 
+  /* Monotonically tracked stable discs along the search path, indexed by [color][level]. */
+  BitBoard stable_discs[3][MAX_SEARCH_DEPTH + 1];
+
   /* Counted once per node, so it is on the hottest path there is. */
   CounterType nodes;
 } ThreadState;
