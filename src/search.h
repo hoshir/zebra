@@ -84,6 +84,9 @@ extern _Thread_local Board evals[61];
 /* Move lists */
 extern _Thread_local int sorted_move_order[64][64];  /* 61*60 used */
 
+/* History heuristic table: [side_to_move (0=Black, 1=White)][square (11..88)] */
+extern _Thread_local int history_score[2][100];
+
 /* The principal variation including passes */
 extern int full_pv_depth;
 extern int full_pv[120];
@@ -136,6 +139,12 @@ search_state_load( const SearchState *state );
 
 void
 setup_search( void );
+
+void
+init_history_score( void );
+
+void
+age_history_score( void );
 
 int
 disc_count( int side_to_move );

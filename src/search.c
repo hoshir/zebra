@@ -42,10 +42,11 @@ int full_pv[120];
 
 _Thread_local int list_inherited[62];
 _Thread_local int sorted_move_order[64][64];  /* 62*60 used */
+_Thread_local int history_score[2][100];
 _Thread_local Board evals[61];
 CounterType total_nodes;
-_Thread_local CounterType evaluations;
 CounterType total_evaluations;
+_Thread_local CounterType evaluations;
 
 /* When no other information is available, JCW's endgame
    priority order is used also in the midgame. */
@@ -169,8 +170,31 @@ reorder_move_list( int stage ) {
 */   
 
 void
+init_history_score( void ) {
+  int c, sq;
+
+  for ( c = 0; c < 2; c++ )
+    for ( sq = 0; sq < 100; sq++ )
+      history_score[c][sq] = 0;
+}
+
+
+
+void
+age_history_score( void ) {
+  int c, sq;
+
+  for ( c = 0; c < 2; c++ )
+    for ( sq = 0; sq < 100; sq++ )
+      history_score[c][sq] >>= 1;
+}
+
+
+
+void
 setup_search( void ) {
   init_move_lists();
+  init_history_score();
   create_eval_info( UNINITIALIZED_EVAL, UNSOLVED_POSITION, 0, 0.0, 0, FALSE );
   negate_eval = FALSE;
 }
@@ -592,6 +616,7 @@ negate_current_eval( int negate ) {
 void
 init_search_thread( void ) {
   init_flip_stack();
+  init_history_score();
 }
 
 

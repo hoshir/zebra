@@ -1398,6 +1398,7 @@ compute_move( int side_to_move,
       max_depth = MAX( MIN( MIN( mid, empties - 12 ), 18 ), 2 );
     else
       max_depth = mid;
+    init_history_score();
     midgame_depth = MIN( 2, max_depth );
     do {
       max_depth_reached = midgame_depth;
@@ -1442,6 +1443,7 @@ compute_move( int side_to_move,
 	  endgame_reached = TRUE;
       }
       midgame_depth++;
+      age_history_score();
     } while ( !is_panic_abort() &&
 	      !is_midgame_abort() &&
 	      !force_return &&

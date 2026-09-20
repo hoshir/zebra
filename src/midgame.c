@@ -309,7 +309,11 @@ fast_tree_search( int level, int max_depth, int side_to_move, int alpha,
 	    best_move_index = move_index;
 	    best_move = move;
 	    if ( curr_val >= beta ) {
+	      int side_idx;
 	      advance_move( move_index );
+	      side_idx = (side_to_move == BLACKSQ) ? 0 : 1;
+	      if ( history_score[side_idx][move] < 1000000 )
+		history_score[side_idx][move] += remains * remains;
 	      best_mid_move = best_move;
 	      if ( use_hash && allow_midgame_hash_update )
 		add_hash( MIDGAME_MODE, best, best_move,
@@ -358,7 +362,11 @@ fast_tree_search( int level, int max_depth, int side_to_move, int alpha,
 	  }
 	  unmake_move( side_to_move, move );
 	  if ( best >= beta ) {
+	    int side_idx;
 	    advance_move( move_index );
+	    side_idx = (side_to_move == BLACKSQ) ? 0 : 1;
+	    if ( history_score[side_idx][move] < 1000000 )
+	      history_score[side_idx][move] += remains * remains;
 	    best_mid_move = best_move;
 	    if ( use_hash && allow_midgame_hash_update )
 	      add_hash( MIDGAME_MODE, best, best_move,
@@ -750,15 +758,24 @@ tree_search( int level,
       best_index = i;
       best_score =
 	evals[disks_played][sorted_move_order[disks_played][feas_index_list[disks_played][i]]];
-      for ( j = i + 1; j < move_count[disks_played]; j++ ) {
-	int cand_move;
+      {
+	int side_idx = (side_to_move == BLACKSQ) ? 0 : 1;
+	int best_cand = sorted_move_order[disks_played][feas_index_list[disks_played][i]];
+	int best_hist = history_score[side_idx][best_cand];
 
-	cand_move =
-	  sorted_move_order[disks_played][feas_index_list[disks_played][j]];
-	if ( evals[disks_played][cand_move] > best_score ) {
-	  best_score = 
-	    evals[disks_played][cand_move];
-	  best_index = j;
+	for ( j = i + 1; j < move_count[disks_played]; j++ ) {
+	  int cand_move;
+	  int cand_score;
+
+	  cand_move =
+	    sorted_move_order[disks_played][feas_index_list[disks_played][j]];
+	  cand_score = evals[disks_played][cand_move];
+	  if ( cand_score > best_score ||
+	       (cand_score == best_score && history_score[side_idx][cand_move] > best_hist) ) {
+	    best_score = cand_score;
+	    best_hist = history_score[side_idx][cand_move];
+	    best_index = j;
+	  }
 	}
       }
 
@@ -844,7 +861,11 @@ tree_search( int level,
     }
 
     if ( best >= beta ) {
+      int side_idx;
       advance_move( move_index );
+      side_idx = (side_to_move == BLACKSQ) ? 0 : 1;
+      if ( history_score[side_idx][move] < 1000000 )
+	history_score[side_idx][move] += remains * remains;
       if ( use_hash && allow_midgame_hash_update )
 	add_hash_extended( MIDGAME_MODE, best, best_list,
 			   MIDGAME_SCORE | LOWER_BOUND, remains, selectivity );
@@ -1287,6 +1308,8 @@ middle_game( int side_to_move, int max_depth,
 				 0, 0.0, 0, FALSE );
 
   for ( depth = initial_depth; depth <= max_depth; depth++ ) {
+    if ( depth > initial_depth )
+      age_history_score();
 #if USE_WINDOW
     {
       int center;
