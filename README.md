@@ -105,6 +105,21 @@ real-time progress reporting:
 ./scripts/eval_candidate.py --mode full --threads 8 --save-json results.json
 ```
 
+## Evaluation Coefficient Tooling & Tuning
+
+Tools for inspecting, verifying, and tuning Zebra's evaluation pattern coefficients (`data/coeffs2.bin`):
+
+```bash
+# Verify round-trip integrity of coeffs2.bin
+./scripts/coeffs_tool.py verify-roundtrip data/coeffs2.bin
+
+# Generate clean-room training games via parallel self-play
+./scripts/generate_eval_data.py -n 500 -o positions.txt
+
+# Run automated evaluation tuning pipeline using tune8dbs
+./scripts/tune_eval.py --generate-games 500 --stages 8 9 10 -o data/coeffs2_candidate.bin
+```
+
 ## Web sites
 
 * Gunnar's website: http://radagast.se/othello/
