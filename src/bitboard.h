@@ -85,11 +85,33 @@ extern FlipRays flip_rays[64];
 
 
 
-unsigned int REGPARM(1)
-non_iterative_popcount( BitBoard b );
+static INLINE unsigned int REGPARM(1)
+non_iterative_popcount( BitBoard b ) {
+#if defined( __GNUC__ )
+  /* Single hardware instruction on arm64 (cnt) and x86-64 (popcnt) */
+  return __builtin_popcountll( b );
+#else
+  b = b - ((b >> 1) & 0x5555555555555555ull);
+  b = (b & 0x3333333333333333ull) + ((b >> 2) & 0x3333333333333333ull);
+  b = (b + (b >> 4)) & 0x0F0F0F0F0F0F0F0Full;
+  return (b * 0x0101010101010101ull) >> 56;
+#endif
+}
 
-unsigned int REGPARM(1)
-iterative_popcount( BitBoard b );
+static INLINE unsigned int REGPARM(1)
+iterative_popcount( BitBoard b ) {
+#if defined( __GNUC__ )
+  return __builtin_popcountll( b );
+#else
+  unsigned int n;
+  n = 0;
+  for ( ; b != 0; n++, b &= (b - 1) )
+    ;
+
+  return n;
+#endif
+}
+
 
 unsigned int REGPARM(1)
 bit_reverse_32( unsigned int val );

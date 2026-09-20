@@ -24,45 +24,7 @@ FlipRays flip_rays[64];
 
 
 
-/*
-  NON_ITERATIVE_POPCOUNT
-  Counts the number of bits set in a 64-bit integer.
-*/
 
-INLINE unsigned int REGPARM(1)
-non_iterative_popcount( BitBoard b ) {
-#if defined( __GNUC__ )
-  /* Single hardware instruction on arm64 (cnt) and x86-64 (popcnt) */
-  return __builtin_popcountll( b );
-#else
-  b = b - ((b >> 1) & 0x5555555555555555ull);
-  b = (b & 0x3333333333333333ull) + ((b >> 2) & 0x3333333333333333ull);
-  b = (b + (b >> 4)) & 0x0F0F0F0F0F0F0F0Full;
-  return (b * 0x0101010101010101ull) >> 56;
-#endif
-}
-
-
-/*
-  ITERATIVE_POPCOUNT
-  Counts the number of bits set in a 64-bit integer.
-  Kept as a separate entry point for the callers that used to pick it
-  for sparse words; both names are hardware popcounts nowadays.
-*/
-
-INLINE unsigned int REGPARM(1)
-iterative_popcount( BitBoard b ) {
-#if defined( __GNUC__ )
-  return __builtin_popcountll( b );
-#else
-  unsigned int n;
-  n = 0;
-  for ( ; b != 0; n++, b &= (b - 1) )
-    ;
-
-  return n;
-#endif
-}
 
 
 
