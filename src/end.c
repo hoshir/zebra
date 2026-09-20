@@ -55,7 +55,7 @@
 #define DEPTH_TWO_SEARCH             15
 #define DEPTH_THREE_SEARCH           18
 #define DEPTH_FOUR_SEARCH            24
-#define DEPTH_SIX_SEARCH             30
+#define DEPTH_SIX_SEARCH             28
 #define EXTRA_ROOT_SEARCH            2
 
 #define SELECTIVE_PRE_DEPTH_THRESHOLD 3
@@ -2352,15 +2352,19 @@ end_tree_search( int level,
 	    }
 
 	    /* Stage 2 (Selective Deepening) */
-	    threshold =
-	      MIN( WIPEOUT_THRESHOLD * 128,
-		   128 * alpha + fast_first_threshold[disks_played][pre_depth] );
-
 	    top_k = MIN( cand_count, SELECTIVE_PRE_DEPTH_TOP_K );
 
 	    for ( k_idx = 0; k_idx < cand_count; k_idx++ ) {
 	      move = cand_moves_arr[k_idx];
 	      if ( k_idx < top_k ) {
+		int move_pre_depth = pre_depth;
+		if ( pre_depth >= 6 && k_idx > 0 )
+		  move_pre_depth = 4;
+
+		threshold =
+		  MIN( WIPEOUT_THRESHOLD * 128,
+		       128 * alpha + fast_first_threshold[disks_played][move_pre_depth] );
+
 		if ( cand_scores_arr[k_idx] == GOOD_TRANSPOSITION_EVAL ) {
 		  evals[disks_played][move] = GOOD_TRANSPOSITION_EVAL;
 		  move_list[disks_played][move_count[disks_played]] = move;
@@ -2400,7 +2404,7 @@ end_tree_search( int level,
 
 		if ( curr_val != GOOD_TRANSPOSITION_EVAL )
 		  curr_val -=
-		    tree_search( level + 1, level + pre_depth,
+		    tree_search( level + 1, level + move_pre_depth,
 				 OPP( side_to_move ), -INFINITE_EVAL,
 				 (-alpha + 8) * 128, TRUE, TRUE, TRUE );
 
