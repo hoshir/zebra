@@ -42,6 +42,10 @@ def main():
     parser.add_argument("--batch-size", "-b", type=int, default=256, help="Batch size for PyTorch training")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for PyTorch training")
     parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight for PyTorch")
+    parser.add_argument("--wthor", type=str, default=None, help="WTHOR dataset input (file path, dir path, or year like '2024')")
+    parser.add_argument("--wthor-ratio", type=float, default=0.5, help="WTHOR mixing ratio in hybrid dataset (default: 0.5)")
+    parser.add_argument("--wthor-positions", type=Path, default=None, help="Pre-extracted WTHOR positions file")
+    parser.add_argument("--wthor-cache-dir", type=Path, default=Path("data/wthor"), help="Cache directory for WTHOR .wtb files and extracted positions (default: data/wthor)")
     parser.add_argument("--max-positions", type=int, default=100000, help="Max positions per stage (for cg)")
     parser.add_argument("--max-diff", type=int, default=40, help="Max score diff (for cg)")
     parser.add_argument("--python-bin", type=Path, default=Path(".venv/bin/python3"), help="Python binary with PyTorch")
@@ -70,6 +74,65 @@ def main():
         pos_file = pos_file.resolve()
 
     print(f"Using position database: {pos_file}")
+
+    # Prepare WTHOR human grandmaster positions if requested
+    wthor_pos_file = args.wthor_positions
+    cache_dir = args.wthor_cache_dir.resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.wthor is not None and wthor_pos_file is None:
+        parse_script = SCRIPT_DIR / "parse_wthor.py"
+        wthor_arg = args.wthor.strip()
+
+        if wthor_arg.isdigit() and len(wthor_arg) == 4:
+            year = int(wthor_arg)
+            cached_wtb = cache_dir / f"WTH_{year}.wtb"
+            cached_positions = cache_dir / f"positions_{year}.txt"
+
+            # 1. First check if parsed positions already exist in cache
+            if cached_positions.exists() and cached_positions.stat().st_size > 0:
+                print(f"Found cached WTHOR positions for year {year} at {cached_positions}, using directly.")
+                wthor_pos_file = cached_positions
+            else:
+                wthor_pos_file = cached_positions
+                # 2. Check if .wtb binary exists in cache
+                if cached_wtb.exists() and cached_wtb.stat().st_size > 16:
+                    print(f"Found cached WTHOR binary at {cached_wtb}, parsing to {wthor_pos_file} ...")
+                    run_cmd([
+                        sys.executable, str(parse_script),
+                        "--input", str(cached_wtb),
+                        "--out", str(wthor_pos_file),
+                    ])
+                else:
+                    print(f"WTHOR binary not in cache. Downloading year {year} to {cache_dir} and parsing to {wthor_pos_file} ...")
+                    run_cmd([
+                        sys.executable, str(parse_script),
+                        "--download-year", str(year),
+                        "--cache-dir", str(cache_dir),
+                        "--out", str(wthor_pos_file),
+                    ])
+        else:
+            p = Path(wthor_arg)
+            if not p.exists() and (cache_dir / p.name).exists():
+                p = cache_dir / p.name
+
+            if p.exists():
+                cached_positions = cache_dir / f"positions_{p.stem}.txt"
+                if cached_positions.exists() and cached_positions.stat().st_size > 0:
+                    print(f"Found cached parsed positions at {cached_positions}, using directly.")
+                    wthor_pos_file = cached_positions
+                else:
+                    wthor_pos_file = cached_positions
+                    print(f"Parsing WTHOR database from {p} to {wthor_pos_file} ...")
+                    run_cmd([
+                        sys.executable, str(parse_script),
+                        "--input", str(p),
+                        "--out", str(wthor_pos_file),
+                    ])
+            else:
+                print(f"Warning: WTHOR path {p} does not exist and not in {cache_dir}, proceeding without WTHOR data.")
+                wthor_pos_file = None
+
     out_path = args.out.resolve()
 
     if args.method == "pytorch":
@@ -87,6 +150,11 @@ def main():
             "--lr", str(args.lr),
             "--anchor", str(args.anchor),
         ]
+        if wthor_pos_file and wthor_pos_file.exists():
+            cmd.extend([
+                "--wthor-positions", str(wthor_pos_file),
+                "--wthor-mix-ratio", str(args.wthor_ratio),
+            ])
         run_cmd(cmd)
     else:
         # Legacy CG via tune8dbs

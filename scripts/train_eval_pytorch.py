@@ -193,6 +193,27 @@ class PositionDataset(Dataset):
         )
 
 
+class HybridPositionDataset(Dataset):
+    """Combines self-play and WTHOR human datasets with a target mixing ratio."""
+
+    def __init__(self, sp_dataset: PositionDataset, wt_dataset: PositionDataset, wthor_ratio: float = 0.5):
+        self.sp = sp_dataset
+        self.wt = wt_dataset
+        self.wthor_ratio = max(0.01, min(0.99, wthor_ratio))
+        # Total samples per epoch: ensure adequate coverage of both datasets
+        self.total_len = max(len(self.sp) + len(self.wt), int(len(self.sp) / (1.0 - self.wthor_ratio)))
+
+    def __len__(self):
+        return self.total_len
+
+    def __getitem__(self, idx):
+        # Deterministically sample from WTHOR vs self-play based on ratio
+        if (idx % 100) < int(self.wthor_ratio * 100):
+            return self.wt[idx % len(self.wt)]
+        else:
+            return self.sp[idx % len(self.sp)]
+
+
 class StageEvalModel(nn.Module):
     def __init__(self, base_stage_dict: dict, device: torch.device):
         super().__init__()
@@ -304,6 +325,8 @@ def train_stage(
 def main():
     parser = argparse.ArgumentParser(description="PyTorch training for Zebra evaluation pattern weights.")
     parser.add_argument("--positions", "-p", type=Path, required=True, help="Position dataset (tune8dbs format)")
+    parser.add_argument("--wthor-positions", type=Path, default=None, help="WTHOR human grandmaster positions dataset")
+    parser.add_argument("--wthor-mix-ratio", type=float, default=0.5, help="WTHOR mixing ratio in hybrid dataset (0.0 - 1.0, default: 0.5)")
     parser.add_argument("--base-coeffs", type=Path, default=Path("data/coeffs2.bin"), help="Base coeffs2.bin")
     parser.add_argument("--out", "-o", type=Path, default=Path("data/coeffs2_candidate.bin"), help="Output coeffs2.bin")
     parser.add_argument("--stages", type=int, nargs="+", default=[8, 9, 10], help="Stage indices to train (0-10)")
@@ -337,7 +360,22 @@ def main():
             print(f"Warning: stage index {stg_idx} out of range, skipping")
             continue
         stg_val = cf.stages[stg_idx]
-        dataset = PositionDataset(args.positions, target_stage=stg_val, stage_window=4)
+        sp_dataset = PositionDataset(args.positions, target_stage=stg_val, stage_window=4)
+        if args.wthor_positions and args.wthor_positions.exists():
+            wt_dataset = PositionDataset(args.wthor_positions, target_stage=stg_val, stage_window=4)
+            if len(sp_dataset) > 0 and len(wt_dataset) > 0:
+                dataset = HybridPositionDataset(sp_dataset, wt_dataset, wthor_ratio=args.wthor_mix_ratio)
+                print(
+                    f"Using HybridPositionDataset: {len(sp_dataset)} self-play + {len(wt_dataset)} WTHOR "
+                    f"(ratio {args.wthor_mix_ratio}) -> {len(dataset)} items/epoch"
+                )
+            elif len(wt_dataset) > 0:
+                dataset = wt_dataset
+            else:
+                dataset = sp_dataset
+        else:
+            dataset = sp_dataset
+
         if len(dataset) == 0:
             continue
 

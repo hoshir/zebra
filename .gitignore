@@ -7,3 +7,6 @@ current.mov
 *.log
 __pycache__/
 *.pyc
+data/wthor/
+*.wtb
+*.WTB
