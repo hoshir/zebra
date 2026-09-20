@@ -37,10 +37,12 @@ Measured on an 8-core machine:
 ## Transposition table
 
 The transposition table defaults to 256 MB (`-h 24`, $2^{24}$ = 16,777,216 entries
-of 16 bytes each). Software prefetching (`__builtin_prefetch`) is used on hash
-table lookups to hide main memory latency. Thread-safe lockless reads and writes
-are verified with mathematical XOR checksums across key and payload fields.
-Override the size with `-h <bits>`.
+of 16 bytes each). Entries are grouped into 32-byte 2-entry buckets and allocated
+with 64-byte hardware cacheline alignment to guarantee zero cacheline splitting.
+Software prefetching (`__builtin_prefetch`) is used on hash table lookups to hide
+main memory latency. Thread-safe lockless reads and writes are verified with
+mathematical XOR checksums across key and payload fields. Override the size with
+`-h <bits>`.
 
 ## Testing
 

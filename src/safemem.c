@@ -50,3 +50,15 @@ safe_realloc( void *ptr, size_t size ) {
 
   return block;
 }
+
+void *
+safe_memalign( size_t alignment, size_t size ) {
+  void * block = NULL;
+  int res;
+
+  res = posix_memalign( &block, alignment, size );
+  if ( res != 0 || block == NULL )
+    fatal_error( "%s %zu\n", SAFEMEM_FAILURE, size );
+
+  return block;
+}

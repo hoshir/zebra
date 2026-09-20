@@ -28,6 +28,9 @@ safe_calloc( size_t count, size_t size );
 void *
 safe_realloc( void *ptr, size_t size );
 
+void *
+safe_memalign( size_t alignment, size_t size );
+
 
 
 #endif  /* __SAFEMEM_H */
