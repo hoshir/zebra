@@ -29,35 +29,35 @@ def run_cmd(cmd: List[str], cwd: Optional[Path] = None):
 
 def main():
     parser = argparse.ArgumentParser(description="Run Zebra evaluation pattern tuning pipeline.")
+    parser.add_argument("--method", choices=["pytorch", "cg"], default="pytorch", help="Tuning method (default: pytorch)")
     parser.add_argument("--positions", "-p", type=Path, help="Path to existing position database file")
     parser.add_argument("--generate-games", "-g", type=int, default=0, help="Generate N clean-room self-play games")
     parser.add_argument("--depth", "-d", type=int, default=2, help="Self-play depth (default: 2)")
     parser.add_argument("--workers", "-w", type=int, default=max(1, os.cpu_count() or 4), help="Worker threads")
     parser.add_argument("--base-coeffs", type=Path, default=DEFAULT_COEFFS, help="Base coeffs2.bin")
-    parser.add_argument("--tune8dbs-bin", type=Path, default=DEFAULT_TUNE8DBS, help="Path to tune8dbs binary")
+    parser.add_argument("--tune8dbs-bin", type=Path, default=DEFAULT_TUNE8DBS, help="Path to tune8dbs binary (for cg method)")
     parser.add_argument("--work-dir", type=Path, default=Path("/tmp/zebra_tune_work"), help="Work directory")
-    parser.add_argument("--stages", type=int, nargs="+", default=[7, 8, 9, 10], help="Stage indices to tune (0-10)")
-    parser.add_argument("--iterations", "-i", type=int, default=20, help="Iterations per stage in tune8dbs")
-    parser.add_argument("--max-positions", type=int, default=100000, help="Max positions per stage")
-    parser.add_argument("--max-diff", type=int, default=40, help="Max score diff (filters extreme blowouts)")
+    parser.add_argument("--stages", type=int, nargs="+", default=[8, 9, 10], help="Stage indices to tune (0-10)")
+    parser.add_argument("--iterations", "-i", type=int, default=5, help="Epochs or iterations per stage")
+    parser.add_argument("--batch-size", "-b", type=int, default=256, help="Batch size for PyTorch training")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for PyTorch training")
+    parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight for PyTorch")
+    parser.add_argument("--max-positions", type=int, default=100000, help="Max positions per stage (for cg)")
+    parser.add_argument("--max-diff", type=int, default=40, help="Max score diff (for cg)")
+    parser.add_argument("--python-bin", type=Path, default=Path(".venv/bin/python3"), help="Python binary with PyTorch")
     parser.add_argument("--out", "-o", type=Path, default=Path("data/coeffs2_candidate.bin"), help="Output candidate coeffs2.bin")
     args = parser.parse_args()
 
     work_dir = args.work_dir.resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Export base coeffs
-    coeffs_tool = SCRIPT_DIR / "coeffs_tool.py"
-    print(f"--- Step 1: Exporting base coeffs from {args.base_coeffs} to {work_dir} ---")
-    run_cmd([sys.executable, str(coeffs_tool), "export-tune8dbs", str(args.base_coeffs), str(work_dir)])
-
-    # 2. Prepare positions
+    # 1. Prepare positions
     pos_file = args.positions
     if args.generate_games > 0 or pos_file is None:
         if pos_file is None:
             pos_file = work_dir / "generated_positions.txt"
         games = args.generate_games if args.generate_games > 0 else 500
-        print(f"--- Step 2: Generating {games} clean-room selfplay games to {pos_file} ---")
+        print(f"--- Step 1: Generating {games} clean-room selfplay games to {pos_file} ---")
         gen_script = SCRIPT_DIR / "generate_eval_data.py"
         run_cmd([
             sys.executable, str(gen_script),
@@ -70,29 +70,50 @@ def main():
         pos_file = pos_file.resolve()
 
     print(f"Using position database: {pos_file}")
-
-    # 3. Run tune8dbs for each requested stage
-    option_file = work_dir / "option.txt"
-    tune8dbs_bin = args.tune8dbs_bin.resolve()
-
-    for stg_idx in args.stages:
-        print(f"\n--- Step 3: Tuning stage index {stg_idx} ({args.iterations} iterations) ---")
-        cmd = [
-            str(tune8dbs_bin),
-            str(pos_file),
-            str(option_file),
-            str(stg_idx),
-            str(args.max_positions),
-            str(args.iterations),
-            str(args.max_diff),
-        ]
-        run_cmd(cmd, cwd=work_dir)
-
-    # 4. Import back into candidate coeffs2.bin
     out_path = args.out.resolve()
-    print(f"\n--- Step 4: Packaging updated weights into {out_path} ---")
-    run_cmd([sys.executable, str(coeffs_tool), "import-tune8dbs", str(work_dir), str(out_path)])
-    print(f"Tuning pipeline complete! Output candidate: {out_path}")
+
+    if args.method == "pytorch":
+        print(f"\n--- Step 2: Training with PyTorch (AdamW + Texel Sigmoid Loss) ---")
+        train_script = SCRIPT_DIR / "train_eval_pytorch.py"
+        py_bin = args.python_bin if args.python_bin.exists() else Path(sys.executable)
+        cmd = [
+            str(py_bin), str(train_script),
+            "--positions", str(pos_file),
+            "--base-coeffs", str(args.base_coeffs),
+            "--out", str(out_path),
+            "--stages", *[str(s) for s in args.stages],
+            "--epochs", str(args.iterations),
+            "--batch-size", str(args.batch_size),
+            "--lr", str(args.lr),
+            "--anchor", str(args.anchor),
+        ]
+        run_cmd(cmd)
+    else:
+        # Legacy CG via tune8dbs
+        coeffs_tool = SCRIPT_DIR / "coeffs_tool.py"
+        print(f"--- Step 2: Exporting base coeffs from {args.base_coeffs} to {work_dir} ---")
+        run_cmd([sys.executable, str(coeffs_tool), "export-tune8dbs", str(args.base_coeffs), str(work_dir)])
+
+        option_file = work_dir / "option.txt"
+        tune8dbs_bin = args.tune8dbs_bin.resolve()
+
+        for stg_idx in args.stages:
+            print(f"\n--- Tuning stage index {stg_idx} via tune8dbs ({args.iterations} iterations) ---")
+            cmd = [
+                str(tune8dbs_bin),
+                str(pos_file),
+                str(option_file),
+                str(stg_idx),
+                str(args.max_positions),
+                str(args.iterations),
+                str(args.max_diff),
+            ]
+            run_cmd(cmd, cwd=work_dir)
+
+        print(f"\n--- Packaging updated weights into {out_path} ---")
+        run_cmd([sys.executable, str(coeffs_tool), "import-tune8dbs", str(work_dir), str(out_path)])
+
+    print(f"\nTuning pipeline complete! Output candidate: {out_path}")
 
 
 if __name__ == "__main__":

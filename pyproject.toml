@@ -1,0 +1,10 @@
+[project]
+name = "zebra"
+version = "0.1.0"
+description = "Zebra evaluation tuning and benchmarking tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.3",
+    "torch>=2.14.0",
+]
