@@ -53,7 +53,7 @@
 #define PV_EXPANSION                 16
 
 #define DEPTH_TWO_SEARCH             15
-#define DEPTH_THREE_SEARCH           20
+#define DEPTH_THREE_SEARCH           18
 #define DEPTH_FOUR_SEARCH            24
 #define DEPTH_SIX_SEARCH             30
 #define EXTRA_ROOT_SEARCH            2
