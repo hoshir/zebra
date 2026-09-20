@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--batch-size", "-b", type=int, default=256, help="Batch size for PyTorch training")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate for PyTorch training")
     parser.add_argument("--anchor", type=float, default=1e-5, help="Anchor regularization weight for PyTorch")
+    parser.add_argument("--anchor-l1", type=float, default=0.0, help="Anchor L1 regularization weight for PyTorch (Elastic Net, default: 0.0)")
     parser.add_argument("--stage-weight-boost", type=float, default=0.5, help="Boost weight for late-game stages in PyTorch loss (default: 0.5)")
     parser.add_argument("--contested-weight", type=float, default=1.5, help="Boost weight for contested score positions (|score| <= sigma, default: 1.5)")
     parser.add_argument("--contested-sigma", type=float, default=8.0, help="Gaussian sigma for contested score weighting (default: 8.0)")
@@ -154,6 +155,7 @@ def main():
             "--batch-size", str(args.batch_size),
             "--lr", str(args.lr),
             "--anchor", str(args.anchor),
+            "--anchor-l1", str(args.anchor_l1),
             "--stage-weight-boost", str(args.stage_weight_boost),
             "--contested-weight", str(args.contested_weight),
             "--contested-sigma", str(args.contested_sigma),
