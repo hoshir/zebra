@@ -553,6 +553,7 @@ def main():
                 "mode": args.mode,
                 "threads": threads,
                 "hash_bits": args.hash_bits,
+                "totals": None,
                 "summary": None,
                 "comparison": None,
                 "results": []
@@ -616,7 +617,15 @@ def main():
     # 5. Determine automated verdict
     verdict, reason = determine_verdict(args.mode, test_passed, all_correct, summary)
 
-    # 6. Save baseline if requested
+    # 6. Compute raw totals across evaluated positions
+    tot_nodes = sum(r.get("nodes", 0) for r in candidate_results.values() if isinstance(r, dict) and "nodes" in r)
+    tot_time = round(sum(r.get("time_sec", 0.0) for r in candidate_results.values() if isinstance(r, dict) and "time_sec" in r), 2)
+    totals = {
+        "total_nodes": tot_nodes,
+        "total_time": tot_time,
+    }
+
+    # 7. Save baseline if requested
     if args.save_baseline:
         os.makedirs(os.path.dirname(os.path.abspath(args.save_baseline)), exist_ok=True)
         payload = {
@@ -631,7 +640,7 @@ def main():
         if args.verbose:
             sys.stderr.write(f"Baseline saved to {args.save_baseline}\n")
 
-    # 7. Format Output
+    # 8. Format Output
     output_obj = {
         "verdict": verdict,
         "reason": reason,
@@ -640,6 +649,7 @@ def main():
         "mode": args.mode,
         "threads": threads,
         "hash_bits": args.hash_bits,
+        "totals": totals,
         "summary": summary,
         "comparison": comparison,
         "results": candidate_results
