@@ -98,6 +98,9 @@ real-time progress reporting:
 
 # Full 19-position benchmark
 ./scripts/eval_candidate.py --mode full --threads 8
+
+# Save full results to JSON
+./scripts/eval_candidate.py --mode full --threads 8 --save-json results.json
 ```
 
 ## Web sites

@@ -183,7 +183,7 @@ $(TUNE8DBS_EXE)	: $(OBJDIR)/tune8dbs.o | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(OBJDIR)/tune8dbs.o $(LDFLAGS)
 
 $(LIB)		: $(OBJS)
-	ar rcv $@ $(OBJS)
+	ar rc $@ $(OBJS)
 	ranlib $@
 
 $(OBJDIR)/%.o	: %.c | $(OBJDIR)
