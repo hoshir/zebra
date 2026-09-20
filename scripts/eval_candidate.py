@@ -80,9 +80,9 @@ def get_default_threads():
 
 
 def run_test_suite(repo_root):
-    """Run `make test` to verify zero test regressions."""
+    """Run `make -s test` to verify zero test regressions."""
     res = subprocess.run(
-        ["make", "test"],
+        ["make", "-s", "test"],
         cwd=repo_root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -90,6 +90,18 @@ def run_test_suite(repo_root):
     )
     passed = (res.returncode == 0) and ("check_ffo: all positions PASSED" in res.stdout)
     return passed, res.stdout + res.stderr
+
+
+def ensure_binary_built(repo_root):
+    """Ensure build/bin/scrzebra is built and up-to-date."""
+    res = subprocess.run(
+        ["make", "-s", "scrzebra"],
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    return (res.returncode == 0), res.stdout + res.stderr
 
 
 def solve_position(repo_root, pos_str, threads, hash_bits):
@@ -481,10 +493,16 @@ def main():
         help="Save evaluation results to specified JSON file as a new baseline."
     )
     parser.add_argument(
+        "--save-json",
+        type=str,
+        default=None,
+        help="Save full evaluation results and comparison to specified JSON file."
+    )
+    parser.add_argument(
         "--format",
-        choices=["text", "markdown", "json", "both"],
+        choices=["text", "markdown", "json"],
         default="text",
-        help="Output format: 'text' (default, clean terminal table), 'markdown', 'json', or 'both'."
+        help="Output format: 'text' (default, clean terminal table), 'markdown', or 'json'."
     )
     parser.add_argument(
         "--verbose",
@@ -512,12 +530,12 @@ def main():
     threads = get_default_threads() if args.threads == "auto" else int(args.threads)
     progress = "none" if args.quiet else args.progress
 
-    # 1. Verification of unit tests
+    # 1. Verification of unit tests or binary build
     test_passed = True
     test_output = ""
     if not args.skip_tests:
         if progress != "none":
-            sys.stderr.write("Running unit test suite ('make test')...\n")
+            sys.stderr.write("Running unit test suite ('make -s test')...\n")
             sys.stderr.flush()
         test_start = time.time()
         test_passed, test_output = run_test_suite(repo_root)
@@ -525,9 +543,40 @@ def main():
         if not test_passed:
             sys.stderr.write(f"Unit tests failed ({test_elapsed:.1f}s):\n{test_output[-500:]}\n")
             sys.stderr.flush()
+            verdict = "REJECT_CORRECTNESS"
+            reason = "Unit test suite ('make -s test') failed."
+            output_obj = {
+                "verdict": verdict,
+                "reason": reason,
+                "tests_passed": False,
+                "all_correct": False,
+                "mode": args.mode,
+                "threads": threads,
+                "hash_bits": args.hash_bits,
+                "summary": None,
+                "comparison": None,
+                "results": []
+            }
+            if args.save_json:
+                os.makedirs(os.path.dirname(os.path.abspath(args.save_json)), exist_ok=True)
+                with open(args.save_json, "w") as f:
+                    json.dump(output_obj, f, indent=2)
+            if args.format == "json":
+                print(json.dumps(output_obj, indent=2))
+            elif args.format == "markdown":
+                print(f"**Verdict:** `{verdict}` — {reason}")
+            else:
+                print(f"Verdict: {verdict} — {reason}")
+            sys.exit(1)
         elif progress != "none":
             sys.stderr.write(f"Unit tests PASSED ({test_elapsed:.1f}s)\n")
             sys.stderr.flush()
+    else:
+        built, build_output = ensure_binary_built(repo_root)
+        if not built:
+            sys.stderr.write(f"Build failed ('make -s scrzebra'):\n{build_output[-500:]}\n")
+            sys.stderr.flush()
+            sys.exit(1)
 
     # 2. Select positions
     if args.mode == "screen":
@@ -596,26 +645,27 @@ def main():
         "results": candidate_results
     }
 
-    if comparison and summary:
-        if args.format == "text":
+    # 7. Save full JSON if requested
+    if args.save_json:
+        os.makedirs(os.path.dirname(os.path.abspath(args.save_json)), exist_ok=True)
+        with open(args.save_json, "w") as f:
+            json.dump(output_obj, f, indent=2)
+        if args.verbose:
+            sys.stderr.write(f"Full JSON results saved to {args.save_json}\n")
+
+    # 8. Print Output
+    if args.format == "json":
+        print(json.dumps(output_obj, indent=2))
+    elif args.format == "markdown":
+        if comparison and summary:
+            print(generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits))
+            print()
+        print(f"**Verdict:** `{verdict}` — {reason}")
+    else:  # text
+        if comparison and summary:
             print(generate_text_table(comparison, summary, args.mode, threads, args.hash_bits))
             print()
-            print(f"Verdict: {verdict} — {reason}")
-        elif args.format in ("markdown", "both"):
-            markdown_str = generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits)
-            print(markdown_str)
-            print()
-            print(f"**Verdict:** `{verdict}` — {reason}")
-    else:
-        if args.format in ("markdown", "both"):
-            print(f"**Verdict:** `{verdict}` — {reason}")
-        else:
-            print(f"Verdict: {verdict} — {reason}")
-
-    if args.format in ("json", "both"):
-        if args.format == "both":
-            print("\n--- JSON Output ---")
-        print(json.dumps(output_obj, indent=2))
+        print(f"Verdict: {verdict} — {reason}")
 
     # Exit code: 0 for ACCEPT / NEEDS_FULL / NEUTRAL / ACCEPT_NO_BASELINE; 1 for REJECT_*
     if verdict.startswith("REJECT"):
