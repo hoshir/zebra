@@ -534,6 +534,18 @@ solve_three_empty( BitBoard my_bits,
 
   INCREMENT_COUNTER( nodes );
 
+  unsigned int q1 = quadrant_mask[sq1];
+  unsigned int q2 = quadrant_mask[sq2];
+  unsigned int q3 = quadrant_mask[sq3];
+  unsigned int par = q1 ^ q2 ^ q3;
+  if ( !(q1 & par) ) {
+    if ( q2 & par ) {
+      int tmp = sq1; sq1 = sq2; sq2 = tmp;
+    } else {
+      int tmp = sq1; sq1 = sq3; sq3 = tmp;
+    }
+  }
+
   flipped = TestFlips_wrapper( sq1, my_bits, opp_bits );
   if ( flipped != 0 ) {
     FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
@@ -607,6 +619,16 @@ solve_four_empty( BitBoard my_bits,
   int ev;
 
   INCREMENT_COUNTER( nodes );
+
+  if ( region_parity != 0 ) {
+    int m[4];
+    int head = 0, tail = 3;
+    if ( quadrant_mask[sq1] & region_parity ) m[head++] = sq1; else m[tail--] = sq1;
+    if ( quadrant_mask[sq2] & region_parity ) m[head++] = sq2; else m[tail--] = sq2;
+    if ( quadrant_mask[sq3] & region_parity ) m[head++] = sq3; else m[tail--] = sq3;
+    if ( quadrant_mask[sq4] & region_parity ) m[head++] = sq4; else m[tail--] = sq4;
+    sq1 = m[0]; sq2 = m[1]; sq3 = m[2]; sq4 = m[3];
+  }
 
   flipped = TestFlips_wrapper( sq1, my_bits, opp_bits );
   if ( flipped != 0 ) {
