@@ -1980,7 +1980,9 @@ end_tree_search( int level,
       return entry.eval;
     }
 
-    hash_hit = (entry.draft != NO_HASH_MOVE);
+    hash_hit = (entry.draft != NO_HASH_MOVE) &&
+               ((entry.flags & (EXACT_VALUE | LOWER_BOUND)) ||
+                (entry.draft >= remains));
 
     /* If not any such found, check for a midgame hash move */
 
