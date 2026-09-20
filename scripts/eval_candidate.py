@@ -19,6 +19,12 @@ import sys
 import threading
 import time
 
+# Heavy benchmark positions that dominate total search nodes.
+# Per-position regression guards prevent aggregate masking (SRCH-006).
+HEAVY_POSITIONS = {"FFO #53", "FFO #54", "FFO #55", "FFO #57"}
+HEAVY_REGRESSION_THRESHOLD_PCT = 1.0  # default: reject if any heavy position regresses > +1.0%
+
+
 class HeartbeatMonitor:
     """Emits periodic heartbeats on long-running tasks without terminal spam."""
     def __init__(self, message_fn, interval=8.0):
@@ -400,9 +406,12 @@ def generate_text_table(comparison, summary, mode, threads, hash_bits):
         t_cand = f"{d['candidate_time']:.1f}s"
         t_delta = f"({time_sign}{d['time_delta_pct']:.1f}%)"
         time_str = f"{t_cand:>6} {t_delta:>7}"
+        heavy_tag = ""
+        if name in HEAVY_POSITIONS and d["node_delta_pct"] > HEAVY_REGRESSION_THRESHOLD_PCT:
+            heavy_tag = " [HEAVY!]"
         lines.append(
             f"  {name:<7} {d['candidate_nodes']:>14,} {d['baseline_nodes']:>14,} "
-            f"{node_sign}{d['node_delta_pct']:>7.2f}%   {time_str}"
+            f"{node_sign}{d['node_delta_pct']:>7.2f}%   {time_str}{heavy_tag}"
         )
 
     lines.append(sep)
@@ -428,9 +437,10 @@ def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
     for name, d in sorted(comparison.items()):
         node_sign = "+" if d["node_delta_pct"] > 0 else ""
         time_sign = "+" if d["time_delta_pct"] > 0 else ""
+        heavy_warn = " ⚠️" if (name in HEAVY_POSITIONS and d["node_delta_pct"] > HEAVY_REGRESSION_THRESHOLD_PCT) else ""
         md.append(
             f"| {name} | {d['baseline_nodes']:,} | {d['candidate_nodes']:,} | "
-            f"{node_sign}{d['node_delta_pct']:.2f}% | "
+            f"{node_sign}{d['node_delta_pct']:.2f}%{heavy_warn} | "
             f"{d['baseline_time']:.1f} → {d['candidate_time']:.1f} | "
             f"{time_sign}{d['time_delta_pct']:.2f}% |"
         )
@@ -447,12 +457,14 @@ def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
     return "\n".join(md)
 
 
-def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positions=None):
+def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positions=None,
+                       comparison=None, heavy_threshold=HEAVY_REGRESSION_THRESHOLD_PCT):
     """
     Automated decision engine for agents:
     - REJECT_TIMEOUT: search process exceeded runtime ceiling (e.g. 2.5x baseline) and was forcibly killed.
     - REJECT_CORRECTNESS: make test failed or any FFO score/move mismatch.
-    - REJECT_REGRESSION: deterministic node counts grew by more than +0.5%.
+    - REJECT_REGRESSION: deterministic node counts grew by more than +0.5% (aggregate)
+      OR any heavy benchmark position regressed by more than heavy_threshold% (anti-masking guard, SRCH-006).
     - NEEDS_FULL: screen mode passed with notable node reduction (< -0.5%); needs full 19-position verification.
     - ACCEPT: full mode passed with notable node reduction (< -0.5%) and no correctness issues.
     - NEUTRAL: node counts within [-0.5%, +0.5%].
@@ -468,6 +480,23 @@ def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positio
 
     if summary is None:
         return "ACCEPT_NO_BASELINE", "All correctness checks passed (no baseline comparison provided)."
+
+    # SRCH-006: Heavy position anti-masking guard.
+    # Check per-position regression on heavy positions BEFORE aggregate check,
+    # so that aggregate improvement cannot mask a severe heavy position regression.
+    if comparison:
+        heavy_regressions = [
+            (name, d["node_delta_pct"])
+            for name, d in comparison.items()
+            if name in HEAVY_POSITIONS and d["node_delta_pct"] > heavy_threshold
+        ]
+        if heavy_regressions:
+            details = ", ".join(f"{name} (+{pct:.2f}%)" for name, pct in heavy_regressions)
+            return (
+                "REJECT_REGRESSION",
+                f"Heavy benchmark position(s) regressed by > +{heavy_threshold:.1f}%: "
+                f"{details} (anti-masking guard, SRCH-006)."
+            )
 
     node_delta = summary["total_node_delta_pct"]
 
@@ -579,6 +608,14 @@ def main():
         default=180.0,
         help="Maximum fallback timeout ceiling in seconds when no baseline exists (default: 180.0s)."
     )
+    parser.add_argument(
+        "--heavy-threshold",
+        type=float,
+        default=HEAVY_REGRESSION_THRESHOLD_PCT,
+        help="Per-position node regression threshold (%%) for heavy benchmark positions "
+             f"({', '.join(sorted(HEAVY_POSITIONS))}). Reject if any heavy position regresses "
+             f"by more than this percentage (default: {HEAVY_REGRESSION_THRESHOLD_PCT}%%, SRCH-006 anti-masking guard)."
+    )
 
     args = parser.parse_args()
 
@@ -675,7 +712,11 @@ def main():
         comparison, summary = compare_with_baseline(candidate_results, baseline_data["results"])
 
     # 5. Determine automated verdict
-    verdict, reason = determine_verdict(args.mode, test_passed, all_correct, summary, timed_out_positions=timed_out_positions)
+    verdict, reason = determine_verdict(
+        args.mode, test_passed, all_correct, summary,
+        timed_out_positions=timed_out_positions,
+        comparison=comparison, heavy_threshold=args.heavy_threshold
+    )
 
     # 6. Compute raw totals across evaluated positions
     tot_nodes = sum(r.get("nodes", 0) for r in candidate_results.values() if isinstance(r, dict) and "nodes" in r)
