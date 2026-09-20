@@ -702,6 +702,222 @@ solve_four_empty( BitBoard my_bits,
   return score;
 }
 
+static int
+solve_five_empty( BitBoard my_bits,
+		  BitBoard opp_bits,
+		  int sq1,
+		  int sq2,
+		  int sq3,
+		  int sq4,
+		  int sq5,
+		  int alpha,
+		  int beta,
+		  int color,
+		  int disc_diff,
+		  int pass_legal ) {
+  BitBoard new_opp_bits;
+  int score = -INFINITE_EVAL;
+  int in_alpha = alpha;
+  int oppcol = OPP( color );
+  int flipped;
+  int new_disc_diff;
+  int ev;
+  int best_sq = 0;
+
+  INCREMENT_COUNTER( nodes );
+
+#if USE_SHALLOW_TT
+  {
+    HashEntry entry;
+    find_shallow_hash( &entry );
+    if ( (entry.draft == 5) && (entry.flags & ENDGAME_SCORE) ) {
+      if ( (entry.flags & EXACT_VALUE) ||
+	   ((entry.flags & LOWER_BOUND) && entry.eval >= beta) ||
+	   ((entry.flags & UPPER_BOUND) && entry.eval <= alpha) ) {
+	end_best_move = entry.move[0];
+	return entry.eval;
+      }
+    }
+  }
+#endif
+
+#if USE_STABILITY
+  int opp_cnt = non_iterative_popcount( opp_bits );
+  if ( alpha >= 0 && (64 - 2 * opp_cnt <= alpha || 64 - 2 * opp_cnt < beta) ) {
+    int stability_bound;
+    EdgeIndices edges;
+    stability_bound = 64 - 2 * count_edge_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+    if ( stability_bound <= alpha )
+      return alpha;
+    if ( edges.bits != 0 ) {
+      stability_bound = 64 - 2 * count_stable_indexed( oppcol, opp_bits, my_bits, &edges );
+      if ( stability_bound < beta )
+        beta = stability_bound + 1;
+      if ( stability_bound <= alpha )
+        return alpha;
+    }
+  }
+#endif
+
+  if ( region_parity != 0 ) {
+    int m_odd[5], m_even[5];
+    int n_odd = 0, n_even = 0;
+    int s[5];
+    int i;
+    s[0] = sq1; s[1] = sq2; s[2] = sq3; s[3] = sq4; s[4] = sq5;
+    for ( i = 0; i < 5; i++ ) {
+      if ( quadrant_mask[s[i]] & region_parity )
+	m_odd[n_odd++] = s[i];
+      else
+	m_even[n_even++] = s[i];
+    }
+    for ( i = 0; i < n_odd; i++ )
+      s[i] = m_odd[i];
+    for ( i = 0; i < n_even; i++ )
+      s[n_odd + i] = m_even[i];
+    sq1 = s[0]; sq2 = s[1]; sq3 = s[2]; sq4 = s[3]; sq5 = s[4];
+  }
+
+  flipped = TestFlips_wrapper( sq1, my_bits, opp_bits );
+  if ( flipped != 0 ) {
+    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+    new_disc_diff = -disc_diff - 2 * flipped - 1;
+    region_parity ^= quadrant_mask[sq1];
+    score = -solve_four_empty( new_opp_bits, bb_flips, sq2, sq3, sq4, sq5,
+			       -beta, -alpha, new_disc_diff, TRUE );
+    region_parity ^= quadrant_mask[sq1];
+    if ( score >= beta ) {
+      end_best_move = sq1;
+#if USE_SHALLOW_TT
+      add_shallow_hash( score, sq1, ENDGAME_SCORE | LOWER_BOUND, 5 );
+#endif
+      return score;
+    }
+    else if ( score > alpha )
+      alpha = score;
+    best_sq = sq1;
+  }
+
+  flipped = TestFlips_wrapper( sq2, my_bits, opp_bits );
+  if ( flipped != 0 ) {
+    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+    new_disc_diff = -disc_diff - 2 * flipped - 1;
+    region_parity ^= quadrant_mask[sq2];
+    ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq3, sq4, sq5,
+			    -beta, -alpha, new_disc_diff, TRUE );
+    region_parity ^= quadrant_mask[sq2];
+    if ( ev >= beta ) {
+      end_best_move = sq2;
+#if USE_SHALLOW_TT
+      add_shallow_hash( ev, sq2, ENDGAME_SCORE | LOWER_BOUND, 5 );
+#endif
+      return ev;
+    }
+    else if ( ev > score ) {
+      score = ev;
+      if ( score > alpha )
+	alpha = score;
+      best_sq = sq2;
+    }
+  }
+
+  flipped = TestFlips_wrapper( sq3, my_bits, opp_bits );
+  if ( flipped != 0 ) {
+    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+    new_disc_diff = -disc_diff - 2 * flipped - 1;
+    region_parity ^= quadrant_mask[sq3];
+    ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq2, sq4, sq5,
+			    -beta, -alpha, new_disc_diff, TRUE );
+    region_parity ^= quadrant_mask[sq3];
+    if ( ev >= beta ) {
+      end_best_move = sq3;
+#if USE_SHALLOW_TT
+      add_shallow_hash( ev, sq3, ENDGAME_SCORE | LOWER_BOUND, 5 );
+#endif
+      return ev;
+    }
+    else if ( ev > score ) {
+      score = ev;
+      if ( score > alpha )
+	alpha = score;
+      best_sq = sq3;
+    }
+  }
+
+  flipped = TestFlips_wrapper( sq4, my_bits, opp_bits );
+  if ( flipped != 0 ) {
+    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+    new_disc_diff = -disc_diff - 2 * flipped - 1;
+    region_parity ^= quadrant_mask[sq4];
+    ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq5,
+			    -beta, -alpha, new_disc_diff, TRUE );
+    region_parity ^= quadrant_mask[sq4];
+    if ( ev >= beta ) {
+      end_best_move = sq4;
+#if USE_SHALLOW_TT
+      add_shallow_hash( ev, sq4, ENDGAME_SCORE | LOWER_BOUND, 5 );
+#endif
+      return ev;
+    }
+    else if ( ev > score ) {
+      score = ev;
+      if ( score > alpha )
+	alpha = score;
+      best_sq = sq4;
+    }
+  }
+
+  flipped = TestFlips_wrapper( sq5, my_bits, opp_bits );
+  if ( flipped != 0 ) {
+    FULL_ANDNOT( new_opp_bits, opp_bits, bb_flips );
+    new_disc_diff = -disc_diff - 2 * flipped - 1;
+    region_parity ^= quadrant_mask[sq5];
+    ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq4,
+			    -beta, -alpha, new_disc_diff, TRUE );
+    region_parity ^= quadrant_mask[sq5];
+    if ( ev >= beta ) {
+      end_best_move = sq5;
+#if USE_SHALLOW_TT
+      add_shallow_hash( ev, sq5, ENDGAME_SCORE | LOWER_BOUND, 5 );
+#endif
+      return ev;
+    }
+    else if ( ev > score ) {
+      score = ev;
+      best_sq = sq5;
+    }
+  }
+
+  if ( score == -INFINITE_EVAL ) {
+    if ( !pass_legal ) {  /* Five empty squares */
+      if ( disc_diff > 0 )
+	return disc_diff + 5;
+      if ( disc_diff < 0 )
+	return disc_diff - 5;
+      return 0;
+    }
+    else {
+      hash1 ^= hash_flip_color1;
+      hash2 ^= hash_flip_color2;
+      ev = -solve_five_empty( opp_bits, my_bits, sq1, sq2, sq3, sq4, sq5,
+			      -beta, -alpha, oppcol, -disc_diff, FALSE );
+      hash1 ^= hash_flip_color1;
+      hash2 ^= hash_flip_color2;
+      return ev;
+    }
+  }
+
+  end_best_move = best_sq;
+#if USE_SHALLOW_TT
+  {
+    int flags = ENDGAME_SCORE | (score > in_alpha ? EXACT_VALUE : UPPER_BOUND);
+    add_shallow_hash( score, best_sq, flags, 5 );
+  }
+#endif
+
+  return score;
+}
+
 
 
 static int
@@ -723,6 +939,16 @@ solve_parity( BitBoard my_bits,
   int new_disc_diff;
   int sq, old_sq, best_sq = 0;
   unsigned int parity_mask;
+
+  if ( empties == 5 ) {
+    int sq1 = end_move_list[END_MOVE_LIST_HEAD].succ;
+    int sq2 = end_move_list[sq1].succ;
+    int sq3 = end_move_list[sq2].succ;
+    int sq4 = end_move_list[sq3].succ;
+    int sq5 = end_move_list[sq4].succ;
+    return solve_five_empty( my_bits, opp_bits, sq1, sq2, sq3, sq4, sq5,
+			     alpha, beta, color, disc_diff, pass_legal );
+  }
 
   INCREMENT_COUNTER( nodes );
 
@@ -795,13 +1021,14 @@ solve_parity( BitBoard my_bits,
 	  region_parity ^= holepar;
 	  end_move_list[old_sq].succ = end_move_list[sq].succ;
 	  new_disc_diff = -disc_diff - 2 * flipped - 1;
-	  if ( empties == 5 ) {
+	  if ( empties == 6 ) {
 	    int sq1 = end_move_list[END_MOVE_LIST_HEAD].succ;
 	    int sq2 = end_move_list[sq1].succ;
 	    int sq3 = end_move_list[sq2].succ;
 	    int sq4 = end_move_list[sq3].succ;
-	    ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq4,
-				     -beta, -alpha, new_disc_diff, TRUE );
+	    int sq5 = end_move_list[sq4].succ;
+	    ev = -solve_five_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq4, sq5,
+				    -beta, -alpha, oppcol, new_disc_diff, TRUE );
 	  }
 	  else {
 	    if ( level + 1 <= MAX_SEARCH_DEPTH ) {
@@ -854,13 +1081,14 @@ solve_parity( BitBoard my_bits,
 	region_parity ^= holepar;
 	end_move_list[old_sq].succ = end_move_list[sq].succ;
 	new_disc_diff = -disc_diff - 2 * flipped - 1;
-	if ( empties == 5 ) {
+	if ( empties == 6 ) {
 	  int sq1 = end_move_list[END_MOVE_LIST_HEAD].succ;
 	  int sq2 = end_move_list[sq1].succ;
 	  int sq3 = end_move_list[sq2].succ;
 	  int sq4 = end_move_list[sq3].succ;
-	  ev = -solve_four_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq4,
-				  -beta, -alpha, new_disc_diff, TRUE );
+	  int sq5 = end_move_list[sq4].succ;
+	  ev = -solve_five_empty( new_opp_bits, bb_flips, sq1, sq2, sq3, sq4, sq5,
+				  -beta, -alpha, oppcol, new_disc_diff, TRUE );
 	}
 	else {
 	  if ( level + 1 <= MAX_SEARCH_DEPTH ) {
