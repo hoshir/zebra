@@ -126,7 +126,7 @@ analyze_game( const char *move_string );
 
 static void
 run_endgame_script( const char *in_file_name, const char *out_file_name,
-		    int display_line );
+		    int display_line, int script_mid );
 
 /* File handling procedures */
 
@@ -168,6 +168,7 @@ main( int argc, char *argv[] ) {
   int run_script;
   int n_threads = DEFAULT_THREADS;
   int script_optimal_line = DEFAULT_DISPLAY_LINE;
+  int script_mid = 60;
 #if SCRIPT_ONLY
   int komi;
 #endif
@@ -432,6 +433,13 @@ main( int argc, char *argv[] ) {
       }
       wld_only = atoi( argv[arg_index] );
     }
+    else if ( !strcasecmp( argv[arg_index], "-mid" ) ) {
+      if ( ++arg_index == argc ) {
+	help = TRUE;
+	continue;
+      }
+      script_mid = atoi( argv[arg_index] );
+    }
     else if ( !strcasecmp( argv[arg_index], "-line" ) ) {
       if ( ++arg_index == argc ) {
 	help = TRUE;
@@ -675,7 +683,7 @@ main( int argc, char *argv[] ) {
 
   if ( run_script )
     run_endgame_script( script_in_file, script_out_file,
-			script_optimal_line );
+			script_optimal_line, script_mid );
 #if !SCRIPT_ONLY
   else {
     if ( tournament )
@@ -1495,7 +1503,8 @@ analyze_game( const char *move_string ) {
 static void
 run_endgame_script( const char *in_file_name,
 		    const char *out_file_name,
-		    int display_line ) {
+		    int display_line,
+		    int script_mid ) {
   CounterType script_nodes;
   EvaluationType eval_info;
   char *comment;
@@ -1545,12 +1554,17 @@ run_endgame_script( const char *in_file_name,
   my_incr = 0;
   timed_search = FALSE;
   book = use_book;
-  mid = 60;
-  if ( wld_only )
+  mid = script_mid;
+  if ( mid < 60 ) {
     exact = 0;
-  else
-    exact = 60;
-  wld = 60;
+    wld = 0;
+  } else {
+    if ( wld_only )
+      exact = 0;
+    else
+      exact = 60;
+    wld = 60;
+  }
 
   toggle_status_log( FALSE );
 

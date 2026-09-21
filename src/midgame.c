@@ -32,6 +32,7 @@
 #include "search.h"
 #include "texts.h"
 #include "timer.h"
+#include "threads.h"
 
 
 
@@ -806,7 +807,7 @@ tree_search( int level,
 
 	handle_event( TRUE, FALSE, TRUE );
 
-	if ( is_panic_abort() || force_return )
+	if ( is_panic_abort() || force_return || smp_stop )
 	  return SEARCH_ABORT;
       }
     }
@@ -847,7 +848,7 @@ tree_search( int level,
 
     unmake_move( side_to_move, move );
 
-    if ( is_panic_abort() || force_return )
+    if ( is_panic_abort() || force_return || smp_stop )
       return SEARCH_ABORT;
 
     evals[disks_played][move] = curr_val;
@@ -1136,7 +1137,7 @@ root_tree_search( int level, int max_depth, int side_to_move, int alpha,
 
     unmake_move( side_to_move, move );
 
-    if ( is_panic_abort() || force_return )
+    if ( is_panic_abort() || force_return || smp_stop )
       return SEARCH_ABORT;
 
     evals[disks_played][move] = curr_val;
@@ -1271,6 +1272,52 @@ protected_one_ply_search( int side_to_move ) {
 }
 
 
+typedef struct {
+  ThreadState root_tls;
+  int side_to_move;
+  int depth;
+  int alpha;
+  int beta;
+  int enable_mpc;
+  int void_legal;
+  int main_val;
+} SmpContext;
+
+static void
+smp_search_job( int index, void *context ) {
+  SmpContext *ctx = (SmpContext *) context;
+
+  if ( index == 0 ) {
+    ctx->main_val = root_tree_search( 0, ctx->depth, ctx->side_to_move,
+                                      ctx->alpha, ctx->beta,
+                                      TRUE, ctx->enable_mpc, ctx->void_legal );
+    smp_request_stop();
+  }
+  else {
+    tls = ctx->root_tls;
+    reset_counter( &nodes );
+
+    int helper_depth = ctx->depth;
+    int helper_alpha = ctx->alpha;
+    int helper_beta = ctx->beta;
+
+    if ( (index % 2) == 1 ) {
+      if ( ctx->alpha > -INFINITE_EVAL && ctx->beta < INFINITE_EVAL ) {
+        helper_alpha = ctx->alpha - 40;
+        helper_beta = ctx->beta + 40;
+      }
+    }
+    else {
+      helper_depth = ctx->depth + 1;
+    }
+
+    (void) root_tree_search( 0, helper_depth, ctx->side_to_move,
+                             helper_alpha, helper_beta,
+                             TRUE, ctx->enable_mpc, ctx->void_legal );
+  }
+}
+
+
 /*
    MIDDLE_GAME
    side_to_move = the side whose turn it is to move
@@ -1337,6 +1384,31 @@ middle_game( int side_to_move, int max_depth,
 
     if ( depth == 1 )  /* Fix to make it harder to wipe out depth-1 Zebra */
       val = protected_one_ply_search( side_to_move );
+    else if ( threads_count() > 1 ) {
+      SmpContext ctx;
+      ctx.root_tls = tls;
+      ctx.side_to_move = side_to_move;
+      ctx.depth = depth;
+      ctx.alpha = alpha;
+      ctx.beta = beta;
+      ctx.enable_mpc = enable_mpc;
+      ctx.void_legal = TRUE;
+      ctx.main_val = 0;
+      smp_clear_stop();
+
+      threads_run( smp_search_job, &ctx, threads_count() );
+      val = ctx.main_val;
+
+      if ( !force_return && !is_panic_abort() &&
+           ((val <= alpha) || (val >= beta)) ) {
+        ctx.root_tls = tls;
+        ctx.alpha = -INFINITE_EVAL;
+        ctx.beta = INFINITE_EVAL;
+        smp_clear_stop();
+        threads_run( smp_search_job, &ctx, threads_count() );
+        val = ctx.main_val;
+      }
+    }
     else if ( enable_mpc ) {
       val =  root_tree_search( 0, depth, side_to_move, alpha, beta, TRUE,
 			       TRUE, TRUE );
@@ -1361,7 +1433,7 @@ middle_game( int side_to_move, int max_depth,
 
     /* Adjust scores and PV if search is aborted */
 
-    if ( is_panic_abort() || force_return ) {
+    if ( is_panic_abort() || force_return || smp_stop ) {
       pv[0][0] = best_mid_root_move;
       pv_depth[0] = 1;
       hash_expand_pv( side_to_move, MIDGAME_MODE, EXACT_VALUE, INFINITE_EVAL );
@@ -1439,7 +1511,7 @@ middle_game( int side_to_move, int max_depth,
     if ( depth == max_depth ) {
       clear_status();
       send_status( "--> " );
-      if ( is_panic_abort() || force_return )
+      if ( is_panic_abort() || force_return || smp_stop )
 	send_status( "*" );
       else
 	send_status( " " );
@@ -1460,7 +1532,7 @@ middle_game( int side_to_move, int max_depth,
 		     NPS_ABBREV );
     }
 
-    if ( is_panic_abort() || force_return )
+    if ( is_panic_abort() || force_return || smp_stop )
       break;
 
     /* Check if search time or adjusted search time are long enough
