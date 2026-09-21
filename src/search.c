@@ -34,6 +34,18 @@
 double total_time;
 int root_eval;
 int force_return;
+
+volatile int smp_stop = 0;
+
+void
+smp_request_stop( void ) {
+  __atomic_store_n( &smp_stop, 1, __ATOMIC_RELEASE );
+}
+
+void
+smp_clear_stop( void ) {
+  __atomic_store_n( &smp_stop, 0, __ATOMIC_RELEASE );
+}
 int full_pv_depth;
 int full_pv[120];
 /* Indexed by the stage a search ends at, which is DISKS_PLAYED plus the

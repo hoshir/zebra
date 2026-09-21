@@ -66,6 +66,10 @@ extern int root_eval;
 /* Event flag which forces the search to abort immediately when set. */
 extern int force_return;
 
+extern volatile int smp_stop;
+void smp_request_stop( void );
+void smp_clear_stop( void );
+
 /* The number of positions evaluated during the current search. */
 extern _Thread_local CounterType evaluations;
 
