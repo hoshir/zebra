@@ -92,13 +92,14 @@ solved, and the raw results are collected in `build/ffo-full.out`.
 
 For automated benchmarking and regression testing, `scripts/eval_candidate.py`
 evaluates positions from the FFO test suite against a baseline with compact
-real-time progress reporting:
+real-time progress reporting, fast-first execution ordering, and early regression
+halting on heavy positions:
 
 ```
 # Fast screening test (2 positions)
 ./scripts/eval_candidate.py --mode screen --threads 8
 
-# Full 19-position benchmark
+# Full 19-position benchmark (fast-first execution with early regression halt)
 ./scripts/eval_candidate.py --mode full --threads 8
 
 # Save full results to JSON

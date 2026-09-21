@@ -20,7 +20,7 @@ import threading
 import time
 
 # Heavy benchmark positions that dominate total search nodes.
-# Per-position regression guards prevent aggregate masking (SRCH-006).
+# Per-position regression guards prevent aggregate masking.
 HEAVY_POSITIONS = {"FFO #53", "FFO #54", "FFO #55", "FFO #57"}
 HEAVY_REGRESSION_THRESHOLD_PCT = 1.0  # default: reject if any heavy position regresses > +1.0%
 
@@ -219,22 +219,34 @@ def solve_position(repo_root, pos_str, threads, hash_bits, timeout=None):
         return {"success": False, "error": str(e)}
 
 
-def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None, timeout_factor=2.5, timeout_floor=30.0, timeout_ceiling=180.0):
-    """Evaluate a set of positions and verify correctness with real-time progress and timeout guards."""
+def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None, timeout_factor=2.5, timeout_floor=30.0, timeout_ceiling=180.0, fast_first=True, early_halt=True, heavy_threshold=HEAVY_REGRESSION_THRESHOLD_PCT):
+    """Evaluate a set of positions and verify correctness with real-time progress, fast-first ordering, and early halt guards."""
     if quiet is True:
         progress = "none"
 
     results = {}
     all_correct = True
     timed_out_positions = []
+    early_halted = None
     total_positions = len(positions)
     suite_start = time.time()
+
+    # Fast-first execution ordering: evaluate fast positions first to fail fast on regressions
+    eval_positions = list(positions)
+    if fast_first and baseline_results:
+        def get_pos_cost(pos):
+            pname = pos[0]
+            if pname in baseline_results:
+                b = baseline_results[pname]
+                return (b.get("time_sec", 9999.0), b.get("nodes", 9999999999))
+            return (9999.0, 9999999999)
+        eval_positions.sort(key=get_pos_cost)
 
     if progress == "dots":
         sys.stderr.write(f"Solving {total_positions} positions (threads={threads}, -h {hash_bits}): ")
         sys.stderr.flush()
 
-    for idx, (name, board, exp_b, exp_w, valid_moves) in enumerate(positions, 1):
+    for idx, (name, board, exp_b, exp_w, valid_moves) in enumerate(eval_positions, 1):
         base_info = ""
         pos_timeout = None
         if baseline_results and name in baseline_results:
@@ -325,12 +337,30 @@ def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, base
             "error": None if is_correct else f"Mismatch: got {res['score_black']}-{res['score_white']} {res['first_move']}"
         }
 
+        # Real-time early regression halt on heavy positions (anti-masking guard)
+        if early_halt and baseline_results and is_correct and name in HEAVY_POSITIONS:
+            b_nodes = baseline_results[name].get("nodes", 0)
+            if b_nodes > 0:
+                n_delta = ((res["nodes"] - b_nodes) / b_nodes) * 100.0
+                if n_delta > heavy_threshold:
+                    if progress == "compact":
+                        sys.stderr.write(
+                            f"     ... ABORT: {name} regressed by {n_delta:+.2f}% (> +{heavy_threshold:.1f}% limit). "
+                            f"Halting suite early to prevent wasteful execution (anti-masking guard).\n"
+                        )
+                        sys.stderr.flush()
+                    elif progress == "dots":
+                        sys.stderr.write("H\n")
+                        sys.stderr.flush()
+                    early_halted = (name, n_delta)
+                    break
+
     if progress == "dots":
         total_time = int(time.time() - suite_start)
         sys.stderr.write(f" done ({total_time}s)\n")
         sys.stderr.flush()
 
-    return results, all_correct, timed_out_positions
+    return results, all_correct, timed_out_positions, early_halted
 
 
 def compare_with_baseline(candidate_results, baseline_results):
@@ -391,7 +421,7 @@ def compare_with_baseline(candidate_results, baseline_results):
     return comparison, summary
 
 
-def generate_text_table(comparison, summary, mode, threads, hash_bits):
+def generate_text_table(comparison, summary, mode, threads, hash_bits, early_halted=None):
     """Format clean, plain-text summary table optimized for terminal width (< 68 chars)."""
     lines = []
     lines.append(f"Benchmark ({mode.upper()}, threads={threads}, hash_bits={hash_bits}):")
@@ -424,10 +454,12 @@ def generate_text_table(comparison, summary, mode, threads, hash_bits):
         f"  {'TOTAL':<7} {summary['total_candidate_nodes']:>14,} {summary['total_baseline_nodes']:>14,} "
         f"{tot_node_sign}{summary['total_node_delta_pct']:>7.2f}%   {tot_time_str}"
     )
+    if early_halted:
+        lines.append(f"  Note: Remaining positions skipped due to early regression halt on {early_halted[0]} ({early_halted[1]:+.2f}%)")
     return "\n".join(lines)
 
 
-def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
+def generate_markdown_table(comparison, summary, mode, threads, hash_bits, early_halted=None):
     """Format human-readable markdown table for PR or logs (compact width for 80-col terminals)."""
     md = []
     md.append(f"### Evaluation Benchmark ({mode.upper()} mode, threads={threads}, hash_bits={hash_bits})\n")
@@ -454,17 +486,20 @@ def generate_markdown_table(comparison, summary, mode, threads, hash_bits):
         f"{summary['total_baseline_time']:.1f} → {summary['total_candidate_time']:.1f} | "
         f"{tot_time_sign}{summary['total_time_delta_pct']:.2f}% |"
     )
+    if early_halted:
+        md.append(f"\n> **Note:** Remaining positions skipped due to early regression halt on `{early_halted[0]}` ({early_halted[1]:+.2f}%).\n")
     return "\n".join(md)
 
 
 def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positions=None,
+                       early_halted=None,
                        comparison=None, heavy_threshold=HEAVY_REGRESSION_THRESHOLD_PCT):
     """
     Automated decision engine for agents:
     - REJECT_TIMEOUT: search process exceeded runtime ceiling (e.g. 2.5x baseline) and was forcibly killed.
     - REJECT_CORRECTNESS: make test failed or any FFO score/move mismatch.
     - REJECT_REGRESSION: deterministic node counts grew by more than +0.5% (aggregate)
-      OR any heavy benchmark position regressed by more than heavy_threshold% (anti-masking guard, SRCH-006).
+      OR any heavy benchmark position regressed by more than heavy_threshold% (anti-masking guard).
     - NEEDS_FULL: screen mode passed with notable node reduction (< -0.5%); needs full 19-position verification.
     - ACCEPT: full mode passed with notable node reduction (< -0.5%) and no correctness issues.
     - NEUTRAL: node counts within [-0.5%, +0.5%].
@@ -475,13 +510,21 @@ def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positio
             f"Execution timed out on {len(timed_out_positions)} position(s): {', '.join(timed_out_positions)}. Candidate search tree expanded excessively."
         )
 
+    if early_halted:
+        pos_name, delta_pct = early_halted
+        return (
+            "REJECT_REGRESSION",
+            f"Heavy benchmark position {pos_name} regressed by {delta_pct:+.2f}% (> +{heavy_threshold:.1f}% limit) "
+            f"(early regression halt, anti-masking guard)."
+        )
+
     if not test_passed or not all_correct:
         return "REJECT_CORRECTNESS", "Correctness check failed (test suite or FFO score mismatch)."
 
     if summary is None:
         return "ACCEPT_NO_BASELINE", "All correctness checks passed (no baseline comparison provided)."
 
-    # SRCH-006: Heavy position anti-masking guard.
+    # Heavy position anti-masking guard.
     # Check per-position regression on heavy positions BEFORE aggregate check,
     # so that aggregate improvement cannot mask a severe heavy position regression.
     if comparison:
@@ -495,7 +538,7 @@ def determine_verdict(mode, test_passed, all_correct, summary, timed_out_positio
             return (
                 "REJECT_REGRESSION",
                 f"Heavy benchmark position(s) regressed by > +{heavy_threshold:.1f}%: "
-                f"{details} (anti-masking guard, SRCH-006)."
+                f"{details} (anti-masking guard)."
             )
 
     node_delta = summary["total_node_delta_pct"]
@@ -614,7 +657,31 @@ def main():
         default=HEAVY_REGRESSION_THRESHOLD_PCT,
         help="Per-position node regression threshold (%%) for heavy benchmark positions "
              f"({', '.join(sorted(HEAVY_POSITIONS))}). Reject if any heavy position regresses "
-             f"by more than this percentage (default: {HEAVY_REGRESSION_THRESHOLD_PCT}%%, SRCH-006 anti-masking guard)."
+             f"by more than this percentage (default: {HEAVY_REGRESSION_THRESHOLD_PCT}%%, anti-masking guard)."
+    )
+    parser.add_argument(
+        "--fast-first",
+        action="store_true",
+        default=True,
+        help="Order benchmark positions by baseline duration ascending (fastest first) to discover regressions faster (default: enabled)."
+    )
+    parser.add_argument(
+        "--no-fast-first",
+        dest="fast_first",
+        action="store_false",
+        help="Disable fast-first ordering and evaluate positions in default numerical order."
+    )
+    parser.add_argument(
+        "--early-halt",
+        action="store_true",
+        default=True,
+        help="Halt evaluation immediately if any heavy position regresses by more than --heavy-threshold (default: enabled)."
+    )
+    parser.add_argument(
+        "--no-early-halt",
+        dest="early_halt",
+        action="store_false",
+        help="Disable early halting and continue evaluating all positions regardless of heavy regressions."
     )
 
     args = parser.parse_args()
@@ -699,11 +766,12 @@ def main():
 
     baseline_results = baseline_data.get("results") if (baseline_data and "results" in baseline_data) else None
 
-    # 4. Evaluate target positions with live progress and dynamic timeout
-    candidate_results, all_correct, timed_out_positions = evaluate_suite(
+    # 4. Evaluate target positions with live progress, fast-first ordering, and dynamic timeout
+    candidate_results, all_correct, timed_out_positions, early_halted = evaluate_suite(
         repo_root, target_positions, threads, args.hash_bits,
         verbose=args.verbose, baseline_results=baseline_results, progress=progress,
-        timeout_factor=args.timeout_factor, timeout_floor=args.timeout_floor, timeout_ceiling=args.timeout_ceiling
+        timeout_factor=args.timeout_factor, timeout_floor=args.timeout_floor, timeout_ceiling=args.timeout_ceiling,
+        fast_first=args.fast_first, early_halt=args.early_halt, heavy_threshold=args.heavy_threshold
     )
 
     comparison = None
@@ -715,6 +783,7 @@ def main():
     verdict, reason = determine_verdict(
         args.mode, test_passed, all_correct, summary,
         timed_out_positions=timed_out_positions,
+        early_halted=early_halted,
         comparison=comparison, heavy_threshold=args.heavy_threshold
     )
 
@@ -769,12 +838,12 @@ def main():
         print(json.dumps(output_obj, indent=2))
     elif args.format == "markdown":
         if comparison and summary:
-            print(generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits))
+            print(generate_markdown_table(comparison, summary, args.mode, threads, args.hash_bits, early_halted=early_halted))
             print()
         print(f"**Verdict:** `{verdict}` — {reason}")
     else:  # text
         if comparison and summary:
-            print(generate_text_table(comparison, summary, args.mode, threads, args.hash_bits))
+            print(generate_text_table(comparison, summary, args.mode, threads, args.hash_bits, early_halted=early_halted))
             print()
         print(f"Verdict: {verdict} — {reason}")
 
