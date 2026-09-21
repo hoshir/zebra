@@ -104,6 +104,10 @@ halting on heavy positions:
 
 # Save full results to JSON
 ./scripts/eval_candidate.py --mode full --threads 8 --save-json results.json
+
+# Initialize or update local baselines for cloned environments or machine specs
+python3 scripts/eval_candidate.py --init-baseline all
+# (or python3 scripts/eval_candidate.py --init-baseline screen / full)
 ```
 
 ## Evaluation Coefficient Tooling & Tuning

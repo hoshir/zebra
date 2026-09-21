@@ -600,6 +600,14 @@ def main():
         help="Path to baseline JSON file for comparison."
     )
     parser.add_argument(
+        "--init-baseline",
+        nargs="?",
+        const="all",
+        choices=["screen", "full", "all"],
+        default=None,
+        help="Generate and save baseline JSON files for this machine ('screen', 'full', or 'all' [default])."
+    )
+    parser.add_argument(
         "--save-baseline",
         type=str,
         default=None,
@@ -693,6 +701,74 @@ def main():
     threads = get_default_threads() if args.threads == "auto" else int(args.threads)
     progress = "none" if args.quiet else args.progress
 
+    # Handle --init-baseline request
+    if args.init_baseline is not None:
+        built, build_output = ensure_binary_built(repo_root)
+        if not built:
+            sys.stderr.write(f"Build failed ('make -s scrzebra'):\n{build_output[-500:]}\n")
+            sys.stderr.flush()
+            sys.exit(1)
+
+        if args.threads == "auto":
+            default_threads = get_default_threads()
+        elif args.init_baseline is not None and args.threads == "1":
+            default_threads = get_default_threads()
+        else:
+            default_threads = int(args.threads)
+        hash_bits = args.hash_bits
+
+        targets = []
+        if args.init_baseline in ("screen", "all"):
+            targets.append(("screen", 1, os.path.join(script_dir, "baselines", f"master_screen_t1_h{hash_bits}.json")))
+            targets.append(("screen", default_threads, os.path.join(script_dir, "baselines", f"master_screen_t{default_threads}_h{hash_bits}.json")))
+        if args.init_baseline in ("full", "all"):
+            targets.append(("full", default_threads, os.path.join(script_dir, "baselines", f"master_full_t{default_threads}_h{hash_bits}.json")))
+
+        generated_summaries = []
+        for mode_name, t, out_path in targets:
+            target_positions = [p for p in FFO_POSITIONS if p[0] in SCREENING_NAMES] if mode_name == "screen" else FFO_POSITIONS
+            if progress != "none":
+                sys.stderr.write(f"Generating baseline: mode={mode_name}, threads={t}, hash_bits={hash_bits}...\n")
+                sys.stderr.flush()
+
+            candidate_results, all_correct, timed_out_positions, early_halted = evaluate_suite(
+                repo_root, target_positions, t, hash_bits,
+                verbose=args.verbose, baseline_results=None, progress=progress,
+                timeout_factor=args.timeout_factor, timeout_floor=args.timeout_floor, timeout_ceiling=args.timeout_ceiling,
+                fast_first=False, early_halt=False, heavy_threshold=args.heavy_threshold
+            )
+            if not all_correct or timed_out_positions:
+                sys.stderr.write(f"Error: Baseline generation failed or timed out for mode={mode_name}, threads={t}.\n")
+                sys.stderr.flush()
+                sys.exit(1)
+
+            os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+            payload = {
+                "mode": mode_name,
+                "threads": t,
+                "hash_bits": hash_bits,
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "results": candidate_results
+            }
+            with open(out_path, "w") as f:
+                json.dump(payload, f, indent=2)
+
+            tot_nodes = sum(r.get("nodes", 0) for r in candidate_results.values() if isinstance(r, dict) and "nodes" in r)
+            tot_time = round(sum(r.get("time_sec", 0.0) for r in candidate_results.values() if isinstance(r, dict) and "time_sec" in r), 2)
+            rel_path = os.path.relpath(out_path, repo_root)
+            generated_summaries.append((rel_path, mode_name, t, tot_nodes, tot_time))
+
+        print(f"Initialized Baseline Summary (hash_bits={hash_bits}):")
+        header = f"  {'Path':<48} {'Mode':<8} {'Threads':<8} {'Total Nodes':>14} {'Total Time':>12}"
+        sep = "  " + "-" * (len(header) - 2)
+        print(header)
+        print(sep)
+        for rel_path, m, t_val, nodes, time_s in generated_summaries:
+            print(f"  {rel_path:<48} {m:<8} {t_val:<8} {nodes:>14,} {time_s:>11.1f}s")
+        print(sep)
+        print(f"Successfully generated {len(generated_summaries)} baseline(s).")
+        sys.exit(0)
+
     # 1. Verification of unit tests or binary build
     test_passed = True
     test_output = ""
@@ -755,6 +831,13 @@ def main():
         std_path = os.path.join(script_dir, "baselines", f"master_{args.mode}_t{threads}_h{args.hash_bits}.json")
         if os.path.exists(std_path):
             baseline_path = std_path
+        else:
+            if progress != "none":
+                sys.stderr.write(
+                    f"Notice: No baseline found at '{std_path}'. "
+                    f"Run 'python3 scripts/eval_candidate.py --init-baseline' to generate baselines for this machine.\n"
+                )
+                sys.stderr.flush()
 
     if baseline_path and os.path.exists(baseline_path):
         try:
