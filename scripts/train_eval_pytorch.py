@@ -266,7 +266,7 @@ class StageEvalModel(nn.Module):
         d["constant"] = int(round(self.constant.item() * 512.0))
         d["parity"] = int(round(self.parity.item() * 512.0))
         for name, count, _ in PATTERN_SPECS:
-            weights = self.tables[name].weight.data.cpu().squeeze(1).numpy()
+            weights = self.tables[name].weight.data.cpu().squeeze(1).tolist()
             d[name] = [int(round(float(v) * 512.0)) for v in weights]
         return d
 
@@ -287,54 +287,153 @@ def train_stage(
     stage_weight_boost: float = 0.0,
     contested_weight: float = 1.0,
     contested_sigma: float = 8.0,
+    ltr_data_path: Optional[Path] = None,
+    ltr_weight: float = 0.20,
+    ltr_temp: float = 0.5,
+    ltr_batch_size: int = 64,
 ) -> StageEvalModel:
-    if len(dataset) == 0:
+    if len(dataset) == 0 and ltr_data_path is None:
         print(f"Skipping stage {stage_val}: no training positions.")
         return model
 
     model = model.to(device)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False) if len(dataset) > 0 else []
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     mse_loss = nn.MSELoss()
 
-    print(f"\n--- Training Stage {stage_val} (index {stage_idx}) on {len(dataset)} samples ---")
+    train_ltr = []
+    val_ltr = []
+    if ltr_data_path is not None and ltr_data_path.exists():
+        print(f"Loading LTR data from {ltr_data_path}...")
+        all_ltr_samples = torch.load(ltr_data_path, weights_only=False)
+        stage_ltr = [s for s in all_ltr_samples if s["stage"] == stage_idx or s["stage"] == stage_val]
+        if len(stage_ltr) > 0:
+            split_idx = int(0.9 * len(stage_ltr))
+            train_ltr = stage_ltr[:split_idx]
+            val_ltr = stage_ltr[split_idx:]
+            print(f"Stage {stage_val} (idx {stage_idx}): Loaded {len(stage_ltr)} LTR samples ({len(train_ltr)} train, {len(val_ltr)} val)")
+
     start_time = time.time()
+
+    if len(val_ltr) > 0:
+        model.eval()
+        correct = 0
+        total_val_loss = 0.0
+        with torch.no_grad():
+            for sample in val_ltr:
+                child_indices = torch.tensor(sample["child_features"], dtype=torch.long, device=device)
+                child_parities = torch.tensor(sample["child_parities"], dtype=torch.float32, device=device)
+                c_preds = model(child_indices, child_parities)
+                logits = (alpha * (-c_preds) / ltr_temp).unsqueeze(0)
+                target = torch.tensor([sample["best_idx"]], dtype=torch.long, device=device)
+                v_loss = nn.functional.cross_entropy(logits, target)
+                total_val_loss += v_loss.item()
+                if torch.argmax(logits).item() == sample["best_idx"]:
+                    correct += 1
+        val_top1_acc = (correct / len(val_ltr)) * 100.0
+        val_ltr_loss = total_val_loss / len(val_ltr)
+        print(f"Epoch  0/{epochs:2d} | Loss: 0.000000 | Val Top-1 Acc: {val_top1_acc:.2f}% | Val LTR Loss: {val_ltr_loss:.4f} | Elapsed: {time.time() - start_time:.1f}s")
+
+    print(f"\n--- Training Stage {stage_val} (index {stage_idx}) on {len(dataset)} samples ---")
+
+    import random
 
     for epoch in range(1, epochs + 1):
         model.train()
         total_loss = 0.0
         total_batches = 0
 
-        for batch_indices, batch_parity, batch_scores, batch_stages in loader:
-            batch_indices = batch_indices.to(device)
-            batch_parity = batch_parity.to(device)
-            batch_scores = batch_scores.to(device)
-            batch_stages = batch_stages.to(device)
+        has_ltr_batch = len(train_ltr) > 0 and ltr_weight > 0.0
+        ltr_iter = None
+        if has_ltr_batch:
+            shuffled_ltr = list(train_ltr)
+            random.shuffle(shuffled_ltr)
+            ltr_batches = [shuffled_ltr[i:i + ltr_batch_size] for i in range(0, len(shuffled_ltr), ltr_batch_size)]
+            ltr_iter = iter(ltr_batches)
 
+        # If loader is empty (pure LTR mode), create synthetic iterations based on LTR batch count
+        if len(loader) == 0 and has_ltr_batch:
+            dummy_batches = [None] * max(1, len(train_ltr) // ltr_batch_size)
+            loader_iter = iter(dummy_batches)
+        else:
+            loader_iter = iter(loader)
+
+        for batch_item in loader_iter:
             optimizer.zero_grad()
-            preds = model(batch_indices, batch_parity)
+            
+            if batch_item is not None:
+                batch_indices, batch_parity, batch_scores, batch_stages = batch_item
+                batch_indices = batch_indices.to(device)
+                batch_parity = batch_parity.to(device)
+                batch_scores = batch_scores.to(device)
+                batch_stages = batch_stages.to(device)
 
-            # Texel win probability sigmoid transformation
-            pred_p = torch.sigmoid(alpha * preds)
-            target_p = torch.sigmoid(beta * batch_scores)
+                preds = model(batch_indices, batch_parity)
 
-            diff_sq = (pred_p - target_p) ** 2
+                # Texel win probability sigmoid transformation
+                pred_p = torch.sigmoid(alpha * preds)
+                target_p = torch.sigmoid(beta * batch_scores)
 
-            # Compute sample weights if phase or contested weighting is enabled
-            if stage_weight_boost > 0.0 or contested_weight > 1.0:
-                w_stage = 1.0
-                if stage_weight_boost > 0.0:
-                    w_stage = 1.0 + stage_weight_boost * torch.clamp((batch_stages - 40.0) / 20.0, min=0.0)
+                diff_sq = (pred_p - target_p) ** 2
 
-                w_score = 1.0
-                if contested_weight > 1.0:
-                    w_score = 1.0 + (contested_weight - 1.0) * torch.exp(-0.5 * (batch_scores / contested_sigma) ** 2)
+                # Compute sample weights if phase or contested weighting is enabled
+                if stage_weight_boost > 0.0 or contested_weight > 1.0:
+                    w_stage = 1.0
+                    if stage_weight_boost > 0.0:
+                        w_stage = 1.0 + stage_weight_boost * torch.clamp((batch_stages - 40.0) / 20.0, min=0.0)
 
-                weights = w_stage * w_score
-                loss = torch.sum(weights * diff_sq) / torch.clamp(torch.sum(weights), min=1e-7)
+                    w_score = 1.0
+                    if contested_weight > 1.0:
+                        w_score = 1.0 + (contested_weight - 1.0) * torch.exp(-0.5 * (batch_scores / contested_sigma) ** 2)
+
+                    weights = w_stage * w_score
+                    loss_texel = torch.sum(weights * diff_sq) / torch.clamp(torch.sum(weights), min=1e-7)
+                else:
+                    loss_texel = mse_loss(pred_p, target_p)
             else:
-                loss = mse_loss(pred_p, target_p)
+                loss_texel = torch.tensor(0.0, device=device)
+
+            loss_rank = torch.tensor(0.0, device=device)
+            if has_ltr_batch:
+                try:
+                    ltr_batch = next(ltr_iter)
+                except StopIteration:
+                    shuffled_ltr = list(train_ltr)
+                    random.shuffle(shuffled_ltr)
+                    ltr_batches = [shuffled_ltr[i:i + ltr_batch_size] for i in range(0, len(shuffled_ltr), ltr_batch_size)]
+                    ltr_iter = iter(ltr_batches)
+                    ltr_batch = next(ltr_iter)
+
+                rank_losses = []
+                for sample in ltr_batch:
+                    child_indices = torch.tensor(sample["child_features"], dtype=torch.long, device=device)
+                    child_parities = torch.tensor(sample["child_parities"], dtype=torch.float32, device=device)
+                    c_preds = model(child_indices, child_parities)
+                    logits = (alpha * (-c_preds) / ltr_temp).unsqueeze(0)
+                    
+                    target_weights = sample.get("target_weights", None)
+                    if target_weights is not None:
+                        # Soft-target cross entropy: - sum(p_i * log_softmax(logits_i))
+                        log_probs = nn.functional.log_softmax(logits, dim=1)
+                        target_p = torch.tensor(target_weights, dtype=torch.float32, device=device).unsqueeze(0)
+                        r_loss = -torch.sum(target_p * log_probs)
+                    else:
+                        target = torch.tensor([sample["best_idx"]], dtype=torch.long, device=device)
+                        r_loss = nn.functional.cross_entropy(logits, target)
+                    rank_losses.append(r_loss)
+                if len(rank_losses) > 0:
+                    loss_rank = torch.stack(rank_losses).mean()
+
+            if has_ltr_batch and ltr_weight > 0.0:
+                if batch_item is not None and loss_texel.item() > 0.0:
+                    ltr_scale = loss_texel.detach() / torch.clamp(loss_rank.detach(), min=1e-6)
+                    ltr_scale = torch.clamp(ltr_scale, 0.1, 10.0)
+                    loss = (1.0 - ltr_weight) * loss_texel + ltr_weight * loss_rank * ltr_scale
+                else:
+                    loss = loss_rank
+            else:
+                loss = loss_texel
 
             if anchor_lambda > 0:
                 loss = loss + anchor_lambda * model.anchor_loss()
@@ -349,14 +448,35 @@ def train_stage(
 
         scheduler.step()
         avg_loss = total_loss / max(1, total_batches)
-        print(f"Epoch {epoch:2d}/{epochs:2d} | Loss: {avg_loss:.6f} | Elapsed: {time.time() - start_time:.1f}s")
+
+        val_acc_str = ""
+        if len(val_ltr) > 0:
+            model.eval()
+            correct = 0
+            total_val_loss = 0.0
+            with torch.no_grad():
+                for sample in val_ltr:
+                    child_indices = torch.tensor(sample["child_features"], dtype=torch.long, device=device)
+                    child_parities = torch.tensor(sample["child_parities"], dtype=torch.float32, device=device)
+                    c_preds = model(child_indices, child_parities)
+                    logits = (alpha * (-c_preds) / ltr_temp).unsqueeze(0)
+                    target = torch.tensor([sample["best_idx"]], dtype=torch.long, device=device)
+                    v_loss = nn.functional.cross_entropy(logits, target)
+                    total_val_loss += v_loss.item()
+                    if torch.argmax(logits).item() == sample["best_idx"]:
+                        correct += 1
+            val_top1_acc = (correct / len(val_ltr)) * 100.0
+            val_ltr_loss = total_val_loss / len(val_ltr)
+            val_acc_str = f" | Val Top-1 Acc: {val_top1_acc:.2f}% | Val LTR Loss: {val_ltr_loss:.4f}"
+
+        print(f"Epoch {epoch:2d}/{epochs:2d} | Loss: {avg_loss:.6f}{val_acc_str} | Elapsed: {time.time() - start_time:.1f}s")
 
     return model
 
 
 def main():
     parser = argparse.ArgumentParser(description="PyTorch training for Zebra evaluation pattern weights.")
-    parser.add_argument("--positions", "-p", type=Path, required=True, help="Position dataset (tune8dbs format)")
+    parser.add_argument("--positions", "-p", type=Path, default=None, help="Position dataset (tune8dbs format, optional if --ltr-data is provided)")
     parser.add_argument("--wthor-positions", type=Path, default=None, help="WTHOR human grandmaster positions dataset")
     parser.add_argument("--wthor-mix-ratio", type=float, default=0.5, help="WTHOR mixing ratio in hybrid dataset (0.0 - 1.0, default: 0.5)")
     parser.add_argument("--base-coeffs", type=Path, default=Path("data/coeffs2.bin"), help="Base coeffs2.bin")
@@ -370,6 +490,10 @@ def main():
     parser.add_argument("--stage-weight-boost", type=float, default=0.0, help="Boost weight for late-game stages (default: 0.0)")
     parser.add_argument("--contested-weight", type=float, default=1.0, help="Boost weight for contested positions (|score| <= contested_sigma, default: 1.0)")
     parser.add_argument("--contested-sigma", type=float, default=8.0, help="Gaussian sigma for contested score weighting (default: 8.0)")
+    parser.add_argument("--ltr-data", type=Path, default=None, help="Optional LTR dataset path (.pt)")
+    parser.add_argument("--ltr-weight", type=float, default=0.20, help="LTR loss weight (default: 0.20)")
+    parser.add_argument("--ltr-temp", type=float, default=0.5, help="LTR softmax temperature (default: 0.5)")
+    parser.add_argument("--ltr-batch-size", type=int, default=64, help="LTR decision samples per training batch (default: 64)")
     parser.add_argument("--device", type=str, default="auto", help="Device (cpu, mps, cuda, auto)")
     args = parser.parse_args()
 
@@ -396,23 +520,32 @@ def main():
             print(f"Warning: stage index {stg_idx} out of range, skipping")
             continue
         stg_val = cf.stages[stg_idx]
-        sp_dataset = PositionDataset(args.positions, target_stage=stg_val, stage_window=4)
-        if args.wthor_positions and args.wthor_positions.exists():
-            wt_dataset = PositionDataset(args.wthor_positions, target_stage=stg_val, stage_window=4)
-            if len(sp_dataset) > 0 and len(wt_dataset) > 0:
-                dataset = HybridPositionDataset(sp_dataset, wt_dataset, wthor_ratio=args.wthor_mix_ratio)
-                print(
-                    f"Using HybridPositionDataset: {len(sp_dataset)} self-play + {len(wt_dataset)} WTHOR "
-                    f"(ratio {args.wthor_mix_ratio}) -> {len(dataset)} items/epoch"
-                )
-            elif len(wt_dataset) > 0:
-                dataset = wt_dataset
+        
+        sp_dataset = None
+        if args.positions is not None and args.positions.exists():
+            sp_dataset = PositionDataset(args.positions, target_stage=stg_val, stage_window=4)
+            
+        dataset = None
+        if sp_dataset is not None and len(sp_dataset) > 0:
+            if args.wthor_positions and args.wthor_positions.exists():
+                wt_dataset = PositionDataset(args.wthor_positions, target_stage=stg_val, stage_window=4)
+                if len(wt_dataset) > 0:
+                    dataset = HybridPositionDataset(sp_dataset, wt_dataset, wthor_ratio=args.wthor_mix_ratio)
+                    print(
+                        f"Using HybridPositionDataset: {len(sp_dataset)} self-play + {len(wt_dataset)} WTHOR "
+                        f"(ratio {args.wthor_mix_ratio}) -> {len(dataset)} items/epoch"
+                    )
+                else:
+                    dataset = sp_dataset
             else:
                 dataset = sp_dataset
         else:
-            dataset = sp_dataset
+            # Create a dummy dataset of len 0 or mock if training exclusively on LTR
+            from torch.utils.data import TensorDataset
+            dataset = TensorDataset(torch.zeros((0, 46), dtype=torch.long), torch.zeros(0), torch.zeros(0), torch.zeros(0))
 
-        if len(dataset) == 0:
+        if len(dataset) == 0 and args.ltr_data is None:
+            print(f"Skipping stage {stg_val}: no positions and no LTR data.")
             continue
 
         model = StageEvalModel(cf.stage_data[stg_val], device)
@@ -426,6 +559,10 @@ def main():
             stage_weight_boost=args.stage_weight_boost,
             contested_weight=args.contested_weight,
             contested_sigma=args.contested_sigma,
+            ltr_data_path=args.ltr_data,
+            ltr_weight=args.ltr_weight,
+            ltr_temp=args.ltr_temp,
+            ltr_batch_size=args.ltr_batch_size,
         )
         cf.stage_data[stg_val] = trained_model.export_weights()
 

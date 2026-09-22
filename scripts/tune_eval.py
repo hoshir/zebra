@@ -54,6 +54,9 @@ def main():
     parser.add_argument("--max-positions", type=int, default=100000, help="Max positions per stage (for cg)")
     parser.add_argument("--max-diff", type=int, default=40, help="Max score diff (for cg)")
     parser.add_argument("--python-bin", type=Path, default=Path(".venv/bin/python3"), help="Python binary with PyTorch")
+    parser.add_argument("--ltr-data", type=Path, default=None, help="Optional LTR dataset path (.pt)")
+    parser.add_argument("--ltr-weight", type=float, default=0.20, help="LTR loss weight (default: 0.20)")
+    parser.add_argument("--ltr-temp", type=float, default=0.5, help="LTR softmax temperature (default: 0.5)")
     parser.add_argument("--out", "-o", type=Path, default=Path("data/coeffs2_candidate.bin"), help="Output candidate coeffs2.bin")
     args = parser.parse_args()
 
@@ -165,6 +168,12 @@ def main():
                 "--wthor-positions", str(wthor_pos_file),
                 "--wthor-mix-ratio", str(args.wthor_ratio),
             ])
+        if hasattr(args, "ltr_data") and args.ltr_data:
+            cmd.extend(["--ltr-data", str(args.ltr_data)])
+        if hasattr(args, "ltr_weight") and args.ltr_weight is not None:
+            cmd.extend(["--ltr-weight", str(args.ltr_weight)])
+        if hasattr(args, "ltr_temp") and args.ltr_temp is not None:
+            cmd.extend(["--ltr-temp", str(args.ltr_temp)])
         run_cmd(cmd)
     else:
         # Legacy CG via tune8dbs
