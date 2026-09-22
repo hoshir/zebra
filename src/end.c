@@ -3041,6 +3041,8 @@ end_game( int side_to_move,
   int old_pv[MAX_SEARCH_DEPTH];
   EvaluationType book_eval_info;
 
+  smp_clear_stop();
+
   empties = 64 - disc_count( BLACKSQ ) - disc_count( WHITESQ );
 
   /* In komi games, the WLD window is adjusted. */
