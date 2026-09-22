@@ -1,0 +1,31 @@
+%
+% File ffo-standard.scr
+%
+% A standard subset of the FFO endgame test suite (ffotest.scr):
+% positions #40, #41, #42, #45, #48, #49, #50 and #52, in that order.
+% Expected results (from http://radagast.se/othello/ffotest.html) are
+% checked by tests/check_ffo.sh.
+%
+% #40, 51-13
+O--OOOOX-OOOOOOXOOXXOOOXOOXOOOXXOOOOOOXX---OOOOX----O--X-------- X
+%
+% #41, 32-32
+-OOOOO----OOOOX--OOOOOO-XXXXXOO--XXOOX--OOXOXX----OXXO---OOO--O- X
+%
+% #42, 35-29
+--OOO-------XX-OOOOOOXOO-OOOOXOOX-OOOXXO---OOXOO---OOOXO--OOOO-- X
+%
+% #45, 35-29
+---XXXX-X-XXXO--XXOXOO--XXXOXO--XXOXXO---OXXXOO-O-OOOO------OO-- X
+%
+% #48, 18-46
+-----X--X-XXX---XXXXOO--XOXOOXX-XOOXXX--XOOXX-----OOOX---XXXXXX- O
+%
+% #49, 40-24
+--OX-O----XXOO--OOOOOXX-OOOOOX--OOOXOXX-OOOOXX-----OOX----X-O--- X
+%
+% #50, 37-27
+----X-----XXX----OOOXOOO-OOOXOOO-OXOXOXO-OOXXOOO--OOXO----O--O-- X
+%
+% #52, 32-32
+---X-------OX--X--XOOXXXXXXOXXXXXXXOOXXXXXXOOOXX--XO---X-------- O

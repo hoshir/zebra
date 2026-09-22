@@ -125,6 +125,17 @@ if [ "$MODE" = "full" ]; then
 57 27 37 a6
 58 34 30 g1
 59 64 0 g8|h4|e8"
+elif [ "$MODE" = "standard" ]; then
+  SCRIPT=tests/ffo-standard.scr
+  OUT=build/ffo-standard.out
+  EXPECTED="40 51 13 a2
+41 32 32 h4
+42 35 29 g2
+45 35 29 b2
+48 18 46 f6
+49 40 24 e1
+50 37 27 d8
+52 32 32 a3"
 else
   SCRIPT=tests/ffo-quick.scr
   OUT=build/ffo-quick.out
