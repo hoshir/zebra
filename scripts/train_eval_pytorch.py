@@ -85,6 +85,11 @@ EVAL_PATTERN_DEFS = [
     ("corner52", 10, [57, 47, 37, 27, 17, 58, 48, 38, 28, 18]),
     ("corner52", 10, [42, 52, 62, 72, 82, 41, 51, 61, 71, 81]),
     ("corner52", 10, [47, 57, 67, 77, 87, 48, 58, 68, 78, 88]),
+    # corner10 (4 patterns, len 10)
+    ("corner10", 10, [41, 32, 31, 23, 22, 21, 14, 13, 12, 11]),
+    ("corner10", 10, [51, 62, 61, 73, 72, 71, 84, 83, 82, 81]),
+    ("corner10", 10, [48, 37, 38, 26, 27, 28, 15, 16, 17, 18]),
+    ("corner10", 10, [58, 67, 68, 76, 77, 78, 85, 86, 87, 88]),
 ]
 
 # Convert squares from 10*row+col to 0-indexed (row, col)
@@ -240,9 +245,9 @@ class StageEvalModel(nn.Module):
         self.pattern_map = [name for name, _, _ in CONVERTED_PATTERNS]
 
     def forward(self, indices: torch.Tensor, parity: torch.Tensor) -> torch.Tensor:
-        # indices: (batch_size, 46)
+        # indices: (batch_size, num_patterns)
         total = self.constant + self.parity * parity
-        for p_idx in range(46):
+        for p_idx in range(len(self.pattern_map)):
             table_name = self.pattern_map[p_idx]
             p_indices = indices[:, p_idx]
             total = total + self.tables[table_name](p_indices).squeeze(1)
@@ -251,13 +256,15 @@ class StageEvalModel(nn.Module):
     def anchor_loss(self) -> torch.Tensor:
         loss = 0.0
         for name in self.tables:
-            loss = loss + torch.sum((self.tables[name].weight - self.base_weights[name]) ** 2)
+            if self.tables[name].weight.requires_grad:
+                loss = loss + torch.sum((self.tables[name].weight - self.base_weights[name]) ** 2)
         return loss
 
     def anchor_l1_loss(self) -> torch.Tensor:
         loss = 0.0
         for name in self.tables:
-            loss = loss + torch.sum(torch.abs(self.tables[name].weight - self.base_weights[name]))
+            if self.tables[name].weight.requires_grad:
+                loss = loss + torch.sum(torch.abs(self.tables[name].weight - self.base_weights[name]))
         return loss
 
     def export_weights(self) -> dict:
@@ -291,14 +298,28 @@ def train_stage(
     ltr_weight: float = 0.20,
     ltr_temp: float = 0.5,
     ltr_batch_size: int = 64,
+    max_ltr_samples: int = 10000,
+    train_only_patterns: Optional[str] = None,
 ) -> StageEvalModel:
     if len(dataset) == 0 and ltr_data_path is None:
         print(f"Skipping stage {stage_val}: no training positions.")
         return model
 
+    if train_only_patterns:
+        train_set = set(p.strip() for p in train_only_patterns.split(",") if p.strip())
+        model.constant.requires_grad = False
+        model.parity.requires_grad = False
+        for name, emb in model.tables.items():
+            if name not in train_set:
+                emb.weight.requires_grad = False
+            else:
+                emb.weight.requires_grad = True
+        trainable_names = [name for name, emb in model.tables.items() if emb.weight.requires_grad]
+        print(f"Stage {stage_val}: Training restricted to patterns: {trainable_names}")
+
     model = model.to(device)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=False) if len(dataset) > 0 else []
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=1e-5)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     mse_loss = nn.MSELoss()
 
@@ -307,7 +328,9 @@ def train_stage(
     if ltr_data_path is not None and ltr_data_path.exists():
         print(f"Loading LTR data from {ltr_data_path}...")
         all_ltr_samples = torch.load(ltr_data_path, weights_only=False)
-        stage_ltr = [s for s in all_ltr_samples if s["stage"] == stage_idx or s["stage"] == stage_val]
+        stage_ltr = [s for s in all_ltr_samples if s["stage"] == stage_idx]
+        if max_ltr_samples > 0 and len(stage_ltr) > max_ltr_samples:
+            stage_ltr = stage_ltr[:max_ltr_samples]
         if len(stage_ltr) > 0:
             split_idx = int(0.9 * len(stage_ltr))
             train_ltr = stage_ltr[:split_idx]
@@ -494,6 +517,10 @@ def main():
     parser.add_argument("--ltr-weight", type=float, default=0.20, help="LTR loss weight (default: 0.20)")
     parser.add_argument("--ltr-temp", type=float, default=0.5, help="LTR softmax temperature (default: 0.5)")
     parser.add_argument("--ltr-batch-size", type=int, default=64, help="LTR decision samples per training batch (default: 64)")
+    parser.add_argument("--max-ltr-samples", type=int, default=10000, help="Maximum LTR samples per stage (default: 10000, 0 for unlimited)")
+    parser.add_argument("--train-only-patterns", type=str, default=None, help="Comma-separated pattern names to train (freezes others)")
+    parser.add_argument("--weight-clamp", type=int, default=None, help="Clamp trained weights to [-val, val]")
+    parser.add_argument("--weight-scale", type=float, default=1.0, help="Multiply trained weights by scale factor")
     parser.add_argument("--device", type=str, default="auto", help="Device (cpu, mps, cuda, auto)")
     args = parser.parse_args()
 
@@ -544,10 +571,18 @@ def main():
                     dataset = sp_dataset
             else:
                 dataset = sp_dataset
+        elif args.wthor_positions and args.wthor_positions.exists():
+            wt_dataset = PositionDataset(args.wthor_positions, target_stage=stg_val, stage_window=4)
+            if len(wt_dataset) > 0:
+                dataset = wt_dataset
+                print(f"Using WTHOR PositionDataset: {len(wt_dataset)} positions for stage {stg_val}")
+            else:
+                from torch.utils.data import TensorDataset
+                dataset = TensorDataset(torch.zeros((0, len(CONVERTED_PATTERNS)), dtype=torch.long), torch.zeros(0), torch.zeros(0), torch.zeros(0))
         else:
             # Create a dummy dataset of len 0 or mock if training exclusively on LTR
             from torch.utils.data import TensorDataset
-            dataset = TensorDataset(torch.zeros((0, 46), dtype=torch.long), torch.zeros(0), torch.zeros(0), torch.zeros(0))
+            dataset = TensorDataset(torch.zeros((0, len(CONVERTED_PATTERNS)), dtype=torch.long), torch.zeros(0), torch.zeros(0), torch.zeros(0))
 
         if len(dataset) == 0 and args.ltr_data is None:
             print(f"Skipping stage {stg_val}: no positions and no LTR data.")
@@ -568,8 +603,24 @@ def main():
             ltr_weight=args.ltr_weight,
             ltr_temp=args.ltr_temp,
             ltr_batch_size=args.ltr_batch_size,
+            max_ltr_samples=args.max_ltr_samples,
+            train_only_patterns=args.train_only_patterns,
         )
         cf.stage_data[stg_val] = trained_model.export_weights()
+        if args.weight_clamp is not None or args.weight_scale != 1.0:
+            clamp_val = args.weight_clamp
+            scale_val = args.weight_scale
+            target_patterns = [p.strip() for p in args.train_only_patterns.split(",")] if args.train_only_patterns else list(cf.stage_data[stg_val].keys())
+            for pat in target_patterns:
+                if pat in cf.stage_data[stg_val]:
+                    weights = cf.stage_data[stg_val][pat]
+                    new_weights = []
+                    for w in weights:
+                        nw = w * scale_val
+                        if clamp_val is not None:
+                            nw = max(-clamp_val, min(clamp_val, nw))
+                        new_weights.append(int(round(nw)))
+                    cf.stage_data[stg_val][pat] = new_weights
 
     # Package into candidate coeffs2.bin
     args.out.parent.mkdir(parents=True, exist_ok=True)

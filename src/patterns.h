@@ -36,7 +36,7 @@ extern "C" {
 
 /* Board patterns used in position evaluation */
 
-#define  PATTERN_COUNT               46
+#define  PATTERN_COUNT               50
 
 #define  AFILEX1                     0
 #define  AFILEX2                     1
@@ -93,6 +93,11 @@ extern "C" {
 #define  CORNER52_6                  43
 #define  CORNER52_7                  44
 #define  CORNER52_8                  45
+
+#define  CORNER10_1                  46
+#define  CORNER10_2                  47
+#define  CORNER10_3                  48
+#define  CORNER10_4                  49
 
 
 

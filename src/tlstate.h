@@ -63,7 +63,7 @@ typedef struct {
   unsigned int hash_stored2[MAX_SEARCH_DEPTH];
 
   /* The evaluation pattern indices, in black perspective. */
-  unsigned short eval_pattern_index[48];
+  unsigned short eval_pattern_index[56];
 
   /* The 64-bit hash key of the current position. */
   unsigned int hash1, hash2;
