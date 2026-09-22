@@ -205,6 +205,69 @@ class CoeffsFile:
         with gzip.open(filepath, "wb", compresslevel=9) as f:
             f.write(payload)
 
+    def interpolate_stage(self, new_stg: int) -> dict:
+        """Interpolate weights for a new stage between existing stages using Zebra's exact formula."""
+        if new_stg in self.stage_data:
+            return self.stage_data[new_stg]
+
+        sorted_stages = sorted(self.stages)
+        if new_stg < sorted_stages[0]:
+            prev_stg = sorted_stages[0]
+            next_stg = sorted_stages[0]
+            weight1 = 1
+            weight2 = 1
+        elif new_stg > sorted_stages[-1]:
+            prev_stg = sorted_stages[-1]
+            next_stg = sorted_stages[-1]
+            weight1 = 1
+            weight2 = 1
+        else:
+            prev_stg = max(s for s in sorted_stages if s <= new_stg)
+            next_stg = min(s for s in sorted_stages if s >= new_stg)
+            if prev_stg == next_stg:
+                weight1 = 1
+                weight2 = 1
+            else:
+                weight1 = next_stg - new_stg
+                weight2 = new_stg - prev_stg
+
+        total_weight = weight1 + weight2
+        d_prev = self.stage_data[prev_stg]
+        d_next = self.stage_data[next_stg]
+
+        def c_div(num: int, den: int) -> int:
+            return int(num / den)
+
+        def interp_val(val_prev: int, val_next: int) -> int:
+            # getcoeff.c unpacks with / 4, interpolates the scaled values, then stores in internal tables
+            # When writing to coeffs2.bin, values are multiplied by 4
+            internal_prev = c_div(val_prev, 4)
+            internal_next = c_div(val_next, 4)
+            internal_target = c_div(weight1 * internal_prev + weight2 * internal_next, total_weight)
+            return internal_target * 4
+
+        stg_dict = {}
+        stg_dict["constant"] = interp_val(d_prev["constant"], d_next["constant"])
+        stg_dict["parity"] = interp_val(d_prev["parity"], d_next["parity"])
+
+        for name, count, _ in PATTERN_SPECS:
+            p_prev = d_prev[name]
+            p_next = d_next[name]
+            stg_dict[name] = [
+                interp_val(p_prev[i], p_next[i])
+                for i in range(count)
+            ]
+
+
+        return stg_dict
+
+    def subdivide_stages(self, new_stages: List[int]):
+        """Expand stage set by adding new intermediate stages interpolated from existing ones."""
+        for s in new_stages:
+            if s not in self.stage_data:
+                self.stage_data[s] = self.interpolate_stage(s)
+        self.stages = sorted(list(set(self.stages + new_stages)))
+
     def info(self):
         print(f"Stages ({len(self.stages)}): {self.stages}")
         for stg in self.stages:
@@ -292,6 +355,11 @@ def main():
     import_parser.add_argument("in_dir", type=Path, help="Input directory")
     import_parser.add_argument("out_file", type=Path, help="Output coeffs2.bin path")
 
+    subdivide_parser = subparsers.add_parser("subdivide", help="Subdivide stages by linearly interpolating intermediate stages")
+    subdivide_parser.add_argument("file", type=Path, help="Input coeffs2.bin path")
+    subdivide_parser.add_argument("out_file", type=Path, help="Output coeffs2.bin path")
+    subdivide_parser.add_argument("--add-stages", type=int, nargs="+", required=True, help="List of new stage disc counts to add")
+
     args = parser.parse_args()
 
     if args.command == "info":
@@ -336,6 +404,15 @@ def main():
         cf.import_tune8dbs(args.in_dir)
         cf.write_binary(args.out_file)
         print(f"Successfully packaged {len(cf.stages)} stages to {args.out_file}")
+
+    elif args.command == "subdivide":
+        cf = CoeffsFile()
+        cf.read_binary(args.file)
+        print(f"Original stages ({len(cf.stages)}): {cf.stages}")
+        cf.subdivide_stages(args.add_stages)
+        print(f"Expanded stages ({len(cf.stages)}): {cf.stages}")
+        cf.write_binary(args.out_file)
+        print(f"Saved expanded coefficients to {args.out_file}")
 
 
 if __name__ == "__main__":

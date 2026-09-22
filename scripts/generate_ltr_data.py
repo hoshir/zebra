@@ -23,27 +23,19 @@ from generate_eval_data import OthelloBoard, BLACK, WHITE, EMPTY
 from train_eval_pytorch import extract_features_from_board
 
 
-def disc_count_to_stage(disc_count: int) -> int:
-    """Map disc count to stage [7, 8, 9, 10] matching Zebra's stage centers:
-    Stage 7: ~44 discs (40..45)
-    Stage 8: ~48 discs (46..49)
-    Stage 9: ~52 discs (50..53)
-    Stage 10: ~56 discs (54..58+)
-    
-    Zebra stage center guidelines / boundaries:
-    - Stage 7: disc count 40..43 (approx center 44)
-    - Stage 8: disc count 44..47 (approx center 48)
-    - Stage 9: disc count 48..51 (approx center 52)
-    - Stage 10: disc count 52..55 / 56..58 (approx center 56)
-    
-    Let's use exact nearest stage center matching:
-    Centers: Stage 7 = 44, Stage 8 = 48, Stage 9 = 52, Stage 10 = 56.
-    Distance to center:
-    - disc <= 45: stage 7 (center 44)
-    - 46 <= disc <= 49: stage 8 (center 48)
-    - 50 <= disc <= 53: stage 9 (center 52)
-    - disc >= 54: stage 10 (center 56)
+def disc_count_to_stage(disc_count: int, stage_centers: Optional[List[int]] = None) -> int:
+    """Map disc count to closest stage center in stage_centers or default stages:
+    Default stage centers:
+    Stage 7: ~44 discs
+    Stage 8: ~48 discs
+    Stage 9: ~52 discs
+    Stage 10: ~56 discs
     """
+    if stage_centers is not None and len(stage_centers) > 0:
+        # Pick the stage center with minimum distance
+        best_center = min(stage_centers, key=lambda c: abs(disc_count - c))
+        return best_center
+
     if disc_count <= 45:
         return 7
     elif disc_count <= 49:
@@ -54,7 +46,14 @@ def disc_count_to_stage(disc_count: int) -> int:
         return 10
 
 
-def generate_ltr_dataset(wthor_files: List[Path], max_games: Optional[int] = None, max_theo_error: int = 0) -> List[dict]:
+def generate_ltr_dataset(
+    wthor_files: List[Path],
+    max_games: Optional[int] = None,
+    max_theo_error: int = 0,
+    min_discs: int = 40,
+    max_discs: int = 58,
+    stage_centers: Optional[List[int]] = None,
+) -> List[dict]:
     samples = []
     games_parsed = 0
     games_skipped_theo = 0
@@ -79,7 +78,7 @@ def generate_ltr_dataset(wthor_files: List[Path], max_games: Optional[int] = Non
                     break
 
                 disc_count = board.disc_count
-                if 40 <= disc_count <= 58:
+                if min_discs <= disc_count <= max_discs:
                     legal_moves = board.legal_moves(board.side_to_move)
                     if len(legal_moves) >= 2:
                         # Check if (r, c) is legal
@@ -103,7 +102,7 @@ def generate_ltr_dataset(wthor_files: List[Path], max_games: Optional[int] = Non
                                 child_parities_list.append(child_parity)
                             
                             if len(child_features_list) == len(legal_moves):
-                                stage = disc_count_to_stage(disc_count)
+                                stage = disc_count_to_stage(disc_count, stage_centers)
                                 
                                 # For Stage 7, compute soft target weights and opponent mobility (proof size)
                                 target_weights = None
@@ -150,7 +149,10 @@ def main():
     parser.add_argument("--wthor", "--wthor-file", dest="wthor_files", type=str, default="data/wthor/WTH_2024.wtb", help="Path or glob pattern to WTHOR .wtb file(s)")
     parser.add_argument("--out", type=Path, default=Path("data/ltr_endgame_2024.pt"), help="Output PyTorch dataset path")
     parser.add_argument("--max-games", type=int, default=None, help="Maximum games to parse")
-    parser.add_argument("--stages", type=str, default="7,8,9,10", help="Comma-separated list of stages to include (e.g. 7,8)")
+    parser.add_argument("--stages", type=str, default="7,8,9,10", help="Comma-separated list of stages to include (e.g. 7,8 or 30,32,34)")
+    parser.add_argument("--stage-centers", type=str, default=None, help="Comma-separated list of stage center disc counts (e.g. 30,32,34,36,38,40,42,44,46,48)")
+    parser.add_argument("--min-discs", type=int, default=40, help="Minimum disc count (default: 40)")
+    parser.add_argument("--max-discs", type=int, default=58, help="Maximum disc count (default: 58)")
     parser.add_argument("--max-theo-error", type=int, default=0, help="Maximum absolute difference between real_score and theo_score (default: 0)")
 
     args = parser.parse_args()
@@ -169,12 +171,21 @@ def main():
         print(f"Error: No WTHOR files found matching {args.wthor_files}.", file=sys.stderr)
         sys.exit(1)
 
+    stage_centers = [int(s.strip()) for s in args.stage_centers.split(",") if s.strip()] if args.stage_centers else None
     target_stages = {int(s.strip()) for s in args.stages.split(",") if s.strip()}
-    samples = generate_ltr_dataset(resolved_files, args.max_games, args.max_theo_error)
+    samples = generate_ltr_dataset(
+        resolved_files,
+        args.max_games,
+        args.max_theo_error,
+        min_discs=args.min_discs,
+        max_discs=args.max_discs,
+        stage_centers=stage_centers,
+    )
 
     # Filter by stages
     if target_stages:
         samples = [s for s in samples if s["stage"] in target_stages]
+
 
     # Count per stage
     stage_counts = {}

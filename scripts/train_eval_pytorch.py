@@ -515,11 +515,16 @@ def main():
     print(f"Loaded base coefficients from {args.base_coeffs} ({len(cf.stages)} stages: {cf.stages})")
 
     # Train each requested stage
-    for stg_idx in args.stages:
-        if stg_idx >= len(cf.stages):
-            print(f"Warning: stage index {stg_idx} out of range, skipping")
+    for stg_spec in args.stages:
+        if stg_spec in cf.stages:
+            stg_val = stg_spec
+            stg_idx = cf.stages.index(stg_spec)
+        elif 0 <= stg_spec < len(cf.stages):
+            stg_idx = stg_spec
+            stg_val = cf.stages[stg_idx]
+        else:
+            print(f"Warning: stage {stg_spec} is neither a valid stage index nor stage disc value in {cf.stages}, skipping")
             continue
-        stg_val = cf.stages[stg_idx]
         
         sp_dataset = None
         if args.positions is not None and args.positions.exists():
