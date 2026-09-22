@@ -2592,7 +2592,10 @@ end_tree_search( int level,
 	    }
 
 	    /* Stage 2 (Selective Deepening) */
-	    top_k = MIN( cand_count, SELECTIVE_PRE_DEPTH_TOP_K );
+    top_k = MIN( cand_count, SELECTIVE_PRE_DEPTH_TOP_K );
+    if ( cand_count >= 2 && (cand_scores_arr[0] - cand_scores_arr[1] > 256) ) {
+      top_k = MIN( top_k, 2 );
+    }
 
 	    for ( k_idx = 0; k_idx < cand_count; k_idx++ ) {
 	      move = cand_moves_arr[k_idx];
