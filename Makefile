@@ -154,6 +154,12 @@ test-full	: $(FLIPTEST_EXE) $(THREADTEST_EXE) $(HASHTEST_EXE) scrzebra
 	$(HASHTEST_EXE)
 	sh $(TESTDIR)/check_ffo.sh full "$(FFO_THREADS)"
 
+test-standard	: $(FLIPTEST_EXE) $(THREADTEST_EXE) $(HASHTEST_EXE) scrzebra
+	$(FLIPTEST_EXE)
+	$(THREADTEST_EXE)
+	$(HASHTEST_EXE)
+	sh $(TESTDIR)/check_ffo.sh standard "$(FFO_THREADS)"
+
 $(FLIPTEST_EXE)	: $(TESTDIR)/fliptest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/fliptest.c $(LIB) $(LDFLAGS)
 

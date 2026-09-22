@@ -24,6 +24,17 @@ import time
 HEAVY_POSITIONS = {"FFO #53", "FFO #54", "FFO #55", "FFO #57"}
 HEAVY_REGRESSION_THRESHOLD_PCT = 1.0  # default: reject if any heavy position regresses > +1.0%
 
+STANDARD_NAMES = {
+    "FFO #40",
+    "FFO #41",
+    "FFO #42",
+    "FFO #45",
+    "FFO #48",
+    "FFO #49",
+    "FFO #50",
+    "FFO #52",
+}
+
 
 class HeartbeatMonitor:
     """Emits periodic heartbeats on long-running tasks without terminal spam."""
@@ -217,6 +228,73 @@ def solve_position(repo_root, pos_str, threads, hash_bits, timeout=None):
             except OSError:
                 pass
         return {"success": False, "error": str(e)}
+
+
+def check_concurrency_scaling(repo_root, target_threads, hash_bits):
+    """
+    Run a multi-thread scaling smoke guard on FFO #45 to verify parallel speedup
+    (>=2.0x on >=4 cores) and detect thread flag/node explosion regressions.
+    """
+    ffo_45 = next((p for p in FFO_POSITIONS if p[0] == "FFO #45"), None)
+    if not ffo_45:
+        print("Error: FFO #45 position not found.")
+        return True
+
+    cpu_count = os.cpu_count() or 1
+    if target_threads == "auto" or target_threads >= cpu_count:
+        eval_threads = cpu_count if target_threads == "auto" else target_threads
+    else:
+        eval_threads = target_threads
+
+    if eval_threads < 2:
+        eval_threads = max(2, min(cpu_count, 4))
+
+    print(f"Running concurrency scaling smoke guard on FFO #45 (1 thread vs {eval_threads} threads)...")
+
+    # Run 1 thread
+    res_1t = solve_position(repo_root, ffo_45[1], 1, hash_bits)
+    if not res_1t["success"]:
+        print(f"Error: 1-thread solve failed: {res_1t.get('error')}")
+        return False
+
+    # Run Nt threads
+    res_nt = solve_position(repo_root, ffo_45[1], eval_threads, hash_bits)
+    if not res_nt["success"]:
+        print(f"Error: {eval_threads}-thread solve failed: {res_nt.get('error')}")
+        return False
+
+    t_1t = res_1t["time_sec"]
+    t_nt = res_nt["time_sec"]
+    nodes_1t = res_1t["nodes"]
+    nodes_nt = res_nt["nodes"]
+
+    speedup = (t_1t / t_nt) if t_nt > 0 else 0.0
+    node_ratio = (nodes_nt / nodes_1t) if nodes_1t > 0 else 0.0
+
+    print("\nConcurrency Scaling Smoke Guard Report (FFO #45):")
+    print(f"  {'Metric':<20} {'1 Thread':<15} {f'{eval_threads} Threads':<15} {'Ratio / Speedup':<15}")
+    print("  " + "-" * 65)
+    print(f"  {'Time (s)':<20} {t_1t:<15.2f} {t_nt:<15.2f} {f'{speedup:.2f}x speedup':<15}")
+    print(f"  {'Nodes':<20} {nodes_1t:<14,} {nodes_nt:<14,} {f'{node_ratio:.2f}x nodes':<15}")
+    nps_ratio = (res_nt["nps"] / res_1t["nps"]) if res_1t["nps"] > 0 else 0.0
+    print(f"  {'NPS':<20} {res_1t['nps']:<14,} {res_nt['nps']:<14,} {f'{nps_ratio:.2f}x nps':<15}")
+    print("  " + "-" * 65)
+
+    passed = True
+    warnings = []
+    if cpu_count >= 4 and speedup < 1.8:
+        print(f"  ⚠️ Warning: Speedup {speedup:.2f}x is below expected >= 1.8x on {cpu_count} CPU cores.")
+    if node_ratio > 1.30:
+        print(f"  ⚠️ Warning: Node count increased by {(node_ratio - 1.0) * 100:.1f}% (> 30% node explosion threshold).")
+        passed = False
+
+    if passed:
+        print("  Verdict: PASS (scaling smoke guard satisfied).\n")
+        return True
+    else:
+        print("  Verdict: FAIL (scaling smoke guard failed due to node explosion or severe scaling regression).\n")
+        return False
+
 
 
 def evaluate_suite(repo_root, positions, threads, hash_bits, verbose=False, baseline_results=None, progress="compact", quiet=None, timeout_factor=2.5, timeout_floor=30.0, timeout_ceiling=180.0, fast_first=True, early_halt=True, heavy_threshold=HEAVY_REGRESSION_THRESHOLD_PCT):
@@ -573,9 +651,9 @@ def main():
     )
     parser.add_argument(
         "--mode",
-        choices=["screen", "full"],
+        choices=["screen", "standard", "full"],
         default="screen",
-        help="Evaluation mode: 'screen' (~15-20s, FFO #45 & #50) or 'full' (all 19 positions)."
+        help="Evaluation mode: 'screen' (~15-20s, FFO #45 & #50), 'standard' (~30-35s, 8 representative positions), or 'full' (all 19 positions)."
     )
     parser.add_argument(
         "--threads",
@@ -603,9 +681,14 @@ def main():
         "--init-baseline",
         nargs="?",
         const="all",
-        choices=["screen", "full", "all"],
+        choices=["screen", "standard", "full", "all"],
         default=None,
-        help="Generate and save baseline JSON files for this machine ('screen', 'full', or 'all' [default])."
+        help="Generate and save baseline JSON files for this machine ('screen', 'standard', 'full', or 'all' [default])."
+    )
+    parser.add_argument(
+        "--check-scaling",
+        action="store_true",
+        help="Run a multi-thread scaling smoke guard on FFO #45 to verify parallel speedup (>=2.0x on >=4 cores) and detect thread flag/node explosion regressions."
     )
     parser.add_argument(
         "--save-baseline",
@@ -721,12 +804,20 @@ def main():
         if args.init_baseline in ("screen", "all"):
             targets.append(("screen", 1, os.path.join(script_dir, "baselines", f"master_screen_t1_h{hash_bits}.json")))
             targets.append(("screen", default_threads, os.path.join(script_dir, "baselines", f"master_screen_t{default_threads}_h{hash_bits}.json")))
+        if args.init_baseline in ("standard", "all"):
+            targets.append(("standard", 1, os.path.join(script_dir, "baselines", f"master_standard_t1_h{hash_bits}.json")))
+            targets.append(("standard", default_threads, os.path.join(script_dir, "baselines", f"master_standard_t{default_threads}_h{hash_bits}.json")))
         if args.init_baseline in ("full", "all"):
             targets.append(("full", default_threads, os.path.join(script_dir, "baselines", f"master_full_t{default_threads}_h{hash_bits}.json")))
 
         generated_summaries = []
         for mode_name, t, out_path in targets:
-            target_positions = [p for p in FFO_POSITIONS if p[0] in SCREENING_NAMES] if mode_name == "screen" else FFO_POSITIONS
+            if mode_name == "screen":
+                target_positions = [p for p in FFO_POSITIONS if p[0] in SCREENING_NAMES]
+            elif mode_name == "standard":
+                target_positions = [p for p in FFO_POSITIONS if p[0] in STANDARD_NAMES]
+            else:
+                target_positions = FFO_POSITIONS
             if progress != "none":
                 sys.stderr.write(f"Generating baseline: mode={mode_name}, threads={t}, hash_bits={hash_bits}...\n")
                 sys.stderr.flush()
@@ -821,8 +912,21 @@ def main():
     # 2. Select positions
     if args.mode == "screen":
         target_positions = [p for p in FFO_POSITIONS if p[0] in SCREENING_NAMES]
+    elif args.mode == "standard":
+        target_positions = [p for p in FFO_POSITIONS if p[0] in STANDARD_NAMES]
     else:
         target_positions = FFO_POSITIONS
+
+    # 2b. Optional Concurrency Scaling Smoke Guard (--check-scaling)
+    if args.check_scaling:
+        built, build_output = ensure_binary_built(repo_root)
+        if not built:
+            sys.stderr.write(f"Build failed ('make -s scrzebra'):\n{build_output[-500:]}\n")
+            sys.stderr.flush()
+            sys.exit(1)
+        scaling_passed = check_concurrency_scaling(repo_root, threads, args.hash_bits)
+        if not scaling_passed:
+            sys.exit(1)
 
     # 3. Handle baseline loading before evaluation so live deltas can be shown
     baseline_data = None

@@ -72,6 +72,12 @@ It takes about 3-5 seconds and runs four tests:
   processor. Override that with `make test FFO_THREADS=4`, or
   `sh tests/check_ffo.sh quick 4`.
 
+The standard representative FFO suite (`tests/ffo-standard.scr`: positions #40, #41, #42, #45, #48, #49, #50, #52) provides thorough coverage across 14 to 22 empty squares in ~22-25 seconds at 8 threads without the multi-minute runtime of the super-heavy positions:
+
+```
+make test-standard
+```
+
 The full FFO suite (`tests/ffotest.scr`, positions #40-#59) can be solved
 and verified with:
 
@@ -96,8 +102,14 @@ real-time progress reporting, fast-first execution ordering, and early regressio
 halting on heavy positions:
 
 ```
-# Fast screening test (2 positions)
+# Fast screening test (2 positions, ~15-20s)
 ./scripts/eval_candidate.py --mode screen --threads 8
+
+# Standard representative benchmark (8 positions, ~23s at 8 threads)
+./scripts/eval_candidate.py --mode standard --threads 8
+
+# Standard benchmark with multi-thread scaling smoke guard (verifies speedup and node ratio)
+./scripts/eval_candidate.py --mode standard --threads 8 --check-scaling
 
 # Full 19-position benchmark (fast-first execution with early regression halt)
 ./scripts/eval_candidate.py --mode full --threads 8
@@ -107,7 +119,7 @@ halting on heavy positions:
 
 # Initialize or update local baselines for cloned environments or machine specs
 python3 scripts/eval_candidate.py --init-baseline all
-# (or python3 scripts/eval_candidate.py --init-baseline screen / full)
+# (or python3 scripts/eval_candidate.py --init-baseline screen / standard / full)
 ```
 
 ## Evaluation Coefficient Tooling & Tuning
