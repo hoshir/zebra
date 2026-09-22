@@ -1550,5 +1550,6 @@ middle_game( int side_to_move, int max_depth,
 
   root_eval = val;
 
+  smp_clear_stop();
   return pv[0][0];
 }

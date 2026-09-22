@@ -60,7 +60,6 @@
 
 #define SELECTIVE_PRE_DEPTH_THRESHOLD 2
 #define SELECTIVE_PRE_DEPTH_TOP_K 3
-#define PARITY_MOVE_BONUS 128
 
 #ifdef _WIN32_WCE
 #define EVENT_CHECK_INTERVAL         25000.0
@@ -177,14 +176,6 @@ const unsigned int quadrant_mask[100] = {
   0, 4, 4, 4, 4, 8, 8, 8, 8, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-
-INLINE static int
-static_or_terminal_evaluation( int side_to_move ) {
-  if ( disks_played == 60 )
-    return terminal_evaluation( side_to_move );
-  else
-    return static_evaluation( side_to_move );
-}
 
 /* Number of discs that the side to move at the root has to win with. */
 static int komi_shift;
@@ -2512,12 +2503,6 @@ end_tree_search( int level,
 	    }
 	  }
 	  else {
-	    unsigned int cur_region_parity = 0;
-	    int sq_idx;
-	    for ( sq_idx = 11; sq_idx <= 88; sq_idx++ ) {
-	      if ( board[sq_idx] == EMPTY )
-		cur_region_parity ^= quadrant_mask[sq_idx];
-	    }
 	    cand_count = 0;
 
 	    for ( shallow_index = 0; shallow_index < MOVE_ORDER_SIZE;
@@ -2567,8 +2552,11 @@ end_tree_search( int level,
 		  break;
 		}
 
-		/* Stage 1 (Fast Screening): direct 0-node static evaluation (SRCH-016) */
-		curr_val = -static_or_terminal_evaluation( OPP( side_to_move ) );
+		/* Stage 1 (Fast Screening): 1-ply lookahead */
+		curr_val -=
+		  tree_search( level + 1, level + 1,
+			       OPP( side_to_move ), -INFINITE_EVAL,
+			       (-alpha + 8) * 128, TRUE, TRUE, TRUE );
 		mobility = bitboard_mobility( new_opp_bits, bb_flips );
 #if FRONTIER_MOB_FACTOR > 0
 		{
@@ -2580,9 +2568,6 @@ end_tree_search( int level,
 #else
 		shallow_score = curr_val - ff_mob_factor[disks_played - 1] * mobility;
 #endif
-
-		if ( quadrant_mask[move] & cur_region_parity )
-		  shallow_score += PARITY_MOVE_BONUS;
 
 		unmake_move( side_to_move, move );
 
@@ -3055,6 +3040,8 @@ end_game( int side_to_move,
   int last_window_center;
   int old_pv[MAX_SEARCH_DEPTH];
   EvaluationType book_eval_info;
+
+  smp_clear_stop();
 
   empties = 64 - disc_count( BLACKSQ ) - disc_count( WHITESQ );
 
