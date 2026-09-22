@@ -113,3 +113,49 @@ init_bitboard( void ) {
       }
     }
 }
+
+
+void REGPARM(1)
+compute_hole_parity( BitBoard empty_mask, HoleParityInfo *info ) {
+  BitBoard remaining = empty_mask;
+  int count = 0;
+  int odd_total = 0;
+  int even_total = 0;
+
+  info->num_regions = 0;
+  info->count = 0;
+  info->odd_parity_mask = 0;
+  info->even_parity_mask = 0;
+  info->total_odd_regions = 0;
+  info->total_even_regions = 0;
+
+  while ( remaining != 0 && count < MAX_EMPTY_REGIONS ) {
+    int bit = FIRST_BIT( remaining );
+    BitBoard seed = 1ull << bit;
+    BitBoard component = bitboard_flood_fill_4way( seed, empty_mask );
+    
+    unsigned int size = non_iterative_popcount( component );
+    int parity = (int)(size & 1u);
+
+    info->regions[count].mask = component;
+    info->regions[count].count = (int)size;
+    info->regions[count].size = size;
+    info->regions[count].parity = parity;
+
+    if ( parity ) {
+      info->odd_parity_mask |= component;
+      odd_total++;
+    } else {
+      info->even_parity_mask |= component;
+      even_total++;
+    }
+
+    count++;
+    remaining &= ~component;
+  }
+
+  info->num_regions = count;
+  info->count = count;
+  info->total_odd_regions = odd_total;
+  info->total_even_regions = even_total;
+}
