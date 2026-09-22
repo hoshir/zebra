@@ -77,6 +77,7 @@ TUNE8DBS_EXE = $(BINDIR)/tune8dbs
 FLIPTEST_EXE = $(BINDIR)/fliptest
 THREADTEST_EXE = $(BINDIR)/threadtest
 HASHTEST_EXE = $(BINDIR)/hashtest
+HOLETEST_EXE = $(BINDIR)/test_hole_parity
 
 LIB          = $(BUILDDIR)/libzebra.a
 
@@ -162,7 +163,13 @@ $(THREADTEST_EXE)	: $(TESTDIR)/threadtest.c $(LIB) | $(BINDIR)
 $(HASHTEST_EXE)	: $(TESTDIR)/hashtest.c $(LIB) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/hashtest.c $(LIB) $(LDFLAGS)
 
-.PHONY		: all clean test test-full zebra scrzebra booktool practice enddev tune8dbs libzebra.a
+holetest	: $(HOLETEST_EXE)
+	$(HOLETEST_EXE)
+
+$(HOLETEST_EXE)	: $(TESTDIR)/test_hole_parity.c $(LIB) | $(BINDIR)
+	$(CC) -o $@ $(CFLAGS) $(TESTDIR)/test_hole_parity.c $(LIB) $(LDFLAGS)
+
+.PHONY		: all clean test test-full holetest zebra scrzebra booktool practice enddev tune8dbs libzebra.a
 
 $(ZEBRA_EXE)	: $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) | $(BINDIR)
 	$(CC) -o $@ $(CFLAGS) $(OBJS) $(OBJDIR)/zebra.o $(AUTOP_OBJ) $(LDFLAGS)

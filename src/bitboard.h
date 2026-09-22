@@ -123,6 +123,44 @@ set_bitboards( int *in_board, int side_to_move,
 void
 init_bitboard( void );
 
+#define MAX_EMPTY_REGIONS 16
+
+typedef struct {
+  BitBoard mask;
+  int count;
+  unsigned int size;
+  int parity; /* 1 if odd, 0 if even */
+} EmptyRegion;
+
+typedef struct {
+  int num_regions;
+  int count; /* alias for num_regions */
+  EmptyRegion regions[MAX_EMPTY_REGIONS];
+  BitBoard odd_parity_mask;
+  BitBoard even_parity_mask;
+  int total_odd_regions;
+  int total_even_regions;
+} HoleParityInfo;
+
+static INLINE BitBoard REGPARM(1)
+bitboard_flood_fill_4way( BitBoard seed, BitBoard empty_mask ) {
+  BitBoard flood = seed & empty_mask;
+  BitBoard prev;
+  do {
+    prev = flood;
+    flood |= empty_mask & (
+      ((flood << 1) & 0xFEFEFEFEFEFEFEFEULL) |
+      ((flood >> 1) & 0x7F7F7F7F7F7F7FULL) |
+      (flood << 8) |
+      (flood >> 8)
+    );
+  } while ( flood != prev );
+  return flood;
+}
+
+void REGPARM(1)
+compute_hole_parity( BitBoard empty_mask, HoleParityInfo *info );
+
 
 
 #endif  /* BITBOARD_H */
