@@ -2601,8 +2601,15 @@ end_tree_search( int level,
 	      move = cand_moves_arr[k_idx];
 	      if ( k_idx < top_k ) {
 		int move_pre_depth = pre_depth;
-		if ( pre_depth >= 6 && k_idx > 0 )
-		  move_pre_depth = 4;
+		if ( remains >= DEPTH_FOUR_SEARCH ) {
+		  if ( k_idx == 0 )
+		    move_pre_depth = 4;
+		  else
+		    move_pre_depth = 2;
+		} else {
+		  if ( pre_depth >= 6 && k_idx > 0 )
+		    move_pre_depth = 4;
+		}
 
 		threshold =
 		  MIN( WIPEOUT_THRESHOLD * 128,
