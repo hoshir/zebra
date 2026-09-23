@@ -1767,7 +1767,7 @@ end_tree_search( int level, int max_depth, BitBoard my_bits,
 #define MAX_ROOT_MOVES               64
 
 /* Remaining depth at or above which a node is worth splitting */
-#define PARALLEL_SPLIT_DEPTH         14
+#define PARALLEL_SPLIT_DEPTH         11
 
 /* How far the splits may nest, and how much more of the tree a node has
    to have left before it may start a batch at each level of nesting.
