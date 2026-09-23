@@ -57,6 +57,7 @@ def main():
     parser.add_argument("--ltr-data", type=Path, default=None, help="Optional LTR dataset path (.pt)")
     parser.add_argument("--ltr-weight", type=float, default=0.20, help="LTR loss weight (default: 0.20)")
     parser.add_argument("--ltr-temp", type=float, default=0.5, help="LTR softmax temperature (default: 0.5)")
+    parser.add_argument("--train-only-patterns", type=str, default=None, help="Comma-separated pattern names to train (freezes others)")
     parser.add_argument("--out", "-o", type=Path, default=Path("data/coeffs2_candidate.bin"), help="Output candidate coeffs2.bin")
     args = parser.parse_args()
 
@@ -174,6 +175,8 @@ def main():
             cmd.extend(["--ltr-weight", str(args.ltr_weight)])
         if hasattr(args, "ltr_temp") and args.ltr_temp is not None:
             cmd.extend(["--ltr-temp", str(args.ltr_temp)])
+        if hasattr(args, "train_only_patterns") and args.train_only_patterns:
+            cmd.extend(["--train-only-patterns", str(args.train_only_patterns)])
         run_cmd(cmd)
     else:
         # Legacy CG via tune8dbs

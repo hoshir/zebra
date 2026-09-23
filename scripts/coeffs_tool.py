@@ -131,6 +131,7 @@ PATTERN_SPECS = [
     ("diag4", 81, "mirror4"),
     ("corner33", 19683, "mirror33"),
     ("corner52", 59049, "none"),
+    ("corner10", 59049, "none"),
 ]
 
 

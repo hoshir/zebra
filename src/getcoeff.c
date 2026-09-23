@@ -73,11 +73,11 @@ typedef struct {
   short constant;
   short *afile2x, *bfile, *cfile, *dfile;
   short *diag8, *diag7, *diag6, *diag5, *diag4;
-  short *corner33, *corner52;
+  short *corner33, *corner52, *corner10;
   short *afile2x_last, *bfile_last, *cfile_last, *dfile_last;
   short *diag8_last, *diag7_last, *diag6_last, *diag5_last, *diag4_last;
-  short *corner33_last, *corner52_last;
-  char alignment_padding[12];  /* In order to achieve 128-byte alignment */
+  short *corner33_last, *corner52_last, *corner10_last;
+  char alignment_padding[28];  /* In order to achieve 128-byte alignment */
 } CoeffSet;
 
 
@@ -93,6 +93,7 @@ typedef struct {
   short diag4_block[81];
   short corner33_block[19683];
   short corner52_block[59049];
+  short corner10_block[59049];
 } AllocationBlock;
 
 
@@ -611,6 +612,7 @@ unpack_coeffs( gzFile stream ) {
     unpack_batch( set[stage[i]].diag4, map_mirror4, 81, stream );
     unpack_batch( set[stage[i]].corner33, map_mirror33, 19683, stream );
     unpack_batch( set[stage[i]].corner52, NULL, 59049, stream );
+    unpack_batch( set[stage[i]].corner10, NULL, 59049, stream );
   }
 
   /* Free the mirror tables - the symmetries are now implicit
@@ -655,7 +657,8 @@ static int
 find_memory_block( short **afile2x, short **bfile, short **cfile,
 		   short **dfile, short **diag8, short **diag7,
 		   short **diag6, short **diag5, short **diag4,
-		   short **corner33, short **corner52, int index ) {
+		   short **corner33, short **corner52,
+		   short **corner10, int index ) {
   int i;
   int found_free, free_block;
 
@@ -687,6 +690,7 @@ find_memory_block( short **afile2x, short **bfile, short **cfile,
   *diag4 = block_list[free_block]->diag4_block;
   *corner33 = block_list[free_block]->corner33_block;
   *corner52 = block_list[free_block]->corner52_block;
+  *corner10 = block_list[free_block]->corner10_block;
   block_allocated[free_block] = TRUE;
   block_set[free_block] = index;
 
@@ -732,7 +736,8 @@ allocate_set( int index ) {
 		       &set[index].cfile, &set[index].dfile,
 		       &set[index].diag8, &set[index].diag7,
 		       &set[index].diag6, &set[index].diag5, &set[index].diag4,
-		       &set[index].corner33, &set[index].corner52, index );
+		       &set[index].corner33, &set[index].corner52,
+		       &set[index].corner10, index );
 }
 
 
@@ -804,6 +809,9 @@ load_set( int index ) {
     generate_batch( set[index].corner52, 59049,
 		    set[prev].corner52, weight1,
 		    set[next].corner52, weight2 );
+    generate_batch( set[index].corner10, 59049,
+		    set[prev].corner10, weight1,
+		    set[next].corner10, weight2 );
   }
 
   set[index].afile2x_last = set[index].afile2x + 59048;
@@ -817,6 +825,7 @@ load_set( int index ) {
   set[index].diag4_last = set[index].diag4 + 80;
   set[index].corner33_last = set[index].corner33 + 19682;
   set[index].corner52_last = set[index].corner52 + 59048;
+  set[index].corner10_last = set[index].corner10 + 59048;
 
   set[index].loaded = 1;
 }
@@ -1365,6 +1374,26 @@ pattern_evaluation( int side_to_move ) {
       fprintf( stream, "score=%d\n", set[eval_phase].corner52[pi[45]] );
 #endif
       score += set[eval_phase].corner52[pi[45]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[46] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10[pi[46]] );
+#endif
+      score += set[eval_phase].corner10[pi[46]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[47] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10[pi[47]] );
+#endif
+      score += set[eval_phase].corner10[pi[47]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[48] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10[pi[48]] );
+#endif
+      score += set[eval_phase].corner10[pi[48]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[49] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10[pi[49]] );
+#endif
+      score += set[eval_phase].corner10[pi[49]];
     }
     else {
 #ifdef LOG_EVAL
@@ -1597,6 +1626,26 @@ pattern_evaluation( int side_to_move ) {
       fprintf( stream, "score=%d\n", set[eval_phase].corner52_last[-pi[45]] );
 #endif
       score += set[eval_phase].corner52_last[-pi[45]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[46] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10_last[-pi[46]] );
+#endif
+      score += set[eval_phase].corner10_last[-pi[46]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[47] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10_last[-pi[47]] );
+#endif
+      score += set[eval_phase].corner10_last[-pi[47]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[48] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10_last[-pi[48]] );
+#endif
+      score += set[eval_phase].corner10_last[-pi[48]];
+#ifdef LOG_EVAL
+      fprintf( stream, "pattern=%d\n", pi[49] );
+      fprintf( stream, "score=%d\n", set[eval_phase].corner10_last[-pi[49]] );
+#endif
+      score += set[eval_phase].corner10_last[-pi[49]];
     }
   }
 
